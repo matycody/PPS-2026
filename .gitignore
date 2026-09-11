@@ -1,0 +1,12 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+/generated/prisma
+
+# Carpetas de "AI skills" auto-generadas por Prisma, no forman parte del proyecto
+.agents/
+.claude/
+.windsurf/
+.devin/
+skills-lock.json
