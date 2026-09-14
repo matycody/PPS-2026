@@ -8,7 +8,12 @@ const { Server } = require("socket.io");
 const { registerMatchHandlers } = require("./src/sockets/matchSocket");
 
 const app = express();
-app.use(cors());
+
+// CORS explícito para las rutas REST (Express)
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST"],
+}));
 app.use(express.json());
 
 app.get("/health", (req, res) => {
@@ -17,10 +22,12 @@ app.get("/health", (req, res) => {
 
 const server = http.createServer(app);
 
+// CORS explícito para Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: "*", // en Sprint 2 lo restringimos al dominio real del frontend en Vercel
+    origin: "*",
     methods: ["GET", "POST"],
+    credentials: false,
   },
 });
 

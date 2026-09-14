@@ -10,67 +10,72 @@ const {
   resumeAllMatches,
 } = require("../timers/matchManager");
 
-/**
- * Registra todos los handlers de eventos de un partido para una conexión de socket.
- * @param {import("socket.io").Server} io
- * @param {import("socket.io").Socket} socket
- */
 function registerMatchHandlers(io, socket) {
 
-  // Callbacks que le pasamos a cada TimerEngine para que avise por socket
   function buildCallbacks(matchId) {
     return {
-      onTick: ({ matchTime, setTime }) => {
-        io.emit(SERVER_EVENTS.MATCH_TICK, { matchId, matchTime, setTime });
+      onTick: ({ matchTime, setTime, isMatchPaused, isSetPaused, matchHalf }) => {
+        io.emit(SERVER_EVENTS.MATCH_TICK, {
+          matchId,
+          matchTime,
+          setTime,
+          isMatchPaused,
+          isSetPaused,
+          matchHalf,
+        });
       },
-      onSetExpired: ({ action }) => {
+      onSetExpired: ({ action, message }) => {
         const match = getMatch(matchId);
         io.emit(SERVER_EVENTS.MATCH_SET_EXPIRED, {
           matchId,
           modality: match?.modality,
           action,
+          message,
         });
       },
-      onEnded: () => {
-        io.emit(SERVER_EVENTS.MATCH_ENDED, { matchId });
+      onMatchFinished: () => {
+        io.emit(SERVER_EVENTS.MATCH_FINISHED, {
+          matchId,
+          message: "SE TERMINÓ EL PARTIDO",
+        });
       },
     };
   }
 
-  socket.on(CLIENT_EVENTS.MATCH_START, ({ matchId }) => {
+  socket.on(CLIENT_EVENTS.MATCH_START, ({ matchId, target }) => {
     if (!matchId) {
       return socket.emit(SERVER_EVENTS.MATCH_ERROR, { message: "Falta matchId" });
     }
     const match = getOrCreateMatch(matchId, buildCallbacks(matchId));
-    match.start();
+    match.start(target || "both");
   });
 
-  socket.on(CLIENT_EVENTS.MATCH_PAUSE, ({ matchId, scope }) => {
+  socket.on(CLIENT_EVENTS.MATCH_PAUSE, ({ matchId, scope, target }) => {
     if (scope === "group") {
-      const pausedIds = pauseAllMatches();
-      io.emit(SERVER_EVENTS.MATCH_PAUSED, { matchId: pausedIds, scope: "group" });
+      const pausedIds = pauseAllMatches(target || "both");
+      io.emit(SERVER_EVENTS.MATCH_PAUSED, { matchId: pausedIds, scope: "group", target: target || "both" });
       return;
     }
 
-    const ok = pauseMatch(matchId);
+    const ok = pauseMatch(matchId, target || "both");
     if (!ok) {
       return socket.emit(SERVER_EVENTS.MATCH_ERROR, { matchId, message: "Partido no encontrado" });
     }
-    io.emit(SERVER_EVENTS.MATCH_PAUSED, { matchId, scope: "individual" });
+    io.emit(SERVER_EVENTS.MATCH_PAUSED, { matchId, scope: "individual", target: target || "both" });
   });
 
-  socket.on(CLIENT_EVENTS.MATCH_RESUME, ({ matchId, scope }) => {
+  socket.on(CLIENT_EVENTS.MATCH_RESUME, ({ matchId, scope, target }) => {
     if (scope === "group") {
-      const resumedIds = resumeAllMatches();
-      io.emit(SERVER_EVENTS.MATCH_RESUMED, { matchId: resumedIds, scope: "group" });
+      const resumedIds = resumeAllMatches(target || "both");
+      io.emit(SERVER_EVENTS.MATCH_RESUMED, { matchId: resumedIds, scope: "group", target: target || "both" });
       return;
     }
 
-    const ok = resumeMatch(matchId);
+    const ok = resumeMatch(matchId, target || "both");
     if (!ok) {
       return socket.emit(SERVER_EVENTS.MATCH_ERROR, { matchId, message: "Partido no encontrado" });
     }
-    io.emit(SERVER_EVENTS.MATCH_RESUMED, { matchId, scope: "individual" });
+    io.emit(SERVER_EVENTS.MATCH_RESUMED, { matchId, scope: "individual", target: target || "both" });
   });
 
   socket.on(CLIENT_EVENTS.MATCH_RESET, ({ matchId, timer }) => {
@@ -89,12 +94,36 @@ function registerMatchHandlers(io, socket) {
     match.adjust(timer, seconds);
   });
 
+  socket.on(CLIENT_EVENTS.MATCH_SET_TIME, ({ matchId, timer, totalSeconds }) => {
+    const match = getMatch(matchId);
+    if (!match) {
+      return socket.emit(SERVER_EVENTS.MATCH_ERROR, { matchId, message: "Partido no encontrado" });
+    }
+    match.setTime(timer, totalSeconds);
+  });
+
   socket.on(CLIENT_EVENTS.MATCH_SET_MODALITY, ({ matchId, modality }) => {
     const match = getMatch(matchId);
     if (!match) {
       return socket.emit(SERVER_EVENTS.MATCH_ERROR, { matchId, message: "Partido no encontrado" });
     }
     match.setModality(modality);
+  });
+
+  socket.on(CLIENT_EVENTS.MATCH_SET_HALF, ({ matchId, half }) => {
+    const match = getMatch(matchId);
+    if (!match) {
+      return socket.emit(SERVER_EVENTS.MATCH_ERROR, { matchId, message: "Partido no encontrado" });
+    }
+    match.setHalf(half);
+  });
+
+  socket.on(CLIENT_EVENTS.MATCH_FINISH_HALF, ({ matchId }) => {
+    const match = getMatch(matchId);
+    if (!match) {
+      return socket.emit(SERVER_EVENTS.MATCH_ERROR, { matchId, message: "Partido no encontrado" });
+    }
+    match.finishHalf();
   });
 }
 
