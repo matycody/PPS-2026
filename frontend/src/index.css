@@ -1,2 +1,33 @@
-@import "tailwindcss"; 
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Big+Shoulders+Display:wght@800&display=swap');
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --color-bg: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-track-bg: #eef1f5;
+  --color-border: #e2e8f0;
+  --color-text-primary: #08090c;
+  --color-text-secondary: #64748b;
+  --color-accent-blue: #0075c9;
+  --color-accent-green: #00a35c;
+  --color-accent-red: #e0264f;
+}
+
+.dark {
+  --color-bg: #08090c;
+  --color-surface: #11141d;
+  --color-track-bg: #11141d;
+  --color-border: #232a3b;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #8f9cae;
+  --color-accent-blue: #00a3ff;
+  --color-accent-green: #00e575;
+  --color-accent-red: #ff2e5f;
+}
+
+body {
+  background-color: var(--color-bg);
+  font-family: 'Outfit', sans-serif;
+}

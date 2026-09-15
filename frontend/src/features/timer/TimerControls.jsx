@@ -8,9 +8,39 @@ function digitsToSeconds(digits) {
   return minutes * 60 + seconds
 }
 
-function formatDigitsPreview(digits) {
-  const padded = digits.padStart(4, '0')
-  return `${padded.slice(0, 2)}:${padded.slice(2, 4)}`
+function TimerRow({ label, labelColorVar, isPaused, onPause, onResume, onReset, onApply, digits, onDigitsChange }) {
+  return (
+    <div className="flex flex-col gap-2 w-full">
+      <span className="text-[11px] font-bold uppercase" style={{ color: `var(${labelColorVar})` }}>
+        {label}
+      </span>
+      <div className="flex gap-2 w-full">
+        {isPaused ? (
+          <button onClick={onResume} className="flex-1 bg-[var(--color-accent-green)] text-[#08090c] text-xs font-bold uppercase rounded-full py-3">
+            Iniciar
+          </button>
+        ) : (
+          <button onClick={onPause} className="flex-1 bg-[var(--color-accent-green)] text-[#08090c] text-xs font-bold uppercase rounded-full py-3">
+            Pausar
+          </button>
+        )}
+        <button onClick={onReset} className="flex-1 bg-[var(--color-accent-red)] text-[#08090c] text-xs font-bold uppercase rounded-full py-3">
+          Reset
+        </button>
+        <input
+          type="text"
+          inputMode="numeric"
+          placeholder="mmss"
+          value={digits}
+          onChange={onDigitsChange}
+          className="flex-1 bg-transparent border border-[var(--color-border)] text-[var(--color-text-primary)] text-xs font-bold uppercase rounded-full py-3 text-center"
+        />
+        <button onClick={onApply} className="flex-1 border border-[var(--color-border)] text-[var(--color-text-primary)] text-xs font-bold uppercase rounded-full py-3">
+          Set
+        </button>
+      </div>
+    </div>
+  )
 }
 
 export function TimerControls() {
@@ -20,8 +50,6 @@ export function TimerControls() {
   const pauseBoth = useTimerStore((state) => state.pauseBoth)
   const resetTimer = useTimerStore((state) => state.resetTimer)
   const setTimerValue = useTimerStore((state) => state.setTimerValue)
-  const setModality = useTimerStore((state) => state.setModality)
-  const setHalf = useTimerStore((state) => state.setHalf)
   const finishHalf = useTimerStore((state) => state.finishHalf)
   const isMatchPaused = useTimerStore((state) => state.isMatchPaused)
   const isSetPaused = useTimerStore((state) => state.isSetPaused)
@@ -31,14 +59,6 @@ export function TimerControls() {
 
   const [matchDigits, setMatchDigits] = useState('')
   const [setDigits, setSetDigits] = useState('')
-
-  const handleMatchChange = (e) => {
-    setMatchDigits(e.target.value.replace(/\D/g, '').slice(0, 4))
-  }
-
-  const handleSetChange = (e) => {
-    setSetDigits(e.target.value.replace(/\D/g, '').slice(0, 4))
-  }
 
   const applyMatchTime = () => {
     if (!matchDigits) return
@@ -52,120 +72,60 @@ export function TimerControls() {
     setSetDigits('')
   }
 
-  const showFinishButton = matchTime === '0:00'
+  // Foam: solo cuando el reloj de partido llega a 0. Cloth: siempre disponible.
+  const showFinishButton = modality === 'cloth' || matchTime === '0:00'
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="flex flex-col items-center gap-2">
-        <span className="text-xs text-gray-400">Partido</span>
-        <div className="flex gap-2 items-center">
-          {isMatchPaused ? (
-            <button onClick={() => resumeTimer('match')} className="px-3 py-1 rounded bg-blue-600 text-white text-sm font-semibold">
-              Iniciar
-            </button>
-          ) : (
-            <button onClick={() => pauseTimer('match')} className="px-3 py-1 rounded bg-yellow-600 text-white text-sm font-semibold">
-              Pausar
-            </button>
-          )}
-          <button onClick={() => resetTimer('match')} className="px-3 py-1 rounded bg-gray-600 text-white text-sm">
-            Reset
-          </button>
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="mmss"
-            value={matchDigits}
-            onChange={handleMatchChange}
-            className="w-14 text-center border rounded text-sm"
-          />
-          {matchDigits.length > 0 && (
-            <span className="text-xs text-gray-400">{formatDigitsPreview(matchDigits)}</span>
-          )}
-          <button onClick={applyMatchTime} className="px-2 py-1 rounded bg-gray-300 text-sm font-semibold">
-            Set
-          </button>
-        </div>
+    <div className="flex flex-col gap-5 w-full">
+      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-3xl p-4 flex flex-col gap-4 w-full">
+        <TimerRow
+          label="Control de Partido"
+          labelColorVar="--color-accent-blue"
+          isPaused={isMatchPaused}
+          onPause={() => pauseTimer('match')}
+          onResume={() => resumeTimer('match')}
+          onReset={() => resetTimer('match')}
+          onApply={applyMatchTime}
+          digits={matchDigits}
+          onDigitsChange={(e) => setMatchDigits(e.target.value.replace(/\D/g, '').slice(0, 4))}
+        />
+        <div className="h-px bg-[var(--color-border)] w-full" />
+        <TimerRow
+          label="Control de Set"
+          labelColorVar="--color-accent-green"
+          isPaused={isSetPaused}
+          onPause={() => pauseTimer('set')}
+          onResume={() => resumeTimer('set')}
+          onReset={() => resetTimer('set')}
+          onApply={applySetTime}
+          digits={setDigits}
+          onDigitsChange={(e) => setSetDigits(e.target.value.replace(/\D/g, '').slice(0, 4))}
+        />
       </div>
 
-      <div className="flex flex-col items-center gap-2">
-        <span className="text-xs text-gray-400">Set</span>
-        <div className="flex gap-2 items-center">
-          {isSetPaused ? (
-            <button onClick={() => resumeTimer('set')} className="px-3 py-1 rounded bg-blue-600 text-white text-sm font-semibold">
-              Iniciar
-            </button>
-          ) : (
-            <button onClick={() => pauseTimer('set')} className="px-3 py-1 rounded bg-yellow-600 text-white text-sm font-semibold">
-              Pausar
-            </button>
-          )}
-          <button onClick={() => resetTimer('set')} className="px-3 py-1 rounded bg-gray-600 text-white text-sm">
-            Reset
-          </button>
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="mmss"
-            value={setDigits}
-            onChange={handleSetChange}
-            className="w-14 text-center border rounded text-sm"
-          />
-          {setDigits.length > 0 && (
-            <span className="text-xs text-gray-400">{formatDigitsPreview(setDigits)}</span>
-          )}
-          <button onClick={applySetTime} className="px-2 py-1 rounded bg-gray-300 text-sm font-semibold">
-            Set
-          </button>
-        </div>
-      </div>
-
-      <div className="flex gap-3 justify-center">
-        <button onClick={() => startTimer('both')} className="px-4 py-2 rounded bg-green-600 text-white font-semibold">
-          Iniciar ambos
-        </button>
-        <button onClick={pauseBoth} className="px-4 py-2 rounded bg-orange-700 text-white font-semibold">
-          Pausar ambos
-        </button>
-      </div>
-
-      <div className="flex gap-2 items-center">
-        <span className="text-sm text-gray-400">Tiempo:</span>
+      <div className="flex gap-3 w-full">
         <button
-          onClick={() => setHalf(1)}
-          className={`px-3 py-1 rounded text-sm font-semibold ${currentHalf === 1 ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+          onClick={() => startTimer('both')}
+          className="flex-1 bg-[var(--color-accent-green)] text-[#08090c] text-sm font-extrabold uppercase rounded-full py-4"
         >
-          1er Tiempo
+          ▶ Iniciar ambos
         </button>
         <button
-          onClick={() => setHalf(2)}
-          className={`px-3 py-1 rounded text-sm font-semibold ${currentHalf === 2 ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+          onClick={pauseBoth}
+          className="flex-1 bg-[var(--color-accent-red)] text-[#08090c] text-sm font-extrabold uppercase rounded-full py-4"
         >
-          2do Tiempo
+          ⏸ Pausar ambos
         </button>
       </div>
 
       {showFinishButton && (
-        <button onClick={finishHalf} className="px-4 py-2 rounded bg-red-700 text-white font-semibold">
-          Finalizar Tiempo
+        <button
+          onClick={finishHalf}
+          className="w-full bg-[var(--color-accent-red)] text-[#08090c] text-sm font-extrabold uppercase rounded-full py-4"
+        >
+          {currentHalf === 2 ? 'Finalizar Partido' : 'Finalizar Tiempo'}
         </button>
       )}
-
-      <div className="flex gap-2 items-center">
-        <span className="text-sm text-gray-400">Modalidad:</span>
-        <button
-          onClick={() => setModality('foam')}
-          className={`px-3 py-1 rounded text-sm font-semibold ${modality === 'foam' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-        >
-          Foam
-        </button>
-        <button
-          onClick={() => setModality('cloth')}
-          className={`px-3 py-1 rounded text-sm font-semibold ${modality === 'cloth' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-        >
-          Cloth
-        </button>
-      </div>
     </div>
   )
 }
