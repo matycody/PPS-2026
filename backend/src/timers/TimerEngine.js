@@ -18,6 +18,7 @@ class TimerEngine {
     this.matchTimeLeft = MATCH_DURATION_SECONDS;
     this.setTimeLeft = SET_DURATION_SECONDS;
     this.matchHalf = 1; // 1 = primer tiempo, 2 = segundo tiempo — 100% manual
+    this.clothAutoResetUsed = false; // controla que la regla especial de Cloth dispare una sola vez por tiempo
 
     this.isMatchPaused = true;
     this.isSetPaused = true;
@@ -33,24 +34,34 @@ class TimerEngine {
     this._emitState();
   }
 
-  // Cambia manualmente el tiempo (1 o 2). El árbitro controla esto con botones.
   setHalf(half) {
     if (half !== 1 && half !== 2) {
       throw new Error(`Tiempo inválido: ${half}`);
     }
     this.matchHalf = half;
+    this.clothAutoResetUsed = false;
     this._emitState();
   }
 
-  // El árbitro dictamina que el tiempo actual terminó.
-  // Si era el 1er tiempo, pasa automáticamente al 2do.
-  // Si era el 2do tiempo, el partido termina de verdad.
   finishHalf() {
+    this.isMatchPaused = true;
+    this.isSetPaused = true;
+    this._stopIntervalIfFullyPaused();
+
     if (this.matchHalf === 1) {
       this.matchHalf = 2;
+      this.clothAutoResetUsed = false;
       this._emitState();
       return { matchEnded: false };
     } else {
+      // Fin de partido: resetea ambos relojes y vuelve al 1er tiempo, listo para uno nuevo
+      this.matchTimeLeft = MATCH_DURATION_SECONDS;
+      this.setTimeLeft = SET_DURATION_SECONDS;
+      this.matchHalf = 1;
+      this.clothAutoResetUsed = false;
+
+      this._emitState();
+
       if (this.callbacks.onMatchFinished) {
         this.callbacks.onMatchFinished();
       }
@@ -58,7 +69,6 @@ class TimerEngine {
     }
   }
 
-  // target: "match" | "set" | "both"
   start(target = "both") {
     if (target === "match" || target === "both") this.isMatchPaused = false;
     if (target === "set" || target === "both") this.isSetPaused = false;
@@ -87,6 +97,15 @@ class TimerEngine {
       this.matchTimeLeft = MATCH_DURATION_SECONDS;
     } else if (timer === "set") {
       this.setTimeLeft = SET_DURATION_SECONDS;
+      this.isSetPaused = true;
+      this._stopIntervalIfFullyPaused();
+
+      if (this.callbacks.onSetExpired) {
+        this.callbacks.onSetExpired({
+          action: "manualReset",
+          message: "SET FINALIZADO",
+        });
+      }
     } else {
       throw new Error(`Timer inválido: ${timer}`);
     }
@@ -145,15 +164,32 @@ class TimerEngine {
         this.callbacks.onSetExpired({ action, message });
       }
 
-      // Ambas modalidades quedan congeladas en 0:00 hasta reset manual del árbitro
       this.isSetPaused = true;
+
+      if (
+        this.modality === "cloth" &&
+        !this.clothAutoResetUsed &&
+        this.matchTimeLeft < 180 &&
+        this.matchTimeLeft > 0
+      ) {
+        this.matchTimeLeft = 90;
+        this.isMatchPaused = true;
+        this.clothAutoResetUsed = true;
+        this._stopIntervalIfFullyPaused();
+        this._emitState();
+      }
     }
 
-    // El reloj de partido solo se pausa al llegar a 0.
-    // El PARTIDO sigue en curso hasta que el árbitro apriete "Finalizar Tiempo".
     if (this.matchTimeLeft === 0 && !this.isMatchPaused) {
       this.isMatchPaused = true;
       this._stopIntervalIfFullyPaused();
+
+      if (this.modality === "foam" && this.callbacks.onSetExpired) {
+        this.callbacks.onSetExpired({
+          action: "suddenDeath",
+          message: "MUERTE SÚBITA (NO HAY ESCUDO)",
+        });
+      }
     }
   }
 
