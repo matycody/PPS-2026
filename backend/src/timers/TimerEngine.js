@@ -18,7 +18,7 @@ class TimerEngine {
     this.matchTimeLeft = MATCH_DURATION_SECONDS;
     this.setTimeLeft = SET_DURATION_SECONDS;
     this.matchHalf = 1; // 1 = primer tiempo, 2 = segundo tiempo — 100% manual
-    this.clothAutoResetUsed = false; // controla que la regla especial de Cloth dispare una sola vez por tiempo
+    this.clothAutoResetUsed = false;
 
     this.isMatchPaused = true;
     this.isSetPaused = true;
@@ -48,18 +48,17 @@ class TimerEngine {
     this.isSetPaused = true;
     this._stopIntervalIfFullyPaused();
 
+    // Ambos casos (fin de 1er tiempo y fin de 2do) resetean los dos relojes a sus valores default
+    this.matchTimeLeft = MATCH_DURATION_SECONDS;
+    this.setTimeLeft = SET_DURATION_SECONDS;
+    this.clothAutoResetUsed = false;
+
     if (this.matchHalf === 1) {
       this.matchHalf = 2;
-      this.clothAutoResetUsed = false;
       this._emitState();
       return { matchEnded: false };
     } else {
-      // Fin de partido: resetea ambos relojes y vuelve al 1er tiempo, listo para uno nuevo
-      this.matchTimeLeft = MATCH_DURATION_SECONDS;
-      this.setTimeLeft = SET_DURATION_SECONDS;
-      this.matchHalf = 1;
-      this.clothAutoResetUsed = false;
-
+      this.matchHalf = 1; // vuelve al 1er tiempo, listo para un partido nuevo
       this._emitState();
 
       if (this.callbacks.onMatchFinished) {
