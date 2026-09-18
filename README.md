@@ -5,7 +5,7 @@ Cronómetro web para partidos de dodgeball, hecho para **Dodgeball Buenos Aires 
 Maneja dos relojes por partido (partido de 20 min y set de 3 min), dos modalidades (Foam y Cloth) y varias canchas en simultáneo. El estado se sincroniza en tiempo real entre todas las pantallas conectadas.
 
 🔗 **Demo online:** https://pps-2026.vercel.app
-🔗 **Backend online:** https://pps-2026.onrender.com
+🔗 **Backend online:** https://pps-2026.onrender.com/health
 > El backend está en el plan gratuito de Render: si estuvo inactivo, la primera respuesta tarda ~30 s.
 
 ## ✨ Qué hace hoy (Sprint 1)
@@ -18,31 +18,38 @@ Maneja dos relojes por partido (partido de 20 min y set de 3 min), dos modalidad
 - Mensajes automáticos: "SET TERMINADO", "MUERTE SÚBITA (NO HAY ESCUDO)" y "SE TERMINÓ EL PARTIDO".
 - Notificaciones apiladas y sincronización en tiempo real entre pantallas.
 
-**Próximos sprints:** login con Supabase Auth y roles, base de datos en Neon, estadísticas y cronograma.
+**Próximos sprints:** login con Supabase Auth y roles, persistencia en la base de datos Neon, estadísticas y cronograma.
 
 ## 🧰 Stack
 | Capa | Tecnología |
 |---|---|
 | Frontend | React 19, Vite 8, Zustand 5, Tailwind CSS v4, socket.io-client (Vercel) |
 | Backend | Node.js 24, Express 5, Socket.IO 4 (Render) |
-| Base de datos | PostgreSQL en Neon, con Prisma 7 (Sprint 2) |
+| Base de datos | PostgreSQL en Neon, con Prisma 7 (configurado; se usa desde el Sprint 2) |
 | Auth | Supabase Auth (Sprint 2) |
 
 ## 📁 Estructura
 ```
 PPS-2026/
 ├── backend/
-│   ├── server.js                 Punto de entrada (Express + Socket.IO)
+│   ├── server.js                   Punto de entrada (Express + Socket.IO)
 │   ├── package.json
-│   ├── .env.example              Plantilla de variables
+│   ├── prisma.config.ts            Configuración de Prisma (conexión a la BD)
+│   ├── prisma/                     Esquema de la base de datos
+│   ├── .env.example                Plantilla de variables del backend
 │   └── src/
+│       ├── sockets/
+│       │   └── matchSocket.js      Manejo de los eventos Socket.IO del partido
 │       └── timers/
-│           └── timerEvents.js    Nombres de los eventos Socket.IO
+│           ├── TimerEngine.js      Motor de los dos relojes (partido y set)
+│           ├── matchManager.js     Un motor por partido, varias canchas a la vez
+│           └── timerEvents.js      Nombres de los eventos Socket.IO
 ├── frontend/
 │   ├── package.json
-│   ├── .env.example              Plantilla de variables
-│   └── src/                      Interfaz (React + Vite)
+│   ├── .env.example                Plantilla de variables del frontend
+│   └── src/                        Interfaz (React + Vite)
 ├── .gitignore
+├── CLAUDE.md                       Contexto del proyecto para asistentes de código
 └── README.md
 ```
 
@@ -106,7 +113,7 @@ Levantar el servidor:
 ```bash
 npm run dev
 ```
-Queda escuchando en `http://localhost:3001`. **Dejá esta terminal abierta.**
+Tiene que aparecer `Servidor escuchando en http://localhost:3001`. **Dejá esta terminal abierta.**
 
 ### 3. Frontend (terminal 2, misma PC)
 Abrí una **segunda terminal** desde la raíz del proyecto:
@@ -132,6 +139,7 @@ Se abre en `http://localhost:5173`.
 | Carpeta | Comando | Qué hace |
 |---|---|---|
 | `backend/` | `npm run dev` | Levanta el servidor (`node server.js`) |
+| `backend/` | `npm start` | Igual que `dev`; es el que usa Render en producción |
 | `frontend/` | `npm run dev` | Servidor de desarrollo de Vite |
 | `frontend/` | `npm run build` | Genera el build de producción |
 | `frontend/` | `npm run preview` | Sirve el build generado |
@@ -146,7 +154,7 @@ Los archivos `.env` **no se suben al repo** (están en `.gitignore`). Cada carpe
 | Variable | Descripción |
 |---|---|
 | `PORT` | Puerto del servidor. Por defecto `3001` |
-| `DATABASE_URL` | Connection string de Neon (con `?sslmode=require`). **Todavía no la usa el cronómetro**: para correr el proyecto en local se puede dejar el valor de ejemplo |
+| `DATABASE_URL` | Connection string de Neon (con `?sslmode=require`). **El servidor todavía no se conecta a la base al arrancar**: para correr el proyecto en local se puede dejar el valor de ejemplo |
 
 **`frontend/.env.local`**
 | Variable | Descripción |
@@ -156,23 +164,29 @@ Los archivos `.env` **no se suben al repo** (están en `.gitignore`). Cada carpe
 > Si cambiás una variable de Vite, **reiniciá `npm run dev`**: se lee una sola vez al arrancar.
 
 ## 🧪 Cómo probar que funciona
-1. Con ambos servidores corriendo, abrí `http://localhost:5173`.
-2. Abrí la consola del navegador (F12): tiene que aparecer `[socket] conectado`.
+1. **Backend:** abrí http://localhost:3001/health. Tiene que responder `{"status":"ok", ...}`.
+2. **Frontend:** abrí http://localhost:5173 y, en la consola del navegador (F12), verificá que aparezca `[socket] conectado`.
 3. Elegí modalidad (Foam o Cloth) e iniciá el partido.
 4. Abrí la misma URL en una segunda pestaña o ventana del mismo navegador: los relojes se ven sincronizados.
 5. Probá pausar solo el set, pausar ambos y reanudar: cada reloj responde por separado.
+
+## 🌐 API REST
+| Método | Ruta | Respuesta |
+|---|---|---|
+| `GET` | `/health` | `{ "status": "ok", "message": "..." }`. Sirve para verificar que el backend está vivo o despertar a Render |
+
+El resto de la comunicación es por Socket.IO (ver más abajo).
 
 ## 🩹 Problemas frecuentes
 | Problema | Solución |
 |---|---|
 | `node` o `npm` no se reconocen | Cerrar y abrir la terminal; si sigue, reinstalar Node.js |
 | `ENOENT ... package.json` | Estás en la carpeta equivocada: correr `npm` siempre dentro de `backend/` o `frontend/`, nunca en la raíz |
-| `.env.example` no se encuentra | Estás en la carpeta equivocada o clonaste una rama vieja: verificá con `git branch` |
-| Aviso de Prisma al hacer `npm install` en `backend/` | Se puede ignorar: el script `postinstall` no corta la instalación |
-| El frontend no conecta con el backend | Revisar que el backend esté corriendo, que `VITE_BACKEND_URL` esté bien y reiniciar `npm run dev` |
+| `.env.example` no se encuentra | Estás en la carpeta equivocada o clonaste otra rama: verificá con `git branch` que estés en `main` |
+| El frontend no conecta con el backend | Revisar que el backend esté corriendo (`/health`), que `VITE_BACKEND_URL` esté bien y reiniciar `npm run dev` |
 | `Port 3001 is already in use` | Hay otro proceso usando el puerto: cerrarlo o cambiar `PORT` en `backend/.env` |
 | `npm install` muy lento | La carpeta está dentro de OneDrive: clonar en otra ubicación |
-| En la demo online tarda en responder | Es el cold start de Render: esperar ~30 s |
+| En la demo online tarda en responder | Es el cold start de Render: abrir `/health` y esperar ~30 s |
 
 ## 📡 Eventos Socket.IO
 Los nombres están centralizados en `backend/src/timers/timerEvents.js`.
