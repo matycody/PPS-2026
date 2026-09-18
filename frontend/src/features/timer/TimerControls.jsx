@@ -72,7 +72,10 @@ export function TimerControls() {
     setSetDigits('')
   }
 
-  // Foam: solo cuando el reloj de partido llega a 0. Cloth: siempre disponible.
+  // Igual que en Timer.jsx: el backend no marca isMatchPaused solo al llegar a 0:00,
+  // así que el botón lo trata como pausado igual para que coincida visualmente.
+  const matchLooksPaused = isMatchPaused || matchTime === '0:00'
+
   const showFinishButton = modality === 'cloth' || matchTime === '0:00'
 
   return (
@@ -81,7 +84,7 @@ export function TimerControls() {
         <TimerRow
           label="Control de Partido"
           labelColorVar="--color-accent-blue"
-          isPaused={isMatchPaused}
+          isPaused={matchLooksPaused}
           onPause={() => pauseTimer('match')}
           onResume={() => resumeTimer('match')}
           onReset={() => resetTimer('match')}

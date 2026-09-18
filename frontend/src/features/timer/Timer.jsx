@@ -8,18 +8,22 @@ export function Timer() {
   const notifications = useTimerStore((state) => state.notifications)
   const removeNotification = useTimerStore((state) => state.removeNotification)
 
+  // Visual: el Partido no llega marcado como pausado desde el backend al tocar 0:00
+  // (a diferencia del Set), así que lo derivamos acá solo para mostrarlo igual.
+  const matchLooksPaused = isMatchPaused || matchTime === '0:00'
+
   return (
     <div className="flex flex-col gap-3 w-full">
       <div className="flex gap-3 w-full">
         <div className="flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-3xl p-[18px] flex flex-col items-center gap-3">
           <div className="flex items-center justify-between w-full">
             <span className="font-bold text-xs uppercase text-[var(--color-text-secondary)]">Partido</span>
-            <span className={`size-2 rounded-full ${isMatchPaused ? 'bg-[var(--color-accent-red)]' : 'bg-[var(--color-accent-green)] animate-pulse'}`} />
+            <span className={`size-2 rounded-full ${matchLooksPaused ? 'bg-[var(--color-accent-red)]' : 'bg-[var(--color-accent-green)] animate-pulse'}`} />
           </div>
           <p className="font-['Big_Shoulders_Display'] font-extrabold text-[68px] leading-none text-[var(--color-accent-blue)] tabular-nums">
             {matchTime}
           </p>
-          {isMatchPaused && (
+          {matchLooksPaused && (
             <span className="bg-[rgba(255,46,95,0.1)] border border-[rgba(255,46,95,0.3)] text-[var(--color-accent-red)] text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-md">
               Pausado
             </span>
