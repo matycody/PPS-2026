@@ -17,7 +17,7 @@ class TimerEngine {
     this.modality = "foam";
     this.matchTimeLeft = MATCH_DURATION_SECONDS;
     this.setTimeLeft = SET_DURATION_SECONDS;
-    this.matchHalf = 1; // 1 = primer tiempo, 2 = segundo tiempo — 100% manual
+    this.matchHalf = 1;
     this.clothAutoResetUsed = false;
 
     this.isMatchPaused = true;
@@ -48,7 +48,6 @@ class TimerEngine {
     this.isSetPaused = true;
     this._stopIntervalIfFullyPaused();
 
-    // Ambos casos (fin de 1er tiempo y fin de 2do) resetean los dos relojes a sus valores default
     this.matchTimeLeft = MATCH_DURATION_SECONDS;
     this.setTimeLeft = SET_DURATION_SECONDS;
     this.clothAutoResetUsed = false;
@@ -58,7 +57,7 @@ class TimerEngine {
       this._emitState();
       return { matchEnded: false };
     } else {
-      this.matchHalf = 1; // vuelve al 1er tiempo, listo para un partido nuevo
+      this.matchHalf = 1;
       this._emitState();
 
       if (this.callbacks.onMatchFinished) {
@@ -98,13 +97,6 @@ class TimerEngine {
       this.setTimeLeft = SET_DURATION_SECONDS;
       this.isSetPaused = true;
       this._stopIntervalIfFullyPaused();
-
-      if (this.callbacks.onSetExpired) {
-        this.callbacks.onSetExpired({
-          action: "manualReset",
-          message: "SET FINALIZADO",
-        });
-      }
     } else {
       throw new Error(`Timer inválido: ${timer}`);
     }
@@ -114,6 +106,7 @@ class TimerEngine {
   adjust(timer, seconds) {
     if (timer === "match") {
       this.matchTimeLeft = Math.max(0, this.matchTimeLeft + seconds);
+      this._checkMatchExpiry();
     } else if (timer === "set") {
       this.setTimeLeft = Math.max(0, this.setTimeLeft + seconds);
     } else {
@@ -126,6 +119,7 @@ class TimerEngine {
     const clamped = Math.max(0, Math.floor(totalSeconds));
     if (timer === "match") {
       this.matchTimeLeft = clamped;
+      this._checkMatchExpiry();
     } else if (timer === "set") {
       this.setTimeLeft = clamped;
     } else {
@@ -146,6 +140,27 @@ class TimerEngine {
     }
   }
 
+  // Chequea si el reloj de partido llegó a 0 y, si es así, lo pausa y avisa.
+  // Se llama desde _tick() (cuenta regresiva normal) Y desde adjust()/setTime()
+  // (para cubrir el caso de que el 0 se alcance por un ajuste manual, no solo por el conteo).
+  _checkMatchExpiry() {
+    if (this.matchTimeLeft === 0 && !this.isMatchPaused) {
+      this.isMatchPaused = true;
+      this._stopIntervalIfFullyPaused();
+
+      if (this.callbacks.onSetExpired) {
+        const message =
+          this.modality === "cloth"
+            ? "SET FINALIZADO"
+            : "MUERTE SÚBITA (NO HAY ESCUDO)";
+        this.callbacks.onSetExpired({
+          action: this.modality === "cloth" ? "resetWithBonus" : "suddenDeath",
+          message,
+        });
+      }
+    }
+  }
+
   _tick() {
     if (!this.isMatchPaused && this.matchTimeLeft > 0) this.matchTimeLeft--;
     if (!this.isSetPaused && this.setTimeLeft > 0) this.setTimeLeft--;
@@ -156,7 +171,7 @@ class TimerEngine {
       const action = this.modality === "cloth" ? "resetWithBonus" : "suddenDeath";
       const message =
         this.modality === "cloth"
-          ? "SET TERMINADO"
+          ? "SET FINALIZADO"
           : "MUERTE SÚBITA (NO HAY ESCUDO)";
 
       if (this.callbacks.onSetExpired) {
@@ -179,17 +194,7 @@ class TimerEngine {
       }
     }
 
-    if (this.matchTimeLeft === 0 && !this.isMatchPaused) {
-      this.isMatchPaused = true;
-      this._stopIntervalIfFullyPaused();
-
-      if (this.modality === "foam" && this.callbacks.onSetExpired) {
-        this.callbacks.onSetExpired({
-          action: "suddenDeath",
-          message: "MUERTE SÚBITA (NO HAY ESCUDO)",
-        });
-      }
-    }
+    this._checkMatchExpiry();
   }
 
   _emitState() {

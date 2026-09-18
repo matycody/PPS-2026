@@ -1,12 +1,21 @@
-node_modules
-# Keep environment variables out of version control
+# Dependencias
+node_modules/
+
+# Variables de entorno (credenciales)
 .env
+.env.*
+!.env.example
 
-/generated/prisma
+# Builds
+dist/
+build/
 
-# Carpetas de "AI skills" auto-generadas por Prisma, no forman parte del proyecto
-.agents/
-.claude/
-.windsurf/
-.devin/
-skills-lock.json
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema y editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
