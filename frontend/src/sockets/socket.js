@@ -8,6 +8,13 @@ export const socket = io(SOCKET_URL, {
   extraHeaders: {
     'ngrok-skip-browser-warning': 'true',
   },
+  transportOptions: {
+    polling: {
+      extraHeaders: {
+        'ngrok-skip-browser-warning': 'true',
+      },
+    },
+  },
 })
 
 socket.on('connect', () => {
