@@ -19,3 +19,7 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+.agents/
+.claude/
+.windsurf/
+skills-lock.json

@@ -1,6 +1,5 @@
 {
   "scripts": {
-    "postinstall": "prisma skills sync || exit 0",
 	"dev": "node server.js"
 
   },
