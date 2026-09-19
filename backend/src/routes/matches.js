@@ -2,6 +2,7 @@
 const prisma = require('../db');
 const { authenticate, optionalAuth, requireRole } = require('../middleware/auth');
 const { getPermissions } = require('../services/matchAccess');
+const { notifyMatch } = require('../services/notify');
 
 const router = express.Router();
 const admin = [authenticate, requireRole('ADMIN')];
@@ -141,6 +142,7 @@ router.post('/', ...admin, async (req, res) => {
     const match = await prisma.match.create({
       data: { tournamentId, court, branch, modality, scheduledAt, teamAId, teamBId },
     });
+    await notifyMatch(req.app.get('io'), match.id);
     res.status(201).json(serialize(await fetchMatch(match.id, true), true));
   } catch (err) {
     handleError(err, res);
@@ -244,6 +246,7 @@ router.patch('/:id', ...admin, async (req, res) => {
     }
 
     await prisma.match.update({ where: { id: match.id }, data });
+    await notifyMatch(req.app.get('io'), req.params.id);
     res.json(serialize(await fetchMatch(match.id, true), true));
   } catch (err) {
     handleError(err, res);
@@ -258,6 +261,7 @@ router.post('/:id/cancel', ...admin, async (req, res) => {
       return res.status(409).json({ error: 'El partido ya está finalizado o cancelado' });
     }
     await prisma.match.update({ where: { id: match.id }, data: { status: 'CANCELLED' } });
+    await notifyMatch(req.app.get('io'), req.params.id);
     res.json(serialize(await fetchMatch(match.id, true), true));
   } catch (err) {
     handleError(err, res);
@@ -277,6 +281,7 @@ router.post('/:id/ready', authenticate, async (req, res) => {
       where: { id: ctx.match.id },
       data: { status: 'READY', readyAt: new Date(), readyBy: req.user.id },
     });
+    await notifyMatch(req.app.get('io'), req.params.id);
     res.json(serialize(await fetchMatch(ctx.match.id, ctx.perms.isAdmin), ctx.perms.isAdmin));
   } catch (err) {
     handleError(err, res);
@@ -295,6 +300,7 @@ router.post('/:id/unready', authenticate, async (req, res) => {
       where: { id: ctx.match.id },
       data: { status: 'SCHEDULED', readyAt: null, readyBy: null },
     });
+    await notifyMatch(req.app.get('io'), req.params.id);
     res.json(serialize(await fetchMatch(ctx.match.id, ctx.perms.isAdmin), ctx.perms.isAdmin));
   } catch (err) {
     handleError(err, res);
@@ -314,6 +320,7 @@ router.post('/:id/finish', authenticate, async (req, res) => {
       where: { id: ctx.match.id },
       data: { status: 'FINISHED', finishedAt: new Date() },
     });
+    await notifyMatch(req.app.get('io'), req.params.id);
     res.json(serialize(await fetchMatch(ctx.match.id, true), true));
   } catch (err) {
     handleError(err, res);
@@ -373,6 +380,7 @@ router.delete('/:id/assignments/:assignmentId', ...admin, async (req, res) => {
       where: { id: req.params.assignmentId, matchId: req.params.id },
     });
     if (!result.count) return res.status(404).json({ error: 'Asignación no encontrada' });
+    await notifyMatch(req.app.get('io'), req.params.id);
     res.json({ ok: true });
   } catch (err) {
     handleError(err, res);
@@ -409,6 +417,7 @@ router.post('/:id/sets', authenticate, async (req, res) => {
         },
       }),
     ]);
+    await notifyMatch(req.app.get('io'), req.params.id);
     res.status(201).json(set);
   } catch (err) {
     handleError(err, res);
@@ -443,6 +452,7 @@ router.patch('/:id/sets/:number', authenticate, async (req, res) => {
         },
       }),
     ]);
+    await notifyMatch(req.app.get('io'), req.params.id);
     res.json(updated);
   } catch (err) {
     handleError(err, res);
@@ -473,6 +483,7 @@ router.delete('/:id/sets/:number', authenticate, async (req, res) => {
         },
       }),
     ]);
+    await notifyMatch(req.app.get('io'), req.params.id);
     res.json({ ok: true });
   } catch (err) {
     handleError(err, res);

@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 
@@ -10,7 +10,7 @@ const normDni = (d) => String(d || '').replace(/\D/g, '');
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const isSex = (s) => s === 'M' || s === 'F';
 
-// Recalcula PLAYER/REFEREE de la cuenta vinculada según el perfil (conserva ADMIN)
+// Recalcula PLAYER/REFEREE de la cuenta vinculada segÃºn el perfil (conserva ADMIN)
 async function syncRoles(profileId) {
   const profile = await prisma.profile.findUnique({
     where: { id: profileId },
@@ -45,18 +45,18 @@ router.post('/', async (req, res) => {
     const emailN = normEmail(email);
     const errors = [];
 
-    if (dniN.length < 6) errors.push('DNI inválido');
+    if (dniN.length < 6) errors.push('DNI invÃ¡lido');
     if (!name || !String(name).trim()) errors.push('Nombre obligatorio');
-    if (!EMAIL_RE.test(emailN)) errors.push('Mail inválido');
-    if (!isPlayer && !isReferee) errors.push('Indicá si es jugador y/o árbitro');
-    if (sex && !isSex(sex)) errors.push('Sexo inválido (M o F)');
+    if (!EMAIL_RE.test(emailN)) errors.push('Mail invÃ¡lido');
+    if (!isPlayer && !isReferee) errors.push('IndicÃ¡ si es jugador y/o Ã¡rbitro');
+    if (sex && !isSex(sex)) errors.push('Sexo invÃ¡lido (M o F)');
     if (isPlayer && !isSex(sex)) errors.push('El sexo es obligatorio para jugadores');
     if (errors.length) return res.status(400).json({ errors });
 
     const existing = await prisma.profile.findUnique({ where: { dni: dniN } });
     const emailOwner = await prisma.profile.findUnique({ where: { email: emailN } });
     if (emailOwner && emailOwner.id !== existing?.id) {
-      return res.status(409).json({ error: 'Ese mail ya está inscripto en otro perfil' });
+      return res.status(409).json({ error: 'Ese mail ya estÃ¡ inscripto en otro perfil' });
     }
 
     let profile;
@@ -107,14 +107,14 @@ router.get('/', async (req, res) => {
         { email: { contains: String(q).toLowerCase() } },
       ];
     }
-    const profiles = await prisma.profile.findMany({ where, orderBy: { name: 'asc' } });
+    const profiles = await prisma.profile.findMany({ where, orderBy: { name: 'asc' }, include: { teams: { where: { to: null }, include: { team: { select: { id: true, name: true } } } } } });
     res.json(profiles);
   } catch (err) {
     handleDbError(err, res);
   }
 });
 
-// Editar (también baja/reactivación con { active: false | true })
+// Editar (tambiÃ©n baja/reactivaciÃ³n con { active: false | true })
 router.patch('/:id', async (req, res) => {
   try {
     const profile = await prisma.profile.findUnique({ where: { id: req.params.id } });
@@ -125,7 +125,7 @@ router.patch('/:id', async (req, res) => {
 
     if (dni !== undefined) {
       const dniN = normDni(dni);
-      if (dniN.length < 6) return res.status(400).json({ error: 'DNI inválido' });
+      if (dniN.length < 6) return res.status(400).json({ error: 'DNI invÃ¡lido' });
       data.dni = dniN;
     }
     if (name !== undefined) {
@@ -135,15 +135,15 @@ router.patch('/:id', async (req, res) => {
     if (email !== undefined) {
       if (profile.status !== 'PENDIENTE_VINCULACION') {
         return res.status(409).json({
-          error: 'Perfil vinculado: el mail lo cambia el usuario, o desvinculá el perfil primero',
+          error: 'Perfil vinculado: el mail lo cambia el usuario, o desvinculÃ¡ el perfil primero',
         });
       }
       const emailN = normEmail(email);
-      if (!EMAIL_RE.test(emailN)) return res.status(400).json({ error: 'Mail inválido' });
+      if (!EMAIL_RE.test(emailN)) return res.status(400).json({ error: 'Mail invÃ¡lido' });
       data.email = emailN;
     }
     if (sex !== undefined) {
-      if (sex !== null && !isSex(sex)) return res.status(400).json({ error: 'Sexo inválido' });
+      if (sex !== null && !isSex(sex)) return res.status(400).json({ error: 'Sexo invÃ¡lido' });
       data.sex = sex;
     }
     if (isPlayer !== undefined) data.isPlayer = Boolean(isPlayer);
@@ -163,12 +163,12 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
-// Desvincular cuenta (perdió acceso al mail). Exige el mail nuevo para que no se revincule solo.
+// Desvincular cuenta (perdiÃ³ acceso al mail). Exige el mail nuevo para que no se revincule solo.
 router.post('/:id/unlink', async (req, res) => {
   try {
     const emailN = normEmail(req.body.email);
     if (!EMAIL_RE.test(emailN)) {
-      return res.status(400).json({ error: 'Indicá el mail nuevo del perfil' });
+      return res.status(400).json({ error: 'IndicÃ¡ el mail nuevo del perfil' });
     }
 
     const profile = await prisma.profile.findUnique({
@@ -176,7 +176,7 @@ router.post('/:id/unlink', async (req, res) => {
       include: { user: true },
     });
     if (!profile) return res.status(404).json({ error: 'Perfil no encontrado' });
-    if (!profile.user) return res.status(409).json({ error: 'El perfil no está vinculado' });
+    if (!profile.user) return res.status(409).json({ error: 'El perfil no estÃ¡ vinculado' });
     if (emailN === profile.user.email) {
       return res.status(400).json({ error: 'El mail nuevo debe ser distinto al de la cuenta actual' });
     }
@@ -194,6 +194,47 @@ router.post('/:id/unlink', async (req, res) => {
       }),
     ]);
     res.json(updated);
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Baja lógica: sale de los planteles y conserva el historial.
+// ?permanent=true la borra del todo (solo si no tiene cuenta vinculada ni partidos asignados).
+router.delete('/:id', async (req, res) => {
+  try {
+    const profile = await prisma.profile.findUnique({
+      where: { id: req.params.id },
+      include: { user: true },
+    });
+    if (!profile) return res.status(404).json({ error: 'Perfil no encontrado' });
+
+    if (req.query.permanent === 'true') {
+      if (profile.user) {
+        return res.status(409).json({ error: 'Tiene una cuenta vinculada: desvinculala primero' });
+      }
+      const assigned = await prisma.matchAssignment.count({ where: { profileId: profile.id } });
+      if (assigned) {
+        return res.status(409).json({ error: 'Tiene partidos asignados como árbitro: usá la baja' });
+      }
+
+      await prisma.$transaction([
+        prisma.playerTeam.deleteMany({ where: { profileId: profile.id } }),
+        prisma.favorite.deleteMany({ where: { targetType: 'PLAYER', targetId: profile.id } }),
+        prisma.profile.delete({ where: { id: profile.id } }),
+      ]);
+      return res.json({ ok: true, permanent: true });
+    }
+
+    await prisma.$transaction([
+      prisma.playerTeam.updateMany({
+        where: { profileId: profile.id, to: null },
+        data: { to: new Date() },
+      }),
+      prisma.profile.update({ where: { id: profile.id }, data: { active: false } }),
+    ]);
+    await syncRoles(profile.id);
+    res.json({ ok: true, permanent: false });
   } catch (err) {
     handleDbError(err, res);
   }

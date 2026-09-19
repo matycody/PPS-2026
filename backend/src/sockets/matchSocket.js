@@ -2,6 +2,7 @@
 
 const prisma = require('../db');
 const { getPermissions } = require('../services/matchAccess');
+const { notifyMatch, FEED_ROOM } = require('../services/notify');
 const { CLIENT_EVENTS, SERVER_EVENTS } = require('../timers/timerEvents');
 const { getOrCreateMatch, getMatch, pauseMatch, resumeMatch } = require('../timers/matchManager');
 
@@ -182,6 +183,12 @@ function registerMatchHandlers(io, socket) {
     }
   });
 
+  // ── Feed general: cambios de estado y resultado de todos los partidos (home) ──
+  socket.on(CLIENT_EVENTS.MATCHES_SUBSCRIBE, () => {
+    if (socket.rooms.size < MAX_ROOMS) socket.join(FEED_ROOM);
+  });
+  socket.on(CLIENT_EVENTS.MATCHES_UNSUBSCRIBE, () => socket.leave(FEED_ROOM));
+
   socket.on(CLIENT_EVENTS.MATCH_LEAVE, (payload) => {
     const matchId = payload && payload.matchId;
     if (typeof matchId === 'string') socket.leave(publicRoom(matchId));
@@ -242,6 +249,7 @@ function registerMatchHandlers(io, socket) {
         data: { status: 'LIVE' },
       });
     }
+    if (match.status === 'READY') await notifyMatch(io, match.id);
     await logAction(io, socket, match.id, 'START', { target });
   });
 

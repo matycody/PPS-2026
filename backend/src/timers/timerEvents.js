@@ -16,6 +16,8 @@ const CLIENT_EVENTS = {
   MATCH_LEAVE: "match:leave",
   MATCH_CONTROL_JOIN: "match:controlJoin",
   MATCH_CONTROL_LEAVE: "match:controlLeave",
+  MATCHES_SUBSCRIBE: "matches:subscribe",
+  MATCHES_UNSUBSCRIBE: "matches:unsubscribe",
 };
 
 // Eventos que el BACKEND emite (nosotros mandamos)
@@ -30,6 +32,7 @@ const SERVER_EVENTS = {
   // Solo a la room de control: "Pausado por Pérez" y permisos del usuario
   MATCH_ACTION: "match:action",
   MATCH_PERMISSIONS: "match:permissions",
+  MATCH_UPDATED: "match:updated",
 };
 
 module.exports = { CLIENT_EVENTS, SERVER_EVENTS };

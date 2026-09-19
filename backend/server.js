@@ -52,6 +52,8 @@ const io = new Server(server, {
   },
 });
 
+app.set('io', io); // notifica cambios de estado desde las rutas REST
+
 // Token opcional en el handshake: sin token entra como visitante (solo lectura)
 registerSocketAuth(io);
 

@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 
@@ -29,7 +29,7 @@ router.post('/', ...admin, async (req, res) => {
     const { name, logo } = req.body;
     const branches = parseBranches(req.body.branches);
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'Nombre obligatorio' });
-    if (!branches) return res.status(400).json({ error: 'Ramas inválidas (MIXED, MALE, FEMALE)' });
+    if (!branches) return res.status(400).json({ error: 'Ramas invÃ¡lidas (MIXED, MALE, FEMALE)' });
 
     const team = await prisma.team.create({
       data: {
@@ -45,7 +45,7 @@ router.post('/', ...admin, async (req, res) => {
   }
 });
 
-// Listado (público)
+// Listado (pÃºblico)
 router.get('/', async (req, res) => {
   try {
     const teams = await prisma.team.findMany({
@@ -65,7 +65,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Detalle con plantel activo (público: solo nombre, sin DNI ni mail ni foto)
+// Detalle con plantel activo (pÃºblico: solo nombre, sin DNI ni mail ni foto)
 router.get('/:id', async (req, res) => {
   try {
     const team = await prisma.team.findUnique({
@@ -115,7 +115,7 @@ router.patch('/:id', ...admin, async (req, res) => {
     const ops = [];
     if (req.body.branches !== undefined) {
       const next = parseBranches(req.body.branches);
-      if (!next) return res.status(400).json({ error: 'Ramas inválidas' });
+      if (!next) return res.status(400).json({ error: 'Ramas invÃ¡lidas' });
 
       const current = team.branches.map((b) => b.branch);
       const removed = current.filter((b) => !next.includes(b));
@@ -126,7 +126,7 @@ router.patch('/:id', ...admin, async (req, res) => {
           where: { teamId: team.id, branch: { in: removed }, to: null },
         });
         if (busy) {
-          return res.status(409).json({ error: 'No podés quitar una rama con jugadores activos' });
+          return res.status(409).json({ error: 'No podÃ©s quitar una rama con jugadores activos' });
         }
         ops.push(prisma.teamBranch.deleteMany({ where: { teamId: team.id, branch: { in: removed } } }));
       }
@@ -145,11 +145,11 @@ router.patch('/:id', ...admin, async (req, res) => {
   }
 });
 
-// Asignar jugador a un equipo en una rama (si ya tenía otro en esa rama: traspaso)
+// Asignar jugador a un equipo en una rama (si ya tenÃ­a otro en esa rama: traspaso)
 router.post('/:id/players', ...admin, async (req, res) => {
   try {
     const { profileId, branch } = req.body;
-    if (!BRANCHES.includes(branch)) return res.status(400).json({ error: 'Rama inválida' });
+    if (!BRANCHES.includes(branch)) return res.status(400).json({ error: 'Rama invÃ¡lida' });
 
     const team = await prisma.team.findUnique({
       where: { id: req.params.id },
@@ -174,7 +174,7 @@ router.post('/:id/players', ...admin, async (req, res) => {
       where: { profileId: profile.id, branch, to: null },
     });
     if (current && current.teamId === team.id) {
-      return res.status(409).json({ error: 'Ya está en este equipo en esa rama' });
+      return res.status(409).json({ error: 'Ya estÃ¡ en este equipo en esa rama' });
     }
 
     const now = new Date();
@@ -198,13 +198,38 @@ router.post('/:id/players', ...admin, async (req, res) => {
 router.delete('/:id/players/:profileId', ...admin, async (req, res) => {
   try {
     const { branch } = req.query;
-    if (!BRANCHES.includes(branch)) return res.status(400).json({ error: 'Rama inválida' });
+    if (!BRANCHES.includes(branch)) return res.status(400).json({ error: 'Rama invÃ¡lida' });
 
     const result = await prisma.playerTeam.updateMany({
       where: { teamId: req.params.id, profileId: req.params.profileId, branch, to: null },
       data: { to: new Date() },
     });
-    if (!result.count) return res.status(404).json({ error: 'El jugador no está en ese equipo/rama' });
+    if (!result.count) return res.status(404).json({ error: 'El jugador no estÃ¡ en ese equipo/rama' });
+    res.json({ ok: true });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Eliminar equipo: solo si no tiene partidos (no se borra historial)
+router.delete('/:id', ...admin, async (req, res) => {
+  try {
+    const team = await prisma.team.findUnique({ where: { id: req.params.id } });
+    if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
+
+    const inMatches = await prisma.match.count({
+      where: { OR: [{ teamAId: team.id }, { teamBId: team.id }] },
+    });
+    if (inMatches) {
+      return res.status(409).json({ error: 'El equipo tiene partidos: no se puede eliminar' });
+    }
+
+    await prisma.$transaction([
+      prisma.playerTeam.deleteMany({ where: { teamId: team.id } }),
+      prisma.teamBranch.deleteMany({ where: { teamId: team.id } }),
+      prisma.favorite.deleteMany({ where: { targetType: 'TEAM', targetId: team.id } }),
+      prisma.team.delete({ where: { id: team.id } }),
+    ]);
     res.json({ ok: true });
   } catch (err) {
     handleDbError(err, res);
