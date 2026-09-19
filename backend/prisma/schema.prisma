@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -10,4 +5,236 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ─────────────── Enums ───────────────
+
+enum Role {
+  ADMIN
+  REFEREE
+  PLAYER
+}
+
+enum Sex {
+  M
+  F
+}
+
+// Rama: mixto, masculino, femenino
+enum Branch {
+  MIXED
+  MALE
+  FEMALE
+}
+
+enum Modality {
+  FOAM
+  CLOTH
+}
+
+enum MatchFunction {
+  REFEREE
+  TABLE
+}
+
+enum MatchStatus {
+  SCHEDULED
+  READY
+  LIVE
+  FINISHED
+  CANCELLED
+}
+
+enum ProfileStatus {
+  PENDIENTE_VINCULACION
+  VINCULADO
+}
+
+// ─────────────── Usuarios y perfiles ───────────────
+
+model User {
+  id         String   @id @default(uuid())
+  supabaseId String?  @unique // null solo para admins del seed hasta su primer login
+  email      String   @unique // fuente de verdad del mail
+  roles      Role[] // vacío = usuario registrado
+  profileId  String?  @unique
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  profile      Profile?          @relation(fields: [profileId], references: [id])
+  favorites    Favorite[]
+  assignments  MatchAssignment[]
+  clockActions ClockAction[]
+  resultLogs   MatchResultLog[]
+}
+
+// Perfil inscripto por la organización (jugador y/o árbitro)
+model Profile {
+  id        String        @id @default(uuid())
+  dni       String        @unique
+  name      String
+  email     String        @unique // solo para el vínculo inicial
+  sex       Sex? // obligatorio si juega
+  photo     String?
+  isPlayer  Boolean       @default(false)
+  isReferee Boolean       @default(false)
+  active    Boolean       @default(true)
+  status    ProfileStatus @default(PENDIENTE_VINCULACION)
+  createdAt DateTime      @default(now())
+
+  user        User?
+  teams       PlayerTeam[]
+  assignments MatchAssignment[]
+}
+
+// ─────────────── Equipos ───────────────
+
+model Team {
+  id   String  @id @default(uuid())
+  name String
+  logo String?
+
+  branches TeamBranch[]
+  players  PlayerTeam[]
+  matchesA Match[]      @relation("MatchTeamA")
+  matchesB Match[]      @relation("MatchTeamB")
+  wonSets  MatchSet[]   @relation("SetWinner")
+}
+
+model TeamBranch {
+  teamId String
+  branch Branch
+
+  team Team @relation(fields: [teamId], references: [id])
+
+  @@id([teamId, branch])
+}
+
+// Un solo registro con "to" = null por (profileId, branch).
+// Se refuerza con índice único parcial en SQL (ver migración):
+// CREATE UNIQUE INDEX "PlayerTeam_active_unique"
+//   ON "PlayerTeam"("profileId", "branch") WHERE "to" IS NULL;
+model PlayerTeam {
+  id        String    @id @default(uuid())
+  profileId String
+  teamId    String
+  branch    Branch
+  from      DateTime  @default(now())
+  to        DateTime? // null = equipo actual
+
+  profile Profile @relation(fields: [profileId], references: [id])
+  team    Team    @relation(fields: [teamId], references: [id])
+
+  @@index([profileId])
+  @@index([teamId])
+}
+
+// ─────────────── Torneos y partidos ───────────────
+
+model Tournament {
+  id       String    @id @default(uuid())
+  name     String
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  matches Match[]
+}
+
+model Match {
+  id           String      @id @default(uuid())
+  tournamentId String
+  court        Int
+  branch       Branch
+  modality     Modality
+  status       MatchStatus @default(SCHEDULED)
+  scheduledAt  DateTime? // informativa
+  teamAId      String?
+  teamBId      String?
+  readyAt      DateTime?
+  readyBy      String?
+  finishedAt   DateTime?
+  createdAt    DateTime    @default(now())
+
+  tournament   Tournament        @relation(fields: [tournamentId], references: [id])
+  teamA        Team?             @relation("MatchTeamA", fields: [teamAId], references: [id])
+  teamB        Team?             @relation("MatchTeamB", fields: [teamBId], references: [id])
+  assignments  MatchAssignment[]
+  sets         MatchSet[]
+  clockActions ClockAction[]
+  resultLogs   MatchResultLog[]
+
+  @@index([tournamentId])
+  @@index([status])
+}
+
+// REFEREE -> profileId (puede no estar vinculado aún)
+// TABLE   -> userId (cuenta)
+// Validar en la app (o CHECK en SQL) que se complete el campo según "function"
+model MatchAssignment {
+  id        String        @id @default(uuid())
+  matchId   String
+  function  MatchFunction
+  profileId String?
+  userId    String?
+
+  match   Match    @relation(fields: [matchId], references: [id])
+  profile Profile? @relation(fields: [profileId], references: [id])
+  user    User?    @relation(fields: [userId], references: [id])
+
+  @@unique([matchId, profileId])
+  @@unique([matchId, userId])
+}
+
+// Provisorio: estructura exacta del resultado a definir con Rodri
+model MatchSet {
+  id           String  @id @default(uuid())
+  matchId      String
+  number       Int
+  winnerTeamId String?
+
+  match      Match @relation(fields: [matchId], references: [id])
+  winnerTeam Team? @relation("SetWinner", fields: [winnerTeamId], references: [id])
+
+  @@unique([matchId, number])
+}
+
+// ─────────────── Auditoría ───────────────
+
+model ClockAction {
+  id      String   @id @default(uuid())
+  matchId String
+  userId  String
+  action  String // START | PAUSE | RESUME | ADJUST ...
+  at      DateTime @default(now())
+
+  match Match @relation(fields: [matchId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([matchId])
+}
+
+model MatchResultLog {
+  id       String   @id @default(uuid())
+  matchId  String
+  editedBy String // userId
+  oldValue String
+  newValue String
+  editedAt DateTime @default(now())
+
+  match  Match @relation(fields: [matchId], references: [id])
+  editor User  @relation(fields: [editedBy], references: [id])
+
+  @@index([matchId])
+}
+
+// ─────────────── Favoritos ───────────────
+
+model Favorite {
+  userId     String
+  targetType String // TEAM | PLAYER
+  targetId   String
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([userId, targetType, targetId])
 }
