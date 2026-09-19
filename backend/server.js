@@ -12,7 +12,7 @@ const app = express();
 // CORS explícito para las rutas REST (Express)
 app.use(cors({
   origin: "*",
-  methods: ["GET", "POST"],
+  methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
 }));
 app.use(express.json());
 
@@ -22,6 +22,7 @@ app.get("/health", (req, res) => {
 
 // Auth: usuario logueado, roles y menú
 app.use("/me", require("./src/routes/me"));
+app.use("/profiles", require("./src/routes/profiles"));
 
 const server = http.createServer(app);
 
