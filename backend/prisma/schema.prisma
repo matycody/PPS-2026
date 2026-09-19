@@ -1,13 +1,11 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
-
 datasource db {
   provider = "postgresql"
 }
 
-// ─────────────── Enums ───────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Enums â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 enum Role {
   ADMIN
@@ -50,14 +48,15 @@ enum ProfileStatus {
   VINCULADO
 }
 
-// ─────────────── Usuarios y perfiles ───────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Usuarios y perfiles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model User {
   id         String   @id @default(uuid())
   supabaseId String?  @unique // null solo para admins del seed hasta su primer login
   email      String   @unique // fuente de verdad del mail
-  roles      Role[] // vacío = usuario registrado
+  roles      Role[] // vacÃ­o = usuario registrado
   profileId  String?  @unique
+  photo      String?
   active     Boolean  @default(true)
   createdAt  DateTime @default(now())
 
@@ -68,12 +67,12 @@ model User {
   resultLogs   MatchResultLog[]
 }
 
-// Perfil inscripto por la organización (jugador y/o árbitro)
+// Perfil inscripto por la organizaciÃ³n (jugador y/o Ã¡rbitro)
 model Profile {
   id        String        @id @default(uuid())
   dni       String        @unique
   name      String
-  email     String        @unique // solo para el vínculo inicial
+  email     String        @unique // solo para el vÃ­nculo inicial
   sex       Sex? // obligatorio si juega
   photo     String?
   isPlayer  Boolean       @default(false)
@@ -87,7 +86,7 @@ model Profile {
   assignments MatchAssignment[]
 }
 
-// ─────────────── Equipos ───────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Equipos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model Team {
   id   String  @id @default(uuid())
@@ -111,7 +110,7 @@ model TeamBranch {
 }
 
 // Un solo registro con "to" = null por (profileId, branch).
-// Se refuerza con índice único parcial en SQL (ver migración):
+// Se refuerza con Ã­ndice Ãºnico parcial en SQL (ver migraciÃ³n):
 // CREATE UNIQUE INDEX "PlayerTeam_active_unique"
 //   ON "PlayerTeam"("profileId", "branch") WHERE "to" IS NULL;
 model PlayerTeam {
@@ -129,7 +128,7 @@ model PlayerTeam {
   @@index([teamId])
 }
 
-// ─────────────── Torneos y partidos ───────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Torneos y partidos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model Tournament {
   id       String    @id @default(uuid())
@@ -167,9 +166,9 @@ model Match {
   @@index([status])
 }
 
-// REFEREE -> profileId (puede no estar vinculado aún)
+// REFEREE -> profileId (puede no estar vinculado aÃºn)
 // TABLE   -> userId (cuenta)
-// Validar en la app (o CHECK en SQL) que se complete el campo según "function"
+// Validar en la app (o CHECK en SQL) que se complete el campo segÃºn "function"
 model MatchAssignment {
   id        String        @id @default(uuid())
   matchId   String
@@ -198,7 +197,7 @@ model MatchSet {
   @@unique([matchId, number])
 }
 
-// ─────────────── Auditoría ───────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ AuditorÃ­a â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model ClockAction {
   id      String   @id @default(uuid())
@@ -227,7 +226,7 @@ model MatchResultLog {
   @@index([matchId])
 }
 
-// ─────────────── Favoritos ───────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Favoritos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model Favorite {
   userId     String

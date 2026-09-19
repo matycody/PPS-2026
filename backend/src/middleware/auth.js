@@ -33,6 +33,12 @@ async function syncUser(supaUser) {
 
   let user = await prisma.user.findUnique({ where: { supabaseId: supaUser.id } });
 
+  // Mail cambiado y confirmado en Supabase: la cuenta es la fuente de verdad
+  if (user && user.email !== email) {
+    const taken = await prisma.user.findUnique({ where: { email } });
+    if (!taken) user = await prisma.user.update({ where: { id: user.id }, data: { email } });
+  }
+
   if (!user) {
     const seeded = await prisma.user.findUnique({ where: { email } });
     if (seeded && !seeded.supabaseId) {

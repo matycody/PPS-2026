@@ -40,6 +40,8 @@ app.use("/tournaments", require("./src/routes/tournaments"));
 app.use("/matches", require("./src/routes/matches"));
 app.use("/users", require("./src/routes/users"));
 app.use("/favorites", require("./src/routes/favorites"));
+app.use("/me", require("./src/routes/account"));
+app.use("/photos", require("./src/routes/photos"));
 
 const server = http.createServer(app);
 

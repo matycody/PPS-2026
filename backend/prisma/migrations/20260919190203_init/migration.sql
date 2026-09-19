@@ -252,3 +252,6 @@ ALTER TABLE "MatchResultLog" ADD CONSTRAINT "MatchResultLog_editedBy_fkey" FOREI
 
 -- AddForeignKey
 ALTER TABLE "Favorite" ADD CONSTRAINT "Favorite_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "PlayerTeam_active_unique"
+    ON "PlayerTeam"("profileId", "branch") WHERE "to" IS NULL;
