@@ -1,4 +1,4 @@
-const prisma = require('../db');
+﻿const prisma = require('../db');
 const supabase = require('../lib/supabase');
 
 // Vincula la cuenta a un perfil inscripto (mismo mail verificado). Una sola vez.
@@ -53,9 +53,8 @@ async function syncUser(supaUser) {
   return linkProfileIfAny(user);
 }
 
-async function resolveUser(req) {
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+// Valida un token de Supabase y devuelve el User local (o un error con status)
+async function resolveToken(token) {
   if (!token) return { status: 401, error: 'Falta token' };
 
   const { data, error } = await supabase.auth.getUser(token);
@@ -70,6 +69,12 @@ async function resolveUser(req) {
   if (!user.active) return { status: 403, error: 'Cuenta desactivada' };
 
   return { user };
+}
+
+function resolveUser(req) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  return resolveToken(token);
 }
 
 // Exige sesión válida
@@ -104,4 +109,4 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { authenticate, optionalAuth, requireRole };
+module.exports = { authenticate, optionalAuth, requireRole, resolveToken };

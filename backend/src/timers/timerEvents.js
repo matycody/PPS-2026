@@ -1,4 +1,4 @@
-// backend/src/timers/timerEvents.js
+﻿// backend/src/timers/timerEvents.js
 
 // Eventos que el FRONTEND emite (nosotros escuchamos)
 const CLIENT_EVENTS = {
@@ -11,6 +11,11 @@ const CLIENT_EVENTS = {
   MATCH_SET_MODALITY: "match:setModality",
   MATCH_SET_HALF: "match:setHalf",
   MATCH_FINISH_HALF: "match:finishHalf",
+  // Suscripción pública (visitantes y cuentas) y de control (asignados)
+  MATCH_JOIN: "match:join",
+  MATCH_LEAVE: "match:leave",
+  MATCH_CONTROL_JOIN: "match:controlJoin",
+  MATCH_CONTROL_LEAVE: "match:controlLeave",
 };
 
 // Eventos que el BACKEND emite (nosotros mandamos)
@@ -22,6 +27,9 @@ const SERVER_EVENTS = {
   MATCH_PAUSED: "match:paused",
   MATCH_RESUMED: "match:resumed",
   MATCH_ERROR: "match:error",
+  // Solo a la room de control: "Pausado por Pérez" y permisos del usuario
+  MATCH_ACTION: "match:action",
+  MATCH_PERMISSIONS: "match:permissions",
 };
 
 module.exports = { CLIENT_EVENTS, SERVER_EVENTS };

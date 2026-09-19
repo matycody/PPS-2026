@@ -1,14 +1,21 @@
 {
   "scripts": {
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "start": "node server.js",
+    "seed": "node prisma/seed.js"
   },
   "devDependencies": {
     "dotenv": "^17.4.2",
     "prisma": "^7.10.0"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "@supabase/supabase-js": "^2.116.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "pg": "^8.23.0",
     "socket.io": "^4.8.3"
   }
 }

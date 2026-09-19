@@ -4,10 +4,13 @@ require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
+const rateLimit = require("express-rate-limit");
 const { Server } = require("socket.io");
 const { registerMatchHandlers } = require("./src/sockets/matchSocket");
+const { registerSocketAuth } = require("./src/sockets/auth");
 
 const app = express();
+app.set("trust proxy", 1); // Render: IP real del cliente para el rate limit
 
 // CORS explícito para las rutas REST (Express)
 app.use(cors({
@@ -15,6 +18,15 @@ app.use(cors({
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
 }));
 app.use(express.json());
+
+// Anti-abuso: límite de requests por IP
+app.use(rateLimit({
+  windowMs: 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Demasiadas solicitudes, probá en un minuto" },
+}));
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Servidor backend PPS Dodgeball corriendo" });
@@ -39,6 +51,9 @@ const io = new Server(server, {
     credentials: false,
   },
 });
+
+// Token opcional en el handshake: sin token entra como visitante (solo lectura)
+registerSocketAuth(io);
 
 io.on("connection", (socket) => {
   console.log(`Cliente conectado: ${socket.id}`);
