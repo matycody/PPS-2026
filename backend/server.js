@@ -1,4 +1,4 @@
-// backend/server.js
+﻿// backend/server.js
 
 require("dotenv").config();
 const express = require("express");
@@ -20,11 +20,15 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Servidor backend PPS Dodgeball corriendo" });
 });
 
-// Auth: usuario logueado, roles y menú
+// Auth, perfiles, equipos, torneos, partidos, usuarios y favoritos
 app.use("/me", require("./src/routes/me"));
 app.use("/profiles", require("./src/routes/profiles"));
 app.use("/teams", require("./src/routes/teams"));
 app.use("/tournaments", require("./src/routes/tournaments"));
+app.use("/matches", require("./src/routes/matches"));
+app.use("/users", require("./src/routes/users"));
+app.use("/favorites", require("./src/routes/favorites"));
+
 const server = http.createServer(app);
 
 // CORS explícito para Socket.IO
