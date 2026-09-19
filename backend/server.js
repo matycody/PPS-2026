@@ -23,7 +23,8 @@ app.get("/health", (req, res) => {
 // Auth: usuario logueado, roles y menú
 app.use("/me", require("./src/routes/me"));
 app.use("/profiles", require("./src/routes/profiles"));
-
+app.use("/teams", require("./src/routes/teams"));
+app.use("/tournaments", require("./src/routes/tournaments"));
 const server = http.createServer(app);
 
 // CORS explícito para Socket.IO
