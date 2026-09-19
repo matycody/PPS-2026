@@ -20,6 +20,9 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Servidor backend PPS Dodgeball corriendo" });
 });
 
+// Auth: usuario logueado, roles y menú
+app.use("/me", require("./src/routes/me"));
+
 const server = http.createServer(app);
 
 // CORS explícito para Socket.IO
