@@ -1,6 +1,7 @@
-﻿const express = require('express');
+const express = require('express');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
+const storage = require('../services/storage');
 
 const router = express.Router();
 
@@ -79,6 +80,54 @@ router.get('/assignments', authenticate, async (req, res) => {
         },
       }))
     );
+  } catch (err) {
+    console.error('[me]', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Mi ficha: datos propios, equipos actuales por rama y foto
+router.get('/profile', authenticate, async (req, res) => {
+  try {
+    const { id, email, roles, profileId } = req.user;
+    let profile = null;
+    let photoPath = req.user.photo || null;
+
+    if (profileId) {
+      const p = await prisma.profile.findUnique({
+        where: { id: profileId },
+        include: {
+          teams: {
+            where: { to: null },
+            orderBy: { branch: 'asc' },
+            include: { team: { select: { id: true, name: true, logo: true } } },
+          },
+        },
+      });
+      if (p) {
+        photoPath = p.photo;
+        profile = {
+          id: p.id,
+          dni: p.dni,
+          name: p.name,
+          sex: p.sex,
+          isPlayer: p.isPlayer,
+          isReferee: p.isReferee,
+          active: p.active,
+          status: p.status,
+          teams: p.teams.map((t) => ({
+            teamId: t.team.id,
+            name: t.team.name,
+            logo: t.team.logo,
+            branch: t.branch,
+            since: t.from,
+          })),
+        };
+      }
+    }
+
+    const photoUrl = photoPath ? await storage.signedUrl(photoPath) : null;
+    res.json({ user: { id, email, roles, profileId }, profile, photoUrl });
   } catch (err) {
     console.error('[me]', err);
     res.status(500).json({ error: 'Error interno' });

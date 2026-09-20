@@ -1,4 +1,4 @@
-﻿// backend/scripts/smoke.js
+// backend/scripts/smoke.js
 // Prueba de humo del backend: permisos, reglas de negocio, Socket.IO, fotos y cuenta.
 // Uso: con el backend corriendo (npm run dev), en otra terminal: npm run smoke
 require('dotenv').config();
@@ -305,6 +305,17 @@ async function run() {
   check('plantel del equipo A: 3 jugadores activos', r.data.roster && r.data.roster.length === 3, txt);
 
   // ── 4. Torneo y partidos ──
+  r = await api('GET', '/me/profile');
+  eq('sin token: /me/profile responde 401', r.status, 401);
+  r = await api('GET', '/me/profile', T.player);
+  check('mi ficha: nombre y equipos actuales por rama (mixto en B, masculino en A)',
+    r.status === 200 && r.data.profile && r.data.profile.name === 'SMOKE Jugador Editado' &&
+    r.data.profile.teams.length === 2 &&
+    r.data.profile.teams.some((t) => t.branch === 'MIXED' && t.teamId === tB.id) &&
+    r.data.profile.teams.some((t) => t.branch === 'MALE' && t.teamId === tA.id), JSON.stringify(r.data));
+  r = await api('GET', '/me/profile', T.plain);
+  check('usuario sin perfil: profile es null', r.status === 200 && r.data.profile === null, JSON.stringify(r.data));
+
   section('4. Torneo, partidos y asignaciones');
   r = await api('POST', '/tournaments', T.player, { name: TAG + ' T' });
   eq('jugador no puede crear torneos (403)', r.status, 403);
