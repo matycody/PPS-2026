@@ -394,17 +394,19 @@ async function run() {
   check('la mesa asignada ve "control_mesa" en el menú', r.status === 200 && r.data.menu.includes('control_mesa'));
 
   r = await post('/sets', T.referee, { winnerTeamId: tA.id });
-  eq('árbitro no agrega sets (403)', r.status, 403);
+  eq('árbitro asignado agrega el set 1 (201)', r.status, 201);
+  r = await api('PATCH', '/matches/' + m.id + '/sets/1', T.referee, { winnerTeamId: tC.id });
+  eq('árbitro no corrige sets (403)', r.status, 403);
   r = await post('/sets', T.table, { winnerTeamId: 'otro-equipo' });
   eq('ganador que no juega el partido rechazado (400)', r.status, 400);
   r = await post('/sets', T.table, { winnerTeamId: tA.id });
-  eq('mesa agrega el set 1 (201)', r.status, 201);
-  r = await post('/sets', T.table, { winnerTeamId: tA.id });
   eq('mesa agrega el set 2 (201)', r.status, 201);
+  r = await post('/sets', T.table, { winnerTeamId: tA.id });
+  eq('mesa agrega el set 3 (201)', r.status, 201);
   r = await api('PATCH', '/matches/' + m.id + '/sets/1', T.table, { winnerTeamId: tC.id });
   eq('mesa corrige un set mientras el partido no terminó (200)', r.status, 200);
   r = await api('GET', '/matches/' + m.id);
-  check('el marcador refleja los sets (1 a 1)', r.data.score && r.data.score.teamA === 1 && r.data.score.teamB === 1, JSON.stringify(r.data.score));
+  check('el marcador refleja los sets (2 a 1)', r.data.score && r.data.score.teamA === 2 && r.data.score.teamB === 1, JSON.stringify(r.data.score));
   r = await api('GET', '/matches/' + m.id + '/result-log', T.table);
   eq('la mesa no ve el registro de ediciones (403)', r.status, 403);
   r = await api('GET', '/matches/' + m.id + '/result-log', A);

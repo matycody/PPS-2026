@@ -1,4 +1,4 @@
-﻿const prisma = require('../db');
+const prisma = require('../db');
 
 const OPEN = ['READY', 'LIVE']; // reloj habilitado
 
@@ -26,7 +26,7 @@ async function getPermissions(user, match) {
     canReady: (isAdmin || isTable) && match.status === 'SCHEDULED',
     canUnready: (isAdmin || isTable) && match.status === 'READY',
     // Sets: la mesa mientras dura el partido; el admin solo para corregir uno finalizado
-    canAddSets: (isTable && open) || (isAdmin && match.status === 'FINISHED'),
+    canAddSets: ((isTable || isReferee) && open) || (isAdmin && match.status === 'FINISHED'),
     // Editar resultado: admin siempre; mesa solo mientras dura el partido
     canEditResult: match.status !== 'CANCELLED' && (isAdmin || (isTable && open)),
     // Finalizar: solo un admin asignado como mesa
