@@ -1,4 +1,5 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
+@import "./theme.css";
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Big+Shoulders+Display:wght@800&display=swap');
 
 @custom-variant dark (&:where(.dark, .dark *));
