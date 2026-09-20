@@ -17,7 +17,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
     "pg": "^8.23.0",
-    "prisma": "^8.0.0-rc.15",
+    "prisma": "^7.10.0",
     "sharp": "^0.35.4",
     "socket.io": "^4.8.3"
   }
