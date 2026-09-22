@@ -6,6 +6,9 @@ const storage = require('../services/storage');
 const router = express.Router();
 
 const ACTIVE = ['SCHEDULED', 'READY', 'LIVE'];
+const NICKNAME_MAX = 30;
+const NUMBER_MIN = 0;
+const NUMBER_MAX = 999;
 
 // Ítems de menú por rol (el front solo los renderiza)
 const MENU = {
@@ -24,6 +27,43 @@ function buildMenu(roles, hasTable) {
   for (const role of roles) (MENU[role] || []).forEach((i) => items.add(i));
   if (hasTable) MENU.TABLE.forEach((i) => items.add(i));
   return [...items];
+}
+
+// Ficha propia: datos del perfil y equipos actuales (uno por rama)
+async function loadProfile(profileId) {
+  const p = await prisma.profile.findUnique({
+    where: { id: profileId },
+    include: {
+      teams: {
+        where: { to: null },
+        orderBy: { branch: 'asc' },
+        include: { team: { select: { id: true, name: true, logo: true } } },
+      },
+    },
+  });
+  if (!p) return null;
+  return {
+    photo: p.photo,
+    profile: {
+      id: p.id,
+      dni: p.dni,
+      name: p.name,
+      nickname: p.nickname,
+      number: p.number,
+      sex: p.sex,
+      isPlayer: p.isPlayer,
+      isReferee: p.isReferee,
+      active: p.active,
+      status: p.status,
+      teams: p.teams.map((t) => ({
+        teamId: t.team.id,
+        name: t.team.name,
+        logo: t.team.logo,
+        branch: t.branch,
+        since: t.from,
+      })),
+    },
+  };
 }
 
 router.get('/', authenticate, async (req, res) => {
@@ -94,40 +134,73 @@ router.get('/profile', authenticate, async (req, res) => {
     let photoPath = req.user.photo || null;
 
     if (profileId) {
-      const p = await prisma.profile.findUnique({
-        where: { id: profileId },
-        include: {
-          teams: {
-            where: { to: null },
-            orderBy: { branch: 'asc' },
-            include: { team: { select: { id: true, name: true, logo: true } } },
-          },
-        },
-      });
-      if (p) {
-        photoPath = p.photo;
-        profile = {
-          id: p.id,
-          dni: p.dni,
-          name: p.name,
-          sex: p.sex,
-          isPlayer: p.isPlayer,
-          isReferee: p.isReferee,
-          active: p.active,
-          status: p.status,
-          teams: p.teams.map((t) => ({
-            teamId: t.team.id,
-            name: t.team.name,
-            logo: t.team.logo,
-            branch: t.branch,
-            since: t.from,
-          })),
-        };
+      const loaded = await loadProfile(profileId);
+      if (loaded) {
+        profile = loaded.profile;
+        photoPath = loaded.photo;
       }
     }
 
     const photoUrl = photoPath ? await storage.signedUrl(photoPath) : null;
     res.json({ user: { id, email, roles, profileId }, profile, photoUrl });
+  } catch (err) {
+    console.error('[me]', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Edita SOLO el apodo y el número de camiseta. Todo opcional; null borra el valor.
+router.patch('/profile', authenticate, async (req, res) => {
+  try {
+    const profileId = req.user.profileId;
+    if (!profileId) {
+      return res.status(404).json({ error: 'Tu cuenta no tiene un perfil de jugador o árbitro' });
+    }
+
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const has = (key) => Object.prototype.hasOwnProperty.call(body, key);
+    const data = {};
+    const errors = [];
+
+    if (has('nickname')) {
+      if (body.nickname === null) {
+        data.nickname = null;
+      } else if (typeof body.nickname !== 'string') {
+        errors.push('El apodo debe ser un texto');
+      } else {
+        const nick = body.nickname.trim();
+        if (Array.from(nick).length > NICKNAME_MAX) {
+          errors.push('El apodo no puede tener más de ' + NICKNAME_MAX + ' caracteres');
+        } else {
+          data.nickname = nick === '' ? null : nick;
+        }
+      }
+    }
+
+    if (has('number')) {
+      if (body.number === null) {
+        data.number = null;
+      } else if (
+        typeof body.number !== 'number' ||
+        !Number.isInteger(body.number) ||
+        body.number < NUMBER_MIN ||
+        body.number > NUMBER_MAX
+      ) {
+        errors.push('El número de camiseta debe ser un entero de ' + NUMBER_MIN + ' a ' + NUMBER_MAX);
+      } else {
+        data.number = body.number;
+      }
+    }
+
+    if (errors.length) return res.status(400).json({ errors });
+
+    if (Object.keys(data).length) {
+      await prisma.profile.update({ where: { id: profileId }, data });
+    }
+
+    const loaded = await loadProfile(profileId);
+    if (!loaded) return res.status(404).json({ error: 'Tu cuenta no tiene un perfil de jugador o árbitro' });
+    res.json(loaded.profile);
   } catch (err) {
     console.error('[me]', err);
     res.status(500).json({ error: 'Error interno' });

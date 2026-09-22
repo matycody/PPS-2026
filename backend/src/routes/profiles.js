@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 
@@ -235,6 +235,25 @@ router.delete('/:id', async (req, res) => {
     ]);
     await syncRoles(profile.id);
     res.json({ ok: true, permanent: false });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Detalle de un perfil (admin), con sus equipos actuales
+router.get('/:id', async (req, res) => {
+  try {
+    const profile = await prisma.profile.findUnique({
+      where: { id: req.params.id },
+      include: {
+        teams: {
+          where: { to: null },
+          include: { team: { select: { id: true, name: true } } },
+        },
+      },
+    });
+    if (!profile) return res.status(404).json({ error: 'Perfil no encontrado' });
+    res.json(profile);
   } catch (err) {
     handleDbError(err, res);
   }

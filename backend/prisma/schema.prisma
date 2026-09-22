@@ -74,6 +74,8 @@ model Profile {
   name      String
   email     String        @unique // solo para el vÃ­nculo inicial
   sex       Sex? // obligatorio si juega
+  nickname  String?       @db.VarChar(30) // apodo, opcional (máx. 30 caracteres)
+  number    Int? // número de camiseta, opcional (0 a 999; CHECK en la migración)
   photo     String?
   isPlayer  Boolean       @default(false)
   isReferee Boolean       @default(false)

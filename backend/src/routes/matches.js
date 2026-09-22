@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const prisma = require('../db');
 const { authenticate, optionalAuth, requireRole } = require('../middleware/auth');
 const { getPermissions } = require('../services/matchAccess');
@@ -23,7 +23,7 @@ const adminInclude = {
   ...baseInclude,
   assignments: {
     include: {
-      profile: { select: { id: true, name: true } },
+      profile: { select: { id: true, name: true, nickname: true, number: true } },
       user: { select: { id: true, email: true } },
     },
   },
@@ -35,12 +35,19 @@ function parseDate(v) {
   return Number.isNaN(d.getTime()) ? undefined : d; // undefined = inválida
 }
 
+// Puntos por set: en Foam el ganador suma 1; en Cloth el ganador suma 2 y un empate suma 1 a cada equipo
 function score(match) {
+  const win = match.modality === 'CLOTH' ? 2 : 1;
   let a = 0;
   let b = 0;
   for (const s of match.sets) {
-    if (s.winnerTeamId && s.winnerTeamId === match.teamAId) a++;
-    else if (s.winnerTeamId && s.winnerTeamId === match.teamBId) b++;
+    if (!s.winnerTeamId) {
+      if (match.modality === 'CLOTH') {
+        a += 1;
+        b += 1;
+      }
+    } else if (s.winnerTeamId === match.teamAId) a += win;
+    else if (s.winnerTeamId === match.teamBId) b += win;
   }
   return { teamA: a, teamB: b };
 }
@@ -58,7 +65,7 @@ function serialize(match, isAdmin) {
     finishedAt: match.finishedAt,
     teamA: match.teamA,
     teamB: match.teamB,
-    sets: match.sets.map((s) => ({ number: s.number, winnerTeamId: s.winnerTeamId })),
+    sets: match.sets.map((s) => ({ number: s.number, winnerTeamId: s.winnerTeamId, draw: s.winnerTeamId === null })),
     score: score(match),
   };
   if (isAdmin) {
@@ -71,6 +78,21 @@ function serialize(match, isAdmin) {
     }));
   }
   return out;
+}
+
+// Resultado de un set: { winnerTeamId } o { draw: true } (empate, solo en Cloth)
+function parseSetResult(match, body) {
+  if (body && body.draw === true) {
+    if (match.modality !== 'CLOTH') {
+      return { status: 409, error: 'El empate solo existe en Cloth' };
+    }
+    return { winnerTeamId: null };
+  }
+  const winnerTeamId = body && body.winnerTeamId;
+  if (![match.teamAId, match.teamBId].includes(winnerTeamId)) {
+    return { status: 400, error: 'El ganador debe ser uno de los equipos del partido (en Cloth también se puede enviar { "draw": true })' };
+  }
+  return { winnerTeamId };
 }
 
 function fetchMatch(id, isAdmin) {
@@ -398,10 +420,9 @@ router.post('/:id/sets', authenticate, async (req, res) => {
     if (!match.teamAId || !match.teamBId) {
       return res.status(409).json({ error: 'Definí los dos equipos del partido antes de cargar sets' });
     }
-    const { winnerTeamId } = req.body;
-    if (![match.teamAId, match.teamBId].includes(winnerTeamId)) {
-      return res.status(400).json({ error: 'El ganador debe ser uno de los equipos del partido' });
-    }
+    const result = parseSetResult(match, req.body);
+    if (result.error) return res.status(result.status).json({ error: result.error });
+    const winnerTeamId = result.winnerTeamId;
 
     const last = await prisma.matchSet.aggregate({ where: { matchId: match.id }, _max: { number: true } });
     const number = (last._max.number || 0) + 1;
@@ -431,10 +452,9 @@ router.patch('/:id/sets/:number', authenticate, async (req, res) => {
     const { match, perms } = ctx;
     if (!perms.canEditResult) return res.status(403).json({ error: 'Sin permiso para editar el resultado' });
 
-    const { winnerTeamId } = req.body;
-    if (![match.teamAId, match.teamBId].includes(winnerTeamId)) {
-      return res.status(400).json({ error: 'El ganador debe ser uno de los equipos del partido' });
-    }
+    const result = parseSetResult(match, req.body);
+    if (result.error) return res.status(result.status).json({ error: result.error });
+    const winnerTeamId = result.winnerTeamId;
     const number = Number(req.params.number);
     const set = await prisma.matchSet.findUnique({
       where: { matchId_number: { matchId: match.id, number } },

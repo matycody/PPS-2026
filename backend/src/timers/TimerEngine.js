@@ -183,7 +183,7 @@ class TimerEngine {
       if (
         this.modality === "cloth" &&
         !this.clothAutoResetUsed &&
-        this.matchTimeLeft < 180 &&
+        this.matchTimeLeft < 120 &&
         this.matchTimeLeft > 0
       ) {
         this.matchTimeLeft = 90;

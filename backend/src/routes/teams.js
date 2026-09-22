@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 
@@ -74,7 +74,7 @@ router.get('/:id', async (req, res) => {
         branches: true,
         players: {
           where: { to: null, profile: { active: true } },
-          include: { profile: { select: { id: true, name: true } } },
+          include: { profile: { select: { id: true, name: true, nickname: true, number: true } } },
         },
       },
     });
@@ -88,6 +88,8 @@ router.get('/:id', async (req, res) => {
       roster: team.players.map((p) => ({
         profileId: p.profile.id,
         name: p.profile.name,
+        nickname: p.profile.nickname,
+        number: p.profile.number,
         branch: p.branch,
       })),
     });

@@ -316,6 +316,58 @@ async function run() {
   r = await api('GET', '/me/profile', T.plain);
   check('usuario sin perfil: profile es null', r.status === 200 && r.data.profile === null, JSON.stringify(r.data));
 
+  section('3b. Apodo y número de camiseta');
+  r = await api('PATCH', '/me/profile', undefined, { number: 1 });
+  eq('sin token: PATCH /me/profile responde 401', r.status, 401);
+  r = await api('PATCH', '/me/profile', T.plain, { number: 1 });
+  eq('cuenta sin perfil: PATCH /me/profile responde 404', r.status, 404);
+  r = await api('PATCH', '/me/profile', T.player, { nickname: '  Tigre  ', number: 10 });
+  check('guarda el apodo (con trim) y el número', r.status === 200 && r.data.nickname === 'Tigre' && r.data.number === 10, JSON.stringify(r.data));
+  r = await api('PATCH', '/me/profile', T.player, { number: 0 });
+  check('el número 0 es válido y no toca el apodo', r.status === 200 && r.data.number === 0 && r.data.nickname === 'Tigre', JSON.stringify(r.data));
+  r = await api('PATCH', '/me/profile', T.player, { number: 999 });
+  eq('el número 999 es válido (200)', r.status, 200);
+  r = await api('PATCH', '/me/profile', T.player, { number: 1000 });
+  check('el número 1000 se rechaza (400 con errors)', r.status === 400 && Array.isArray(r.data.errors), JSON.stringify(r.data));
+  r = await api('PATCH', '/me/profile', T.player, { number: -1 });
+  check('el número -1 se rechaza (400 con errors)', r.status === 400 && Array.isArray(r.data.errors), JSON.stringify(r.data));
+  r = await api('PATCH', '/me/profile', T.player, { number: 3.5 });
+  eq('un número decimal se rechaza (400)', r.status, 400);
+  r = await api('PATCH', '/me/profile', T.player, { nickname: 'x'.repeat(31) });
+  check('un apodo de 31 caracteres se rechaza (400 con errors)', r.status === 400 && Array.isArray(r.data.errors), JSON.stringify(r.data));
+  r = await api('PATCH', '/me/profile', T.player, { nickname: 'x'.repeat(30) });
+  eq('un apodo de 30 caracteres es válido (200)', r.status, 200);
+  r = await api('PATCH', '/me/profile', T.player, { nickname: '   ' });
+  check('un apodo vacío se guarda como null', r.status === 200 && r.data.nickname === null, JSON.stringify(r.data));
+  r = await api('PATCH', '/me/profile', T.player, { name: 'Hackeado', dni: '1', nickname: 'Tigre' });
+  check('solo edita apodo y número: nombre y DNI no cambian', r.status === 200 && r.data.name === 'SMOKE Jugador Editado' && r.data.dni === dni(1) && r.data.nickname === 'Tigre', JSON.stringify(r.data));
+  r = await api('PATCH', '/me/profile', T.player, { nickname: 'Tigre', number: 7 });
+  eq('se guardan apodo y número finales (200)', r.status, 200);
+  r = await api('GET', '/teams/' + tB.id);
+  const rosterEntry = (r.data.roster || []).find((x) => x.profileId === profile.player);
+  check('el plantel público muestra apodo y número, sin DNI ni mail',
+    rosterEntry && rosterEntry.nickname === 'Tigre' && rosterEntry.number === 7 &&
+    !JSON.stringify(r.data).includes(dni(1)) && !JSON.stringify(r.data).includes('@example.com'), JSON.stringify(rosterEntry));
+  r = await api('GET', '/me/profile', T.player);
+  check('GET /me/profile trae apodo y número', r.status === 200 && r.data.profile.nickname === 'Tigre' && r.data.profile.number === 7, JSON.stringify(r.data.profile));
+  r = await api('GET', '/profiles/' + profile.player, A);
+  check('admin: GET /profiles/:id trae apodo y número', r.status === 200 && r.data.nickname === 'Tigre' && r.data.number === 7, JSON.stringify(r.data));
+  r = await api('GET', '/profiles/' + profile.player, T.player);
+  eq('un jugador no accede a GET /profiles/:id (403)', r.status, 403);
+  r = await api('GET', '/profiles', A);
+  check('admin: GET /profiles trae apodo y número', r.status === 200 && r.data.some((p) => p.id === profile.player && p.nickname === 'Tigre' && p.number === 7));
+  r = await api('POST', '/favorites', T.plain, { targetType: 'PLAYER', targetId: profile.player });
+  eq('se sigue a un jugador (201)', r.status, 201);
+  r = await api('GET', '/favorites', T.plain);
+  check('favoritos: el jugador trae apodo y número',
+    r.status === 200 && r.data.some((f) => f.targetType === 'PLAYER' && f.targetId === profile.player && f.nickname === 'Tigre' && f.number === 7), JSON.stringify(r.data));
+  r = await api('DELETE', '/favorites/PLAYER/' + profile.player, T.plain);
+  eq('se deja de seguir al jugador (200)', r.status, 200);
+  r = await api('PATCH', '/me/profile', T.player, { nickname: null, number: null });
+  check('null borra el apodo y el número', r.status === 200 && r.data.nickname === null && r.data.number === null, JSON.stringify(r.data));
+  r = await api('PATCH', '/me/profile', T.referee, { nickname: 'Arbi', number: 5 });
+  check('el árbitro también guarda apodo y número', r.status === 200 && r.data.nickname === 'Arbi' && r.data.number === 5, JSON.stringify(r.data));
+
   section('4. Torneo, partidos y asignaciones');
   r = await api('POST', '/tournaments', T.player, { name: TAG + ' T' });
   eq('jugador no puede crear torneos (403)', r.status, 403);
@@ -468,6 +520,7 @@ async function run() {
   r = await api('GET', '/matches/' + m.id, A);
   const ref = (r.data.assignments || []).find((x) => x.function === 'REFEREE' && x.profile && x.profile.id === profile.referee);
   check('el admin ve las asignaciones del partido', Boolean(ref));
+  check('la asignación del árbitro trae apodo y número', ref && ref.profile.nickname === 'Arbi' && ref.profile.number === 5, JSON.stringify(ref));
   r = await api('DELETE', '/matches/' + m.id + '/assignments/' + ref.id, A);
   eq('admin quita al árbitro en pleno partido (200)', r.status, 200);
   e = await emitExpect(sRef, 'match:pause', { matchId: m.id, target: 'both' }, 'match:error');
@@ -505,6 +558,24 @@ async function run() {
   eq('un partido cancelado no se habilita (409)', r.status, 409);
 
   // ── 8. Fotos ──
+  section('7b. Cloth: puntaje y empate');
+  r = await api('POST', '/matches', A, { ...mBody, court: 3, modality: 'CLOTH', teamAId: tB.id, teamBId: tC.id });
+  eq('partido Cloth creado (201)', r.status, 201);
+  const mc = r.data;
+  r = await api('POST', '/matches/' + mc.id + '/assignments', A, { function: 'TABLE', userId: ids.admin });
+  eq('admin asignado como mesa del partido Cloth (201)', r.status, 201);
+  r = await api('POST', '/matches/' + mc.id + '/ready', A);
+  eq('partido Cloth habilitado (200)', r.status, 200);
+  r = await api('POST', '/matches/' + mc.id + '/sets', A, { winnerTeamId: tB.id });
+  eq('Cloth: set ganado por el equipo A (201)', r.status, 201);
+  r = await api('POST', '/matches/' + mc.id + '/sets', A, { draw: true });
+  eq('Cloth: set empatado (201)', r.status, 201);
+  r = await api('GET', '/matches/' + mc.id);
+  check('Cloth: ganar suma 2 y el empate suma 1 a cada equipo (3 a 1)', r.data.score && r.data.score.teamA === 3 && r.data.score.teamB === 1, JSON.stringify(r.data.score));
+  check('el set empatado viene marcado con draw', r.data.sets.some((s) => s.draw === true && s.winnerTeamId === null), JSON.stringify(r.data.sets));
+  r = await api('POST', '/matches/' + m.id + '/sets', A, { draw: true });
+  eq('Foam: el empate no existe (409)', r.status, 409);
+
   section('8. Fotos y escudos');
   const png = await sharp({ create: { width: 40, height: 40, channels: 3, background: '#ff0000' } }).png().toBuffer();
   const img = { raw: png, contentType: 'image/png' };

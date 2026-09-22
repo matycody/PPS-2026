@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 
@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
 
     const [teams, players] = await Promise.all([
       prisma.team.findMany({ where: { id: { in: teamIds } }, select: { id: true, name: true, logo: true } }),
-      prisma.profile.findMany({ where: { id: { in: playerIds }, active: true }, select: { id: true, name: true } }),
+      prisma.profile.findMany({ where: { id: { in: playerIds }, active: true }, select: { id: true, name: true, nickname: true, number: true } }),
     ]);
     const teamMap = new Map(teams.map((t) => [t.id, t]));
     const playerMap = new Map(players.map((p) => [p.id, p]));
