@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
 import { normMatch, fmtWhen } from '../lib/format'
 import StatusPill from '../components/StatusPill'
+import Versus from '../components/Versus'
 
 export default function AssignmentsPage({ fn }) {
   const [list, setList] = useState(null)
@@ -49,9 +50,7 @@ export default function AssignmentsPage({ fn }) {
               <StatusPill status={m.status} />
               <span className="text-sm text-muted">Cancha {m.court}</span>
             </div>
-            <p className="mt-4 text-center text-lg font-extrabold">
-              {m.teamA?.name ?? 'Por definir'} <span className="font-normal text-muted">vs</span> {m.teamB?.name ?? 'Por definir'}
-            </p>
+            <div className="mt-4"><Versus a={m.teamA} b={m.teamB} /></div>
             <p className="mt-1 text-center text-sm text-muted">{fmtWhen(m.scheduledAt)}</p>
             <div className={'mt-4 rounded-2xl py-3 text-center font-extrabold ' + (live ? 'bg-accent text-black' : 'bg-surface-2')}>
               Ir al control del partido
@@ -62,3 +61,4 @@ export default function AssignmentsPage({ fn }) {
     </div>
   )
 }
+

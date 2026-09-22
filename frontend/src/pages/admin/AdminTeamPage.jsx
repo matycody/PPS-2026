@@ -1,12 +1,17 @@
 ﻿import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ChevronLeft, X, Search } from 'lucide-react'
-import { api } from '../../lib/api'
+import { api, apiUpload } from '../../lib/api'
+import LogoPicker from '../../components/LogoPicker'
 import { BRANCH } from '../../lib/format'
+import { useAuthStore } from '../../stores/authStore'
+import Roster from '../../components/Roster'
+import PersonName from '../../components/PersonName'
 import { Btn, Alert, inputCls } from '../../components/ui'
 
 export default function AdminTeamPage() {
   const { id } = useParams()
+  const user = useAuthStore((s) => s.user)
   const [team, setTeam] = useState(null)
   const [name, setName] = useState('')
   const [branches, setBranches] = useState([])
@@ -29,6 +34,9 @@ export default function AdminTeamPage() {
   }
 
   const toggle = (b) => setBranches((cur) => (cur.includes(b) ? cur.filter((x) => x !== b) : [...cur, b]))
+
+  const uploadLogo = (file) =>
+    run(async () => { await apiUpload('/photos/teams/' + id, file); await load() }, 'Escudo actualizado')
 
   const saveTeam = () =>
     run(async () => { await api('PATCH', '/teams/' + id, { name: name.trim(), branches }); await load() }, 'Equipo actualizado')
@@ -68,6 +76,7 @@ export default function AdminTeamPage() {
 
       <section className="space-y-3 rounded-3xl border border-line bg-surface p-5">
         <p className="text-sm font-bold">Datos del equipo</p>
+        <LogoPicker name={team.name} src={team.logo} onPick={uploadLogo} onError={setErr} disabled={busy} />
         <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} />
         <div className="flex flex-wrap gap-2">
           {Object.entries(BRANCH).map(([k, label]) => (
@@ -86,14 +95,15 @@ export default function AdminTeamPage() {
 
       <section className="space-y-2 rounded-3xl border border-line bg-surface p-5">
         <p className="text-sm font-bold">Plantel</p>
-        {(team.roster ?? []).length === 0 && <p className="text-sm text-muted">Sin jugadores.</p>}
-        {(team.roster ?? []).map((r) => (
-          <div key={r.profileId + r.branch} className="flex items-center gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm">
-            <span className="flex-1 truncate font-semibold">{r.name}</span>
-            <span className="text-muted">{BRANCH[r.branch] ?? r.branch}</span>
-            <button aria-label="Quitar" disabled={busy} onClick={() => remove(r)}><X size={16} className="text-danger" /></button>
-          </div>
-        ))}
+        <Roster
+          roster={team.roster}
+          meProfileId={user?.profileId}
+          extra={(r) => (
+            <button aria-label="Quitar" disabled={busy} onClick={() => remove(r)}>
+              <X size={16} className="text-danger" />
+            </button>
+          )}
+        />
       </section>
 
       <section className="space-y-3 rounded-3xl border border-line bg-surface p-5">
@@ -106,7 +116,7 @@ export default function AdminTeamPage() {
         {(results ?? []).map((p) => (
           <div key={p.id} className="flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-2">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{p.name}</p>
+              <PersonName p={p} showReal className="block truncate text-sm font-semibold" />
               <p className="text-xs text-muted">{p.dni} · {p.sex === 'M' ? 'Masc.' : 'Fem.'}</p>
             </div>
             <select
@@ -123,3 +133,5 @@ export default function AdminTeamPage() {
     </div>
   )
 }
+
+

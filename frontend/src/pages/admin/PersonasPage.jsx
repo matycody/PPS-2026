@@ -2,6 +2,7 @@
 import { Search } from 'lucide-react'
 import { api } from '../../lib/api'
 import { Btn, Alert, inputCls } from '../../components/ui'
+import PersonName from '../../components/PersonName'
 
 const EMPTY = { dni: '', name: '', email: '', sex: '', isPlayer: true, isReferee: false }
 const Chip = ({ children, cls = 'bg-surface-2 text-muted' }) => (
@@ -103,7 +104,7 @@ export default function PersonasPage() {
           <div key={p.id} className="space-y-2 rounded-2xl border border-line bg-surface p-4">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="truncate font-bold">{p.name}</p>
+                <PersonName p={p} showReal className="block truncate font-bold" />
                 <p className="truncate text-xs text-muted">{p.dni} · {p.email}</p>
               </div>
               <Chip cls={p.status === 'VINCULADO' ? 'bg-live/15 text-live' : 'bg-warn/15 text-warn'}>
@@ -133,3 +134,4 @@ export default function PersonasPage() {
     </div>
   )
 }
+

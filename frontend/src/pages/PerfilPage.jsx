@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import { BRANCH } from '../lib/format'
 import { roleLabel } from '../lib/navConfig'
+import PersonName from '../components/PersonName'
 
 function Card({ title, children }) {
   return (
@@ -17,7 +18,7 @@ function Card({ title, children }) {
 }
 
 export default function PerfilPage() {
-  const { user, menu, signOut } = useAuthStore()
+  const { user, menu, signOut, refreshProfile } = useAuthStore()
   const navigate = useNavigate()
   const fileRef = useRef(null)
   const [data, setData] = useState(null)
@@ -25,14 +26,23 @@ export default function PerfilPage() {
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const [email, setEmail] = useState('')
+  const [nick, setNick] = useState('')
+  const [num, setNum] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const load = () => api('GET', '/me/profile').then(setData).catch((e) => setErr(e.message))
   useEffect(() => { load() }, [])
 
+  const p = data?.profile
+  useEffect(() => {
+    if (!p) return
+    setNick(p.nickname ?? '')
+    setNum(p.number == null ? '' : String(p.number))
+  }, [p?.nickname, p?.number])
+
   async function run(fn, ok) {
     setBusy(true); setErr(''); setMsg('')
-    try { await fn(); if (ok) setMsg(ok) } catch (e) { setErr(e.message) } finally { setBusy(false) }
+    try { await fn(); if (ok) setMsg(ok) } catch (e) { setErr(e.data?.errors?.join(' · ') || e.message) } finally { setBusy(false) }
   }
 
   const onFile = (e) => {
@@ -41,10 +51,18 @@ export default function PerfilPage() {
     if (!f) return
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) return setErr('Usá una imagen JPG, PNG o WebP')
     if (f.size > 5 * 1024 * 1024) return setErr('La imagen supera los 5 MB')
-    run(async () => { await apiUploadPhoto(f); await load() }, 'Foto actualizada')
+    run(async () => { await apiUploadPhoto(f); await load(); await refreshProfile() }, 'Foto actualizada')
   }
 
-  const p = data?.profile
+  const saveExtras = () => {
+    if (num !== '' && !/^\d{1,3}$/.test(num)) return setErr('El número tiene que estar entre 0 y 999')
+    run(async () => {
+      await api('PATCH', '/me/profile', { nickname: nick.trim() || null, number: num === '' ? null : Number(num) })
+      await load()
+      await refreshProfile()
+    }, 'Datos guardados')
+  }
+
   const initials = (user?.email ?? '?').slice(0, 2).toUpperCase()
   const field = 'w-full rounded-xl border border-line bg-bg px-4 py-3 outline-none focus:border-accent'
 
@@ -71,10 +89,12 @@ export default function PerfilPage() {
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onFile} className="hidden" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-lg font-extrabold">{p?.name ?? user?.email}</p>
+          <p className="truncate text-lg font-extrabold">
+            <PersonName p={p} fallback={user?.email} />
+          </p>
           <p className="text-sm text-muted">{roleLabel(user, menu)}</p>
           {data?.photoUrl && (
-            <button disabled={busy} onClick={() => run(async () => { await api('DELETE', '/me/photo'); await load() }, 'Foto eliminada')} className="mt-1 text-xs font-semibold text-danger">
+            <button disabled={busy} onClick={() => run(async () => { await api('DELETE', '/me/photo'); await load(); await refreshProfile() }, 'Foto eliminada')} className="mt-1 text-xs font-semibold text-danger">
               Quitar foto
             </button>
           )}
@@ -82,8 +102,43 @@ export default function PerfilPage() {
       </div>
 
       {p && (
+        <Card title="Apodo y número (opcional)">
+          <div className="space-y-3">
+            <label className="block text-xs text-muted">Apodo
+              <input
+                className={field + ' mt-1'}
+                placeholder="Reemplaza tu nombre en la app"
+                maxLength={30}
+                value={nick}
+                onChange={(e) => setNick(e.target.value)}
+              />
+            </label>
+            <label className="block text-xs text-muted">Número (0 a 999)
+              <input
+                className={field + ' mt-1 font-mono'}
+                placeholder="Ej.: 7"
+                inputMode="numeric"
+                maxLength={3}
+                value={num}
+                onChange={(e) => setNum(e.target.value.replace(/\D/g, '').slice(0, 3))}
+              />
+            </label>
+            <button
+              disabled={busy}
+              onClick={saveExtras}
+              className="w-full rounded-2xl bg-accent py-3 font-extrabold text-black disabled:opacity-40"
+            >
+              Guardar
+            </button>
+            <p className="text-[11px] text-muted">Dejalos vacíos para volver a mostrar tu nombre y ocultar el número.</p>
+          </div>
+        </Card>
+      )}
+
+      {p && (
         <Card title="Mis datos">
           <dl className="space-y-2 text-sm">
+            <div className="flex justify-between"><dt className="text-muted">Nombre</dt><dd className="truncate pl-4">{p.name}</dd></div>
             <div className="flex justify-between"><dt className="text-muted">Mail</dt><dd className="truncate pl-4">{user?.email}</dd></div>
             <div className="flex justify-between"><dt className="text-muted">DNI</dt><dd>{p.dni}</dd></div>
             {p.sex && <div className="flex justify-between"><dt className="text-muted">Sexo</dt><dd>{p.sex === 'M' ? 'Masculino' : 'Femenino'}</dd></div>}

@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import MatchForm from '../../components/MatchForm'
 import StatusPill from '../../components/StatusPill'
+import Versus from '../../components/Versus'
 
 const FN = { REFEREE: 'Árbitro', TABLE: 'Mesa' }
 
@@ -39,7 +40,7 @@ export default function AdminMatchPage() {
 
   const editable = m.status === 'SCHEDULED' || m.status === 'READY'
   const assignments = m.assignments ?? []
-  const label = (a) => a.profile?.name ?? a.user?.email ?? a.profileId ?? a.userId ?? '—'
+  const label = (a) => (a.profile?.nickname || a.profile?.name) ?? a.user?.email ?? a.profileId ?? a.userId ?? '—'
 
   return (
     <div className="space-y-4">
@@ -49,18 +50,16 @@ export default function AdminMatchPage() {
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
       {ok && <Alert tone="ok" onClose={() => setOk('')}>{ok}</Alert>}
 
-      <div className="flex items-center justify-between gap-3">
-        <p className="truncate text-lg font-extrabold">
-          {m.teamA?.name ?? 'Por definir'} <span className="font-normal text-muted">vs</span> {m.teamB?.name ?? 'Por definir'}
-        </p>
-        <StatusPill status={m.status} />
+      <div className="space-y-3 rounded-3xl border border-line bg-surface p-5">
+        <div className="flex justify-center"><StatusPill status={m.status} /></div>
+        <Versus a={m.teamA} b={m.teamB} size="lg" />
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <Link to={'/partido/' + id} className="rounded-2xl border border-line bg-surface-2 py-3 text-center text-sm font-extrabold">Ver en vivo</Link>
         <Link to={'/control/' + id} className="rounded-2xl border border-line bg-surface-2 py-3 text-center text-sm font-extrabold">Control</Link>
-        {m.status === 'SCHEDULED' && <Btn tone="accent" disabled={busy} onClick={() => run(() => api('POST', '/matches/' + id + '/ready'), 'Partido habilitado')}>Habilitar</Btn>}
-        {m.status === 'READY' && <Btn disabled={busy} onClick={() => run(() => api('POST', '/matches/' + id + '/unready'), 'Habilitación revertida')}>Revertir habilitación</Btn>}
+        {m.status === 'SCHEDULED' && <Btn tone="accent" disabled={busy} onClick={() => run(() => api('POST', '/matches/' + id + '/ready'), 'Partido habilitado')}>Habilitar partido</Btn>}
+        {m.status === 'READY' && <Btn disabled={busy} onClick={() => run(() => api('POST', '/matches/' + id + '/unready'), 'Habilitación revertida')}>Deshabilitar partido</Btn>}
         {m.status !== 'FINISHED' && m.status !== 'CANCELLED' && (
           <Btn tone="danger" disabled={busy} onClick={() => confirm('¿Cancelar el partido?') && run(() => api('POST', '/matches/' + id + '/cancel'), 'Partido cancelado')}>Cancelar partido</Btn>
         )}
@@ -114,3 +113,6 @@ export default function AdminMatchPage() {
     </div>
   )
 }
+
+
+

@@ -5,8 +5,10 @@ import { useMatchesFeed } from '../../hooks/useMatchesFeed'
 import { useMatchesStore } from '../../stores/matchesStore'
 import { fmtWhen } from '../../lib/format'
 import StatusPill from '../../components/StatusPill'
+import Versus from '../../components/Versus'
 
 const ORDER = { LIVE: 0, READY: 1, SCHEDULED: 2 }
+const pad = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
 
 export default function DashboardPage() {
   useMatchesFeed()
@@ -54,6 +56,10 @@ export default function DashboardPage() {
       {courts.map(({ court, main: m, extra }) => {
         const t = ticks[m.id]
         const paused = m.status === 'LIVE' && t?.isMatchPaused
+        const center =
+          m.status === 'LIVE' ? (
+            <span className="font-mono text-2xl font-extrabold tabular-nums text-accent">{pad(t?.matchTime)}</span>
+          ) : undefined
         return (
           <Link key={court} to={'/partido/' + m.id} className="block rounded-3xl border border-line bg-surface p-5">
             <div className="flex items-center justify-between">
@@ -64,22 +70,14 @@ export default function DashboardPage() {
                 <StatusPill status={m.status} />
               )}
             </div>
-            <div className="mt-3 flex items-end justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-lg font-extrabold">
-                  {m.teamA?.name ?? 'Por definir'} <span className="font-normal text-muted">vs</span> {m.teamB?.name ?? 'Por definir'}
-                </p>
-                <p className="text-sm text-muted">{fmtWhen(m.scheduledAt)}</p>
-              </div>
-              {m.status === 'LIVE' && (
-                <span className="font-mono text-2xl font-extrabold tabular-nums text-accent">{t?.matchTime ? t.matchTime.replace(/^(\d):/, '0$1:') : '--:--'}</span>
-              )}
+            <div className="mt-4">
+              <Versus a={m.teamA} b={m.teamB} size="lg" center={center} />
             </div>
-            {extra > 0 && <p className="mt-2 text-xs text-muted">+{extra} más en esta cancha</p>}
+            <p className="mt-3 text-center text-sm text-muted">{fmtWhen(m.scheduledAt)}</p>
+            {extra > 0 && <p className="mt-1 text-center text-xs text-muted">+{extra} más en esta cancha</p>}
           </Link>
         )
       })}
     </div>
   )
 }
-

@@ -19,3 +19,10 @@ export function fmtWhen(iso) {
   const time = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
   return day.charAt(0).toUpperCase() + day.slice(1) + ' · ' + time
 }
+
+
+// "3:45" o "03:45" -> segundos. null si no viene o no matchea.
+export function toSeconds(t) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t ?? '')
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null
+}

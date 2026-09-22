@@ -4,11 +4,11 @@ import { Menu } from 'lucide-react'
 import Drawer from './Drawer'
 import BottomNav from './BottomNav'
 import { useAuthStore } from '../stores/authStore'
+import UserAvatar from './UserAvatar'
 
 export default function AppLayout() {
   const [open, setOpen] = useState(false)
   const user = useAuthStore((s) => s.user)
-  const initials = (user?.email ?? '?').slice(0, 2).toUpperCase()
 
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col">
@@ -21,13 +21,11 @@ export default function AppLayout() {
           <Menu size={20} />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted">Championship Chrono</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted">Dodgeball</p>
           <p className="truncate text-lg font-extrabold leading-tight">Cronómetro Dodgeball</p>
         </div>
         {user ? (
-          <Link to="/perfil" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-accent text-sm font-extrabold text-black">
-            {initials}
-          </Link>
+          <Link to="/perfil" className="shrink-0"><UserAvatar /></Link>
         ) : (
           <Link to="/login" className="shrink-0 rounded-xl bg-accent px-4 py-2 text-sm font-bold text-black">
             Ingresar
@@ -44,3 +42,5 @@ export default function AppLayout() {
     </div>
   )
 }
+
+

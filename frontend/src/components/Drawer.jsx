@@ -1,6 +1,8 @@
 ﻿import { NavLink, Link } from 'react-router-dom'
 import { X, LogOut, LogIn } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
+import UserAvatar from './UserAvatar'
+import PersonName from './PersonName'
 import { ITEMS, SECTIONS, GENERAL, roleLabel } from '../lib/navConfig'
 
 function Item({ to, label, Icon, soon, onClose }) {
@@ -26,8 +28,7 @@ function Title({ children }) {
 }
 
 export default function Drawer({ open, onClose }) {
-  const { user, menu, signOut } = useAuthStore()
-  const initials = (user?.email ?? '?').slice(0, 2).toUpperCase()
+  const { user, menu, signOut, profile } = useAuthStore()
 
   return (
     <div className={'fixed inset-0 z-40 ' + (open ? '' : 'pointer-events-none')}>
@@ -52,9 +53,9 @@ export default function Drawer({ open, onClose }) {
         </div>
 
         <div className="mt-5 flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-accent text-sm font-extrabold text-black">{initials}</div>
+          <UserAvatar />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold">{user ? user.email : 'Visitante'}</p>
+            <p className="truncate text-sm font-bold">{user ? <PersonName p={profile} fallback={user.email} /> : 'Visitante'}</p>
             <p className="text-xs text-muted">{user ? 'Sesión iniciada' : 'Solo lectura'}</p>
           </div>
           {user && (
@@ -101,3 +102,5 @@ export default function Drawer({ open, onClose }) {
     </div>
   )
 }
+
+

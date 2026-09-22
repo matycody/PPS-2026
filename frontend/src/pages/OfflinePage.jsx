@@ -4,7 +4,7 @@ import { MODALITY } from '../lib/format'
 
 const DEFAULTS = { match: 20 * 60, set: 3 * 60 }
 const CLOTH_RESET_SEC = 90 // Cloth: el reloj del partido vuelve a 01:30
-const CLOTH_LIMIT_MS = 3 * 60 * 1000 // ...si le quedan menos de 3 min
+const CLOTH_LIMIT_MS = 2 * 60 * 1000 // ...si le quedan menos de 2 min
 const MSG = {
   set: 'SET TERMINADO',
   sudden: 'MUERTE SÚBITA (NO HAY ESCUDO)',
@@ -207,3 +207,4 @@ export default function OfflinePage() {
     </div>
   )
 }
+

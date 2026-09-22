@@ -5,12 +5,15 @@ import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
 import { normMatch, MODALITY, BRANCH } from '../lib/format'
 import StatusPill from '../components/StatusPill'
+import Versus from '../components/Versus'
+
+const showTime = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
 
 function ClockCard({ label, time, paused, color }) {
   return (
     <div className="rounded-3xl border border-line bg-surface p-5">
       <p className="text-xs font-bold uppercase tracking-widest text-muted">{label}</p>
-      <p className={'my-4 text-center font-mono text-5xl font-extrabold tabular-nums ' + color}>{time ? time.replace(/^(\d):/, '0$1:') : '--:--'}</p>
+      <p className={'my-4 text-center font-mono text-5xl font-extrabold tabular-nums ' + color}>{showTime(time)}</p>
       <p className={'rounded-full py-2 text-center text-xs font-bold uppercase ' + (paused ? 'bg-danger/15 text-danger' : 'bg-live/15 text-live')}>
         {paused ? 'Pausado' : 'En marcha'}
       </p>
@@ -35,6 +38,7 @@ export default function MatchPage() {
     const onUpdated = (p) => (p.matchId ?? p.id) === id && setM((prev) => ({ ...prev, ...normMatch(p) }))
     const onMsg = (p) => p.matchId === id && setNotice(p.message || 'SE TERMINÓ EL PARTIDO')
 
+    socket.connect()
     if (socket.connected) join()
     socket.on('connect', join)
     socket.on('match:tick', onTick)
@@ -57,18 +61,13 @@ export default function MatchPage() {
   if (error) return <p className="mt-10 text-center text-danger">{error}</p>
   if (!m) return <p className="mt-10 text-center text-muted">Cargando…</p>
 
-  const a = m.teamA?.name ?? 'Por definir'
-  const b = m.teamB?.name ?? 'Por definir'
   const second = Number(tick?.matchHalf) === 2
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-accent">{a} vs {b}</p>
-          <p className="text-sm text-muted">Cancha {m.court} · {BRANCH[m.branch] ?? m.branch}</p>
-        </div>
+      <div className="flex flex-col items-center gap-2 text-center">
         <StatusPill status={m.status} />
+        <p className="text-sm text-muted">Cancha {m.court} · {BRANCH[m.branch] ?? m.branch}</p>
       </div>
 
       {notice && (
@@ -78,14 +77,17 @@ export default function MatchPage() {
       )}
 
       <div className="rounded-3xl border border-line bg-surface p-5">
-        <p className="text-xs font-bold uppercase tracking-widest text-muted">Marcador</p>
-        <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-          <span className="truncate font-semibold">{a}</span>
-          <span className="font-mono text-4xl font-extrabold tabular-nums text-accent">
-            {m.score?.teamA ?? 0} <span className="text-lg text-muted">VS</span> {m.score?.teamB ?? 0}
-          </span>
-          <span className="truncate text-right font-semibold">{b}</span>
-        </div>
+        <p className="mb-4 text-center text-xs font-bold uppercase tracking-widest text-muted">Marcador</p>
+        <Versus
+          a={m.teamA}
+          b={m.teamB}
+          size="xl"
+          center={
+            <span className="font-mono text-4xl font-extrabold tabular-nums text-accent">
+              {m.score?.teamA ?? 0} <span className="text-lg text-muted">-</span> {m.score?.teamB ?? 0}
+            </span>
+          }
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -111,5 +113,3 @@ export default function MatchPage() {
     </div>
   )
 }
-
-

@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import { BRANCH } from '../lib/format'
 import TeamBadge from '../components/TeamBadge'
+import Roster from '../components/Roster'
 
 export default function TeamPage() {
   const { id } = useParams()
@@ -51,20 +52,7 @@ export default function TeamPage() {
         {heart('TEAM', team.id)}
       </div>
 
-      <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Plantel</h2>
-      {(team.roster ?? []).length === 0 && <p className="text-muted">Sin jugadores cargados.</p>}
-      <div className="space-y-2">
-        {(team.roster ?? []).map((r) => (
-          <div key={r.profileId + r.branch} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
-            <div className="grid h-10 w-10 place-items-center rounded-full bg-surface-2 text-sm font-extrabold text-muted">
-              {r.name.charAt(0).toUpperCase()}
-            </div>
-            <span className="flex-1 truncate font-semibold">{r.name}</span>
-            <span className="text-xs text-muted">{BRANCH[r.branch] ?? r.branch}</span>
-            {heart('PLAYER', r.profileId)}
-          </div>
-        ))}
-      </div>
+      <Roster roster={team.roster} meProfileId={user?.profileId} extra={(r) => heart('PLAYER', r.profileId)} />
     </div>
   )
 }

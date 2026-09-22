@@ -45,7 +45,7 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-      <p className="text-xs font-semibold uppercase tracking-widest text-muted">Championship Chrono</p>
+      <p className="text-xs font-semibold uppercase tracking-widest text-muted">Dodgeball</p>
       <h1 className="mb-8 mt-1 text-3xl font-extrabold">Cronómetro Dodgeball</h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -71,3 +71,4 @@ export default function LoginPage() {
     </main>
   )
 }
+

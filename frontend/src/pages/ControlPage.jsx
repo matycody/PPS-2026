@@ -1,16 +1,20 @@
 ﻿import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { ChevronLeft, Play, Pause, RotateCcw, Minus, Plus, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
 import { normMatch, MODALITY } from '../lib/format'
 import StatusPill from '../components/StatusPill'
+import Versus from '../components/Versus'
 
 const ACTIONS = {
   START: 'Iniciado', PAUSE: 'Pausado', RESUME: 'Reanudado', RESET: 'Reiniciado',
   ADJUST: 'Tiempo ajustado', SET_TIME: 'Tiempo fijado', SET_MODALITY: 'Modalidad cambiada',
   SET_HALF: 'Tiempo cambiado', FINISH_HALF: 'Tiempo finalizado',
 }
+
+// El backend manda "1:48"; se muestra "01:48"
+const showTime = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
 
 function parseMMSS(v) {
   const r = /^(\d{1,2}):?(\d{2})$/.exec(v.trim())
@@ -51,7 +55,7 @@ function Clock({ label, timer, time, paused, can, send, color }) {
           {paused ? 'Pausado' : 'En marcha'}
         </span>
       </div>
-      <p className={'my-3 text-center font-mono text-6xl font-extrabold tabular-nums ' + color}>{time ? time.replace(/^(\d):/, '0$1:') : '--:--'}</p>
+      <p className={'my-3 text-center font-mono text-6xl font-extrabold tabular-nums ' + color}>{showTime(time)}</p>
       <div className="grid grid-cols-2 gap-2">
         <Btn
           disabled={!can}
@@ -84,6 +88,7 @@ function Clock({ label, timer, time, paused, can, send, color }) {
 
 export default function ControlPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [m, setM] = useState(null)
   const [tick, setTick] = useState(null)
   const [perms, setPerms] = useState(null)
@@ -113,6 +118,7 @@ export default function ControlPage() {
     const onUpdated = (p) => (p.matchId ?? p.id) === id && setM((prev) => ({ ...prev, ...normMatch(p) }))
     const onMsg = (p) => mine(p) && pushNotice(p.message || 'SE TERMINÓ EL PARTIDO')
 
+    socket.connect()
     if (socket.connected) join()
     socket.on('connect', join)
     socket.on('match:tick', onTick)
@@ -156,24 +162,26 @@ export default function ControlPage() {
   const a = m.teamA
   const b = m.teamB
   const live = m.status === 'LIVE'
-  const can = !!perms?.canControlClock && live
+  const isCloth = m.modality === 'CLOTH'
+  const can = !!perms?.canControlClock
   const half = Number(tick?.matchHalf)
+  const matchAtZero = /^0{1,2}:00$/.test(tick?.matchTime ?? '')
   const hasTablePanel = perms && (perms.canReady || perms.canUnready || perms.canAddSets || perms.canEditResult || perms.canFinish)
+  const addSet = (body) => run(() => api('POST', '/matches/' + id + '/sets', body))
+  const act = (path) => run(async () => {
+    const r = await api('POST', '/matches/' + id + path)
+    if (r) setM((prev) => ({ ...prev, ...normMatch(r) }))
+  })
 
   return (
     <div className="space-y-4">
-      <Link to={-1} className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
+      <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
         <ChevronLeft size={16} /> Volver
-      </Link>
+      </button>
 
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-bold uppercase tracking-widest text-accent">
-            {a?.name ?? 'Por definir'} vs {b?.name ?? 'Por definir'}
-          </p>
-          <p className="text-sm text-muted">Cancha {m.court} · {MODALITY[m.modality] ?? m.modality}</p>
-        </div>
+      <div className="flex flex-col items-center gap-2 text-center">
         <StatusPill status={m.status} />
+        <p className="text-sm text-muted">Cancha {m.court} · {MODALITY[m.modality] ?? m.modality}</p>
       </div>
 
       {err && (
@@ -188,13 +196,16 @@ export default function ControlPage() {
       ))}
 
       <div className="rounded-3xl border border-line bg-surface p-5">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-          <span className="truncate font-semibold">{a?.name ?? 'Por definir'}</span>
-          <span className="font-mono text-4xl font-extrabold tabular-nums text-accent">
-            {m.score?.teamA ?? 0} <span className="text-lg text-muted">-</span> {m.score?.teamB ?? 0}
-          </span>
-          <span className="truncate text-right font-semibold">{b?.name ?? 'Por definir'}</span>
-        </div>
+        <Versus
+          a={a}
+          b={b}
+          size="lg"
+          center={
+            <span className="font-mono text-4xl font-extrabold tabular-nums text-accent">
+              {m.score?.teamA ?? 0} <span className="text-lg text-muted">-</span> {m.score?.teamB ?? 0}
+            </span>
+          }
+        />
         {last && (
           <p className="mt-3 text-center text-xs text-muted">
             Última acción: {ACTIONS[last.action] ?? last.action} por {last.by}
@@ -213,7 +224,7 @@ export default function ControlPage() {
         </Btn>
       )}
 
-      {(m.status === 'SCHEDULED' && !perms?.canReady) && (
+      {m.status === 'SCHEDULED' && !perms?.canReady && (
         <p className="rounded-2xl border border-line bg-surface p-4 text-center text-sm text-muted">
           El partido todavía no está habilitado. La mesa tiene que habilitarlo.
         </p>
@@ -240,7 +251,7 @@ export default function ControlPage() {
         <div className="grid grid-cols-2 gap-2">
           <Btn disabled={!can} tone={half === 1 ? 'accent' : 'base'} onClick={() => send('match:setHalf', { half: 1 })}>1er tiempo</Btn>
           <Btn disabled={!can} tone={half === 2 ? 'accent' : 'base'} onClick={() => send('match:setHalf', { half: 2 })}>2do tiempo</Btn>
-          {(m.modality === 'CLOTH' || /^0{1,2}:00$/.test(tick?.matchTime ?? '')) && (
+          {(isCloth || matchAtZero) && (
             <Btn disabled={!can} onClick={() => send('match:finishHalf')} className="col-span-2">
               {half === 2 ? 'Fin del partido (reloj)' : 'Finalizar tiempo'}
             </Btn>
@@ -254,8 +265,8 @@ export default function ControlPage() {
 
           {(perms.canReady || perms.canUnready) && (
             <div className="grid grid-cols-2 gap-2">
-              <Btn tone="accent" disabled={busy || !perms.canReady} onClick={() => run(() => api('POST', '/matches/' + id + '/ready'))}>Habilitar</Btn>
-              <Btn disabled={busy || !perms.canUnready} onClick={() => run(() => api('POST', '/matches/' + id + '/unready'))}>Revertir</Btn>
+              <Btn tone="accent" disabled={busy || !perms.canReady} onClick={() => act('/ready')}>Habilitar partido</Btn>
+              <Btn disabled={busy || !perms.canUnready} onClick={() => act('/unready')}>Deshabilitar partido</Btn>
             </div>
           )}
 
@@ -264,10 +275,15 @@ export default function ControlPage() {
               <p className="mb-2 text-sm font-semibold">Set ganado por</p>
               <div className="grid grid-cols-2 gap-2">
                 {[a, b].map((t, i) => (
-                  <Btn key={i} disabled={busy || !t} onClick={() => run(() => api('POST', '/matches/' + id + '/sets', { winnerTeamId: t.id }))}>
+                  <Btn key={i} disabled={busy || !t} onClick={() => addSet({ winnerTeamId: t.id })}>
                     {t?.name ?? 'Por definir'}
                   </Btn>
                 ))}
+                {isCloth && (
+                  <Btn disabled={busy} onClick={() => addSet({ draw: true })} className="col-span-2">
+                    Empate
+                  </Btn>
+                )}
               </div>
             </div>
           )}
@@ -275,10 +291,11 @@ export default function ControlPage() {
           {(m.sets ?? []).length > 0 && (
             <ul className="space-y-1">
               {m.sets.map((s) => {
+                const isDraw = s.draw === true || s.winnerTeamId == null
                 const w = s.winnerTeamId === a?.id ? a : b
                 return (
                   <li key={s.number} className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2 text-sm">
-                    <span>Set {s.number}: <b>{w?.name ?? '—'}</b></span>
+                    <span>Set {s.number}: <b>{isDraw ? 'Empate' : (w?.name ?? '—')}</b></span>
                     {perms.canEditResult && (
                       <button disabled={busy} onClick={() => run(() => api('DELETE', '/matches/' + id + '/sets/' + s.number))} className="text-danger">
                         <X size={16} />
@@ -309,7 +326,6 @@ export default function ControlPage() {
     </div>
   )
 }
-
 
 
 

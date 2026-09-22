@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Heart } from 'lucide-react'
 import { api } from '../lib/api'
 import TeamBadge from '../components/TeamBadge'
+import PersonName from '../components/PersonName'
 
 export default function FavoritosPage() {
   const [favs, setFavs] = useState(null)
@@ -39,7 +40,7 @@ export default function FavoritosPage() {
             {f.targetType === 'TEAM' ? (
               <Link to={'/equipo/' + f.targetId} className="flex-1 truncate font-bold">{f.name}</Link>
             ) : (
-              <span className="flex-1 truncate font-bold">{f.name}</span>
+              <PersonName p={f} className="flex-1 truncate font-bold" />
             )}
             <span className="text-[11px] font-bold uppercase text-muted">{f.targetType === 'TEAM' ? 'Equipo' : 'Jugador'}</span>
             <button
@@ -67,3 +68,4 @@ export default function FavoritosPage() {
     </div>
   )
 }
+

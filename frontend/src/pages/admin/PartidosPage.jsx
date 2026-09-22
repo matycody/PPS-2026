@@ -1,11 +1,10 @@
 ﻿import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { api } from '../../lib/api'
-import { fmtWhen, STATUS } from '../../lib/format'
+import { STATUS } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import MatchForm from '../../components/MatchForm'
-import StatusPill from '../../components/StatusPill'
+import MatchCard from '../../components/MatchCard'
 
 export default function PartidosPage() {
   const [matches, setMatches] = useState(null)
@@ -60,17 +59,10 @@ export default function PartidosPage() {
       {matches && list.length === 0 && <p className="text-muted">No hay partidos.</p>}
       <div className="space-y-2">
         {list.map((m) => (
-          <Link key={m.id} to={'/admin/partidos/' + m.id} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4">
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-bold">
-                {m.teamA?.name ?? 'Por definir'} <span className="font-normal text-muted">vs</span> {m.teamB?.name ?? 'Por definir'}
-              </p>
-              <p className="truncate text-sm text-muted">{fmtWhen(m.scheduledAt)} · Cancha {m.court}</p>
-            </div>
-            <StatusPill status={m.status} />
-          </Link>
+          <MatchCard key={m.id} m={m} to={'/admin/partidos/' + m.id} />
         ))}
       </div>
     </div>
   )
 }
+

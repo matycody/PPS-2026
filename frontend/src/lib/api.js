@@ -40,3 +40,20 @@ export async function apiUploadPhoto(file) {
   if (!res.ok) throw Object.assign(new Error(json?.error || 'Error al subir la foto'), { status: res.status })
   return json
 }
+
+export async function apiUpload(path, file) {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  const res = await fetch(BASE + path, {
+    method: 'PUT',
+    headers: {
+      'ngrok-skip-browser-warning': 'true',
+      'Content-Type': file.type,
+      ...(token ? { Authorization: 'Bearer ' + token } : {}),
+    },
+    body: file,
+  })
+  const json = await res.json().catch(() => null)
+  if (!res.ok) throw Object.assign(new Error(json?.error || 'Error al subir la imagen'), { status: res.status })
+  return json
+}
