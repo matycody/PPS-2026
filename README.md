@@ -1,107 +1,73 @@
-# 🏐 Dodgeball BA Cronómetro
+# 🏐 Dodgeball BA Cronómetro — Guía de instalación
 
-Cronómetro web para partidos de dodgeball, hecho para **Dodgeball Buenos Aires (DBA)**. Práctica Profesional Supervisada (PPS) 2026.
+Esta guía asume que la PC está en blanco: no tiene Git, ni Node, ni el proyecto clonado.
 
-Maneja dos relojes por partido (partido de 20 min y set de 3 min), dos modalidades (Foam y Cloth) y varias canchas en simultáneo. El estado se sincroniza en tiempo real entre todas las pantallas conectadas.
+## 1️⃣ Programas que hay que instalar
 
-🔗 **Demo online:** https://pps-2026.vercel.app
-🔗 **Backend online:** https://pps-2026.onrender.com/health
-> El backend está en el plan gratuito de Render: si estuvo inactivo, la primera respuesta tarda ~30 s.
+Solo **2**. Todo lo demás (React, Express, Prisma, Supabase, etc.) se instala solo más adelante con un comando.
 
-## ✨ Qué hace hoy (Sprint 1)
-- Dos relojes independientes por partido: partido (20 min) y set (3 min).
-- Pausa y reanudación por reloj o de ambos a la vez.
-- Selector de modalidad: Foam o Cloth.
-- Ambos relojes se congelan en 0:00 hasta un reset manual.
-- Control manual de los tiempos (1.º y 2.º) por el árbitro.
-- Varias canchas en simultáneo.
-- Mensajes automáticos: "SET TERMINADO", "MUERTE SÚBITA (NO HAY ESCUDO)" y "SE TERMINÓ EL PARTIDO".
-- Notificaciones apiladas y sincronización en tiempo real entre pantallas.
-
-**Próximos sprints:** login con Supabase Auth y roles, persistencia en la base de datos Neon, estadísticas y cronograma.
-
-## 🧰 Stack
-| Capa | Tecnología |
-|---|---|
-| Frontend | React 19, Vite 8, Zustand 5, Tailwind CSS v4, socket.io-client (Vercel) |
-| Backend | Node.js 24, Express 5, Socket.IO 4 (Render) |
-| Base de datos | PostgreSQL en Neon, con Prisma 7 (configurado; se usa desde el Sprint 2) |
-| Auth | Supabase Auth (Sprint 2) |
-
-## 📁 Estructura
-```
-PPS-2026/
-├── backend/
-│   ├── server.js                   Punto de entrada (Express + Socket.IO)
-│   ├── package.json
-│   ├── prisma.config.ts            Configuración de Prisma (conexión a la BD)
-│   ├── prisma/                     Esquema de la base de datos
-│   ├── .env.example                Plantilla de variables del backend
-│   └── src/
-│       ├── sockets/
-│       │   └── matchSocket.js      Manejo de los eventos Socket.IO del partido
-│       └── timers/
-│           ├── TimerEngine.js      Motor de los dos relojes (partido y set)
-│           ├── matchManager.js     Un motor por partido, varias canchas a la vez
-│           └── timerEvents.js      Nombres de los eventos Socket.IO
-├── frontend/
-│   ├── package.json
-│   ├── .env.example                Plantilla de variables del frontend
-│   └── src/                        Interfaz (React + Vite)
-├── .gitignore
-├── CLAUDE.md                       Contexto del proyecto para asistentes de código
-└── README.md
-```
-
-## 🛠️ Instalación de las tecnologías
-Hay que instalar **solo 2 programas**: Git y Node.js. Todo lo demás (React, Vite, Express, Socket.IO, Zustand, Tailwind, Prisma) se instala solo con `npm install`, porque está declarado en el `package.json` de cada carpeta. **No se instala nada de forma global.**
-
-### 1. Git
-1. Descargarlo desde https://git-scm.com/downloads e instalarlo con las opciones por defecto.
-2. Verificar en una terminal:
+### Git
+1. Descargar de https://git-scm.com/downloads e instalar con las opciones por defecto (siguiente, siguiente, siguiente).
+2. Abrir una terminal (cmd, PowerShell o Git Bash) y verificar:
 ```bash
-git --version
+   git --version
 ```
+   Tiene que mostrar un número de versión. Si no lo reconoce, cerrá y volvé a abrir la terminal.
 
-### 2. Node.js (incluye npm)
-1. Descargar **Node.js 24 (LTS)** desde https://nodejs.org e instalarlo con las opciones por defecto. El proyecto se desarrolló y probó con `v24.20.0`.
-2. **Cerrar y volver a abrir la terminal**, y verificar:
+### Node.js 24 (LTS)
+1. Descargar la versión **LTS** desde https://nodejs.org (NO la "Current"). El proyecto se probó con `v24.20.0`.
+2. Instalar con las opciones por defecto.
+3. **Cerrar y volver a abrir la terminal** (obligatorio) y verificar:
 ```bash
-node --version
-npm --version
+   node --version
+   npm --version
 ```
-`node --version` debe empezar con `v24`.
+   `node --version` tiene que empezar con `v24`.
 
-### 3. Editor (opcional)
-Cualquier editor sirve. Recomendado: Visual Studio Code (https://code.visualstudio.com).
+### ⚠️ Solo si usás Windows con PowerShell
+Si más adelante `npm` da un error de "la ejecución de scripts está deshabilitada", corré una sola vez:
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+Cerrá la terminal y volvé a intentar. Alternativa: usar el Símbolo del sistema (cmd) o Git Bash, que no tienen esta restricción.
 
-### 4. Postman (opcional)
-Solo sirve para probar el backend a mano con eventos Socket.IO. No es necesario para correr el proyecto.
+### Opcionales (no imprescindibles)
+- **Visual Studio Code** (https://code.visualstudio.com) como editor.
+- **Postman**, solo para probar la API a mano.
 
-### 5. Lo que instala `npm install`
-| Carpeta | Se instala automáticamente |
-|---|---|
-| `backend/` | Express 5, Socket.IO 4, cors, dotenv y Prisma 7 |
-| `frontend/` | React 19, Vite 8, Zustand 5, Tailwind CSS v4 (plugin `@tailwindcss/vite`), socket.io-client y `@supabase/supabase-js` |
+## 2️⃣ Credenciales que necesitás antes de arrancar
 
-## 🚀 Cómo correrlo en local
-Todo corre en **una sola computadora**: backend y frontend se levantan en la misma PC, en dos terminales, y se conectan por `localhost`. No hace falta ngrok, ni una segunda máquina, ni un segundo usuario.
+Estas **no están en el repo** (por seguridad) y hay que pedírselas a Matías o Rodri por un canal privado (nunca por mail ni por Discord en texto plano):
 
-> Durante el desarrollo, cada integrante levantaba una parte en su propia PC. Para evaluar el proyecto no es necesario: con los pasos de abajo alcanza.
+- Connection string de **Neon** (base de datos)
+- **Supabase**: URL del proyecto, clave anónima y clave "service role"
+- Uno o más mails para usar como **admin de prueba**
 
-### 1. Clonar
+Sin esto podés instalar todo, pero el backend no arranca del todo funcional.
+
+## 3️⃣ Clonar el repositorio
+
 ```bash
 git clone https://github.com/matycody/PPS-2026.git
 cd PPS-2026
+git branch
 ```
-> Conviene clonar en una carpeta que **no** esté sincronizada con OneDrive: `node_modules` tiene miles de archivos y la sincronización lo vuelve lento.
+El último comando tiene que mostrar que estás parado en `main`.
 
-### 2. Backend (terminal 1)
+> Elegí una carpeta que **no** esté sincronizada con OneDrive/Google Drive: el proyecto genera miles de archivos (`node_modules`) y la sincronización lo vuelve todo lento.
+
+## 4️⃣ Backend
+
+Abrí una terminal y quedate parado siempre en `backend/` para estos pasos:
+
 ```bash
 cd backend
 npm install
 ```
-Copiar la plantilla de variables:
+
+Esto instala Express, Socket.IO, Prisma, el cliente de Supabase y todo lo demás automáticamente — no hay que instalar nada de eso a mano.
+
+Copiar la plantilla de variables de entorno:
 ```bash
 # Windows (cmd)
 copy .env.example .env
@@ -109,124 +75,109 @@ copy .env.example .env
 # Mac / Linux / PowerShell / Git Bash
 cp .env.example .env
 ```
+
+Abrir `backend/.env` con el editor y completar con las credenciales del paso 2:
+```
+PORT=3001
+DATABASE_URL=<connection string de Neon>
+SUPABASE_URL=<url del proyecto de Supabase>
+SUPABASE_ANON_KEY=<clave anon>
+SUPABASE_SERVICE_ROLE_KEY=<clave service role>
+ADMIN_EMAILS=tu-mail@ejemplo.com
+```
+
+Generar el cliente de Prisma (la base de Neon ya existe y es compartida por el equipo, así que solo hace falta esto, no crear tablas ni cargar datos):
+```bash
+npx prisma generate
+```
+
+> ⚠️ No corras `npx prisma migrate deploy` ni `npm run seed` a menos que te conectes a una base de Neon **vacía y nueva**. Contra la base compartida del equipo, esos comandos no hacen falta.
+
 Levantar el servidor:
 ```bash
 npm run dev
 ```
-Tiene que aparecer `Servidor escuchando en http://localhost:3001`. **Dejá esta terminal abierta.**
+Tiene que aparecer en la terminal:
+```
+Servidor escuchando en http://localhost:3001
+```
+**Dejá esta terminal abierta** mientras trabajás.
 
-### 3. Frontend (terminal 2, misma PC)
-Abrí una **segunda terminal** desde la raíz del proyecto:
+## 5️⃣ Frontend
+
+Abrí una **segunda terminal** (sin cerrar la del backend) y andá a la raíz del proyecto:
+
 ```bash
-cd frontend
+cd PPS-2026/frontend
 npm install
 ```
+
 Copiar la plantilla de variables:
 ```bash
 # Windows (cmd)
-copy .env.example .env.local
+copy .env.local.example .env.local
 
 # Mac / Linux / PowerShell / Git Bash
-cp .env.example .env.local
+cp .env.local.example .env.local
 ```
+
+Abrir `frontend/.env.local` y completar:
+```
+VITE_BACKEND_URL=http://localhost:3001
+VITE_SUPABASE_URL=<la misma URL de Supabase del paso 4>
+VITE_SUPABASE_ANON_KEY=<la misma clave anon del paso 4>
+```
+
 Levantar el frontend:
 ```bash
 npm run dev
 ```
-Se abre en `http://localhost:5173`.
+La terminal va a mostrar una URL, normalmente:
+```
+http://localhost:5173
+```
 
-### Scripts disponibles
-| Carpeta | Comando | Qué hace |
-|---|---|---|
-| `backend/` | `npm run dev` | Levanta el servidor (`node server.js`) |
-| `backend/` | `npm start` | Igual que `dev`; es el que usa Render en producción |
-| `frontend/` | `npm run dev` | Servidor de desarrollo de Vite |
-| `frontend/` | `npm run build` | Genera el build de producción |
-| `frontend/` | `npm run preview` | Sirve el build generado |
-| `frontend/` | `npm run lint` | Revisa el código con ESLint |
+## 6️⃣ Verificar que todo quedó bien instalado
 
-## 🔑 Variables de entorno
-Los archivos `.env` **no se suben al repo** (están en `.gitignore`). Cada carpeta trae un `.env.example` para copiar.
+**a) El backend responde:**
+Abrí en el navegador http://localhost:3001/health — tiene que devolver algo como `{"status":"ok"}`.
+> `http://localhost:3001` a secas **no tiene interfaz visual** (da "Cannot GET /"). Es normal, es solo la API.
 
-> En local, `VITE_BACKEND_URL` siempre apunta a `http://localhost:3001`.
+**b) Test automático completo (recomendado):**
+Con el backend corriendo, en una tercera terminal (o parando el backend un segundo y volviendo a levantarlo después):
+```bash
+cd backend
+npm run smoke
+```
+Corre ~135 chequeos automáticos contra el backend real (crea y borra usuarios de prueba con el prefijo `SMOKE`, no toca datos reales). Si terminan todos en OK, confirmás que Node, Prisma, Neon y Supabase están bien conectados entre sí.
 
-**`backend/.env`**
-| Variable | Descripción |
+**c) La app se ve:**
+Abrí en el navegador la URL que mostró Vite (**http://localhost:5173**, no la 3001). Tiene que verse el cronómetro. Abrí la consola (F12) y confirmá que diga `[socket] conectado`.
+
+**d) El login funciona:**
+Andá al dashboard de Supabase → **Authentication → Users** → crear un usuario nuevo con **"Auto Confirm User" activado**. Sin eso el registro pide confirmar el mail y en local no hay forma de recibirlo. Con ese usuario, probá loguearte en la app.
+
+## 7️⃣ Problemas más comunes
+
+| Problema | Qué hacer |
 |---|---|
-| `PORT` | Puerto del servidor. Por defecto `3001` |
-| `DATABASE_URL` | Connection string de Neon (con `?sslmode=require`). **El servidor todavía no se conecta a la base al arrancar**: para correr el proyecto en local se puede dejar el valor de ejemplo |
+| `node` o `npm` no se reconocen | Cerrá y abrí la terminal de nuevo; si sigue, reinstalá Node.js |
+| Error de ejecución de scripts en PowerShell | Ver el paso ⚠️ de más arriba |
+| `ENOENT ... package.json` | Estás en la carpeta equivocada: `npm install`/`npm run dev` siempre dentro de `backend/` o `frontend/`, nunca en la raíz del repo |
+| `.env.example` no existe | Estás en la carpeta equivocada, o clonaste otra rama (verificá con `git branch` que sea `main`) |
+| Prisma dice que una migración fue modificada | `npx prisma migrate reset` (solo si es una base de prueba propia) y después `npm run seed` |
+| El registro no confirma el mail | Crear el usuario en Supabase con "Auto Confirm User" en vez de registrarte desde la app |
+| El frontend no conecta con el backend | Verificá que la terminal del backend siga corriendo, revisá `VITE_BACKEND_URL` y reiniciá `npm run dev` del frontend |
+| `Port 3001 is already in use` | Hay otro proceso usando ese puerto: cerralo, o cambiá `PORT` en `backend/.env` |
+| `npm install` tarda muchísimo | La carpeta está dentro de OneDrive/Drive: cloná el repo en otra ubicación |
 
-**`frontend/.env.local`**
-| Variable | Descripción |
-|---|---|
-| `VITE_BACKEND_URL` | URL del backend. Local: `http://localhost:3001` |
-
-> Si cambiás una variable de Vite, **reiniciá `npm run dev`**: se lee una sola vez al arrancar.
-
-## 🧪 Cómo probar que funciona
-1. **Backend:** abrí http://localhost:3001/health. Tiene que responder `{"status":"ok", ...}`.
-2. **Frontend:** abrí http://localhost:5173 y, en la consola del navegador (F12), verificá que aparezca `[socket] conectado`.
-3. Elegí modalidad (Foam o Cloth) e iniciá el partido.
-4. Abrí la misma URL en una segunda pestaña o ventana del mismo navegador: los relojes se ven sincronizados.
-5. Probá pausar solo el set, pausar ambos y reanudar: cada reloj responde por separado.
-
-## 🌐 API REST
-| Método | Ruta | Respuesta |
-|---|---|---|
-| `GET` | `/health` | `{ "status": "ok", "message": "..." }`. Sirve para verificar que el backend está vivo o despertar a Render |
-
-El resto de la comunicación es por Socket.IO (ver más abajo).
-
-## 🩹 Problemas frecuentes
-| Problema | Solución |
-|---|---|
-| `node` o `npm` no se reconocen | Cerrar y abrir la terminal; si sigue, reinstalar Node.js |
-| `ENOENT ... package.json` | Estás en la carpeta equivocada: correr `npm` siempre dentro de `backend/` o `frontend/`, nunca en la raíz |
-| `.env.example` no se encuentra | Estás en la carpeta equivocada o clonaste otra rama: verificá con `git branch` que estés en `main` |
-| El frontend no conecta con el backend | Revisar que el backend esté corriendo (`/health`), que `VITE_BACKEND_URL` esté bien y reiniciar `npm run dev` |
-| `Port 3001 is already in use` | Hay otro proceso usando el puerto: cerrarlo o cambiar `PORT` en `backend/.env` |
-| `npm install` muy lento | La carpeta está dentro de OneDrive: clonar en otra ubicación |
-| En la demo online tarda en responder | Es el cold start de Render: abrir `/health` y esperar ~30 s |
-
-## 📡 Eventos Socket.IO
-Los nombres están centralizados en `backend/src/timers/timerEvents.js`.
-
-**El cliente envía (el backend escucha)**
-| Evento | Para qué |
-|---|---|
-| `match:start` | Iniciar el partido |
-| `match:pause` | Pausar (partido, set o ambos, según `target`) |
-| `match:resume` | Reanudar (según `target`) |
-| `match:reset` | Reiniciar |
-| `match:adjust` | Ajustar el tiempo |
-| `match:setTime` | Setear el tiempo en segundos totales |
-| `match:setModality` | Elegir modalidad (Foam / Cloth) |
-| `match:setHalf` | Definir el tiempo (1.º / 2.º) |
-| `match:finishHalf` | Terminar el tiempo actual |
-
-**El servidor emite (el frontend escucha)**
-| Evento | Para qué |
-|---|---|
-| `match:tick` | Estado actual de los relojes, cada segundo |
-| `match:setExpired` | El set llegó a 0:00 (incluye el mensaje a mostrar) |
-| `match:ended` | Terminó el reloj del partido |
-| `match:finished` | Terminó el partido |
-| `match:paused` | Se pausó |
-| `match:resumed` | Se reanudó |
-| `match:error` | Error en una acción |
-
-## 🌿 Flujo de trabajo
-- Ramas `feature/...` a partir de `main`.
-- Nada se mergea a `main` sin **Pull Request con al menos 1 aprobación** de otro integrante.
-- Al mergear a `main`, Render (backend) y Vercel (frontend) redeployan solos.
-
-## 👥 Equipo
-| Integrante | Rol |
-|---|---|
-| Matías Luis Sosa | Backend |
-| Rodrigo Ezequiel Olivera Calvo | Frontend |
-| Juan Ignacio Marcos Merlo | Project Manager / Scrum Master |
-
-## 📚 Documentación
-- Jira: https://proyectopps2026.atlassian.net
-- Confluence (espacio DDS): manuales de backend, frontend y deploy, arquitectura, modelo de datos y Definition of Done.
+## ✅ Checklist final
+- [ ] `node --version` empieza con `v24`
+- [ ] `git --version` funciona
+- [ ] `backend/.env` completo con las 6 variables
+- [ ] `frontend/.env.local` completo con las 3 variables
+- [ ] `npx prisma generate` corrido sin errores
+- [ ] Backend corriendo, `http://localhost:3001/health` responde OK
+- [ ] `npm run smoke` pasa todos los chequeos
+- [ ] Frontend corriendo, la app se ve en `http://localhost:5173`
+- [ ] Usuario de prueba creado en Supabase con Auto Confirm, login probado
