@@ -11,6 +11,7 @@ import PerfilPage from './pages/PerfilPage'
 import FavoritosPage from './pages/FavoritosPage'
 import TeamPage from './pages/TeamPage'
 import MiEquipoPage from './pages/MiEquipoPage'
+import MisPartidosPage from './pages/MisPartidosPage'
 import DashboardPage from './pages/admin/DashboardPage'
 import TorneosPage from './pages/admin/TorneosPage'
 import EquiposPage from './pages/admin/EquiposPage'
@@ -48,7 +49,7 @@ function PerfilTemp() {
   )
 }
 
-const PROTECTED = Object.entries(ITEMS).filter(([k]) => !['home', 'perfil', 'favoritos', 'mi_equipo', 'mis_partidos_asignados', 'control_mesa', 'dashboard_canchas', 'torneos', 'equipos', 'partidos', 'personas', 'usuarios', 'registro_ediciones'].includes(k))
+const PROTECTED = Object.entries(ITEMS).filter(([k]) => !['home', 'perfil', 'favoritos', 'mi_equipo', 'mis_partidos_asignados', 'control_mesa', 'mis_partidos', 'dashboard_canchas', 'torneos', 'equipos', 'partidos', 'personas', 'usuarios', 'registro_ediciones'].includes(k))
 
 function App() {
   const init = useAuthStore((s) => s.init)
@@ -78,6 +79,7 @@ function App() {
               <Route path="/perfil" element={<PerfilPage />} />
               <Route path="/favoritos" element={<FavoritosPage />} />
               <Route path="/mi-equipo" element={<MiEquipoPage />} />
+              <Route path="/mis-partidos" element={<MisPartidosPage />} />
               <Route path="/control/:id" element={<ControlPage />} />
             </Route>
 
@@ -128,6 +130,7 @@ function App() {
 }
 
 export default App
+
 
 
 

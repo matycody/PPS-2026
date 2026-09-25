@@ -83,15 +83,16 @@ export default function InicioPage() {
 
   return (
     <div className="space-y-5">
-      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 [scrollbar-width:none]">
+      <div className="flex flex-wrap justify-center gap-3">
         {[
           ...GENERAL.slice(0, 3),
           ...(role === 'Organizador' || role === 'Árbitro' || menu.includes('control_mesa') ? [ITEMS.control_mesa] : []),
           ...(menu.includes('usuarios') ? [ITEMS.usuarios] : []),
-        ].map(({ to, label, Icon }) => (
+        ].map(({ to, label, Icon, soon }) => (
           <Link key={to} to={to} className="flex w-28 shrink-0 flex-col items-center gap-2 rounded-2xl border border-line bg-surface px-3 py-4 text-center text-sm font-semibold">
             <Icon size={22} className="text-accent" />
             {label}
+            {soon && <span className="text-[10px] font-bold uppercase text-muted">Próximamente</span>}
           </Link>
         ))}
       </div>
@@ -142,5 +143,7 @@ export default function InicioPage() {
     </div>
   )
 }
+
+
 
 

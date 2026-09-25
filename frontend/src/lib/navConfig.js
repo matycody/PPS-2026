@@ -34,8 +34,8 @@ export const SECTIONS = [
 export const GENERAL = [
   { to: '/cronometro', label: 'Cronómetro offline', Icon: Timer },
   { to: '/liga', label: 'Liga o copas', Icon: Trophy, soon: true },
-  { to: '/reglas', label: 'Reglas del juego', Icon: BookOpen },
-  { to: '/acerca', label: 'Acerca de / Contacto', Icon: Info },
+  { to: '/reglas', label: 'Reglas del juego', Icon: BookOpen, soon: true },
+  { to: '/acerca', label: 'Acerca de / Contacto', Icon: Info, soon: true },
 ]
 
 // Los 3 primeros que existan en el menú van al bottom nav (+ Perfil)
@@ -52,3 +52,4 @@ export function roleLabel(user, menu = []) {
   if (r.includes('PLAYER')) return 'Jugador'
   return 'Registrado'
 }
+

@@ -18,7 +18,7 @@ function Item({ to, label, Icon, soon, onClose }) {
     >
       <Icon size={20} className="shrink-0" />
       <span className="flex-1">{label}</span>
-      {soon && <span className="text-[10px] font-bold uppercase text-muted">Pronto</span>}
+      {soon && <span className="text-[10px] font-bold uppercase text-muted">Próximamente</span>}
     </NavLink>
   )
 }
@@ -102,5 +102,6 @@ export default function Drawer({ open, onClose }) {
     </div>
   )
 }
+
 
 

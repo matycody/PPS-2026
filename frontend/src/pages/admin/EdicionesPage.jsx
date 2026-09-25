@@ -3,8 +3,12 @@ import { api } from '../../lib/api'
 import { inputCls } from '../../components/ui'
 import { fmtWhen } from '../../lib/format'
 
-const pretty = (v) => {
-  try { return JSON.stringify(JSON.parse(v)) } catch { return String(v ?? '—') }
+// Color del punto según el tipo de evento; lo que no reconozco queda gris
+const DOT = {
+  SET_ADD: 'bg-live',
+  SET_REMOVE: 'bg-danger',
+  MATCH_EDIT: 'bg-accent',
+  MATCH_CANCEL: 'bg-danger',
 }
 
 export default function EdicionesPage() {
@@ -33,14 +37,15 @@ export default function EdicionesPage() {
         ))}
       </select>
 
-      {log?.length === 0 && <p className="text-muted">Sin ediciones de resultado en este partido.</p>}
+      {log?.length === 0 && <p className="text-muted">Sin actividad registrada en este partido.</p>}
       <div className="space-y-2">
-        {(log ?? []).map((l) => (
-          <div key={l.id} className="space-y-1 rounded-2xl border border-line bg-surface p-4 text-sm">
-            <p className="font-bold">{l.editor?.email ?? l.editedBy}</p>
-            <p className="text-xs text-muted">{new Date(l.editedAt).toLocaleString('es-AR')}</p>
-            <p className="break-all font-mono text-xs"><span className="text-danger">antes:</span> {pretty(l.oldValue)}</p>
-            <p className="break-all font-mono text-xs"><span className="text-live">después:</span> {pretty(l.newValue)}</p>
+        {(log ?? []).map((l, i) => (
+          <div key={i} className="flex items-start gap-3 rounded-2xl border border-line bg-surface p-4 text-sm">
+            <span className={'mt-1.5 h-2 w-2 shrink-0 rounded-full ' + (DOT[l.type] ?? 'bg-muted')} />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">{l.description}</p>
+              <p className="mt-1 text-xs text-muted">{l.by} · {new Date(l.at).toLocaleString('es-AR')}</p>
+            </div>
           </div>
         ))}
       </div>
