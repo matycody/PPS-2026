@@ -64,7 +64,6 @@ model User {
   favorites    Favorite[]
   assignments  MatchAssignment[]
   clockActions ClockAction[]
-  resultLogs   MatchResultLog[]
 }
 
 // Perfil inscripto por la organizaciÃ³n (jugador y/o Ã¡rbitro)
@@ -154,6 +153,7 @@ model Match {
   readyAt      DateTime?
   readyBy      String?
   finishedAt   DateTime?
+  hiddenAt     DateTime? // oculto (reversible); null = visible
   createdAt    DateTime    @default(now())
 
   tournament   Tournament        @relation(fields: [tournamentId], references: [id])
@@ -162,7 +162,6 @@ model Match {
   assignments  MatchAssignment[]
   sets         MatchSet[]
   clockActions ClockAction[]
-  resultLogs   MatchResultLog[]
 
   @@index([tournamentId])
   @@index([status])
@@ -206,6 +205,7 @@ model ClockAction {
   matchId String
   userId  String
   action  String // START | PAUSE | RESUME | ADJUST ...
+  detail  String? // JSON con target/timer/seconds/scope, para el registro legible
   at      DateTime @default(now())
 
   match Match @relation(fields: [matchId], references: [id])
@@ -215,15 +215,14 @@ model ClockAction {
 }
 
 model MatchResultLog {
-  id       String   @id @default(uuid())
-  matchId  String
-  editedBy String // userId
-  oldValue String
-  newValue String
-  editedAt DateTime @default(now())
-
-  match  Match @relation(fields: [matchId], references: [id])
-  editor User  @relation(fields: [editedBy], references: [id])
+  id          String   @id @default(uuid())
+  matchId     String // sin relación: sobrevive a la eliminación definitiva del partido
+  matchLabel  String // ej. "Equipo A vs Equipo B (cancha 1)", fijado al momento del hecho
+  editedBy    String // userId, sin relación (ver editorLabel)
+  editorLabel String // apodo, nombre o mail de quien lo hizo, fijado al momento del hecho
+  type        String // SET_ADD | SET_EDIT | SET_DELETE | MATCH_EDIT | MATCH_CANCEL | MATCH_HIDE | MATCH_RESTORE | MATCH_PURGE
+  description String // frase lista para mostrar
+  editedAt    DateTime @default(now())
 
   @@index([matchId])
 }

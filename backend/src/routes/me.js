@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const storage = require('../services/storage');
@@ -79,14 +79,14 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// Mis partidos asignados (árbitro y/o mesa), próximos primero
+// Mis partidos asignados (árbitro y/o mesa): pasados y futuros, sin los ocultos
 router.get('/assignments', authenticate, async (req, res) => {
   try {
     const or = [{ function: 'TABLE', userId: req.user.id }];
     if (req.user.profileId) or.push({ function: 'REFEREE', profileId: req.user.profileId });
 
     const rows = await prisma.matchAssignment.findMany({
-      where: { OR: or, match: { status: { in: ACTIVE } } },
+      where: { OR: or, match: { hiddenAt: null } },
       include: {
         match: {
           include: {
@@ -115,6 +115,7 @@ router.get('/assignments', authenticate, async (req, res) => {
           modality: r.match.modality,
           status: r.match.status,
           scheduledAt: r.match.scheduledAt,
+          finishedAt: r.match.finishedAt,
           teamA: r.match.teamA,
           teamB: r.match.teamB,
         },

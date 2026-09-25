@@ -7,7 +7,7 @@ const { CLIENT_EVENTS, SERVER_EVENTS } = require('../timers/timerEvents');
 const { getOrCreateMatch, getMatch, pauseMatch, resumeMatch } = require('../timers/matchManager');
 
 const MAX_ROOMS = 12;
-// Valores que espera TimerEngine.setModality (verificar contra TimerEngine.js)
+// Valores que espera TimerEngine.setModality (verificado contra TimerEngine.js)
 const MODALITY_TO_ENGINE = { FOAM: 'foam', CLOTH: 'cloth' };
 
 const publicRoom = (id) => 'match:' + id;
@@ -78,6 +78,9 @@ async function authorize(socket, matchId, need) {
 
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return { error: 'Partido no encontrado' };
+  if (match.hiddenAt && !auth.user.roles.includes('ADMIN')) {
+    return { error: 'Partido no encontrado' };
+  }
 
   const perms = await getPermissions(auth.user, match);
   if (need && !perms[need]) {
@@ -112,7 +115,7 @@ async function controllableMatchIds(user) {
 
 async function logAction(io, socket, matchId, action, extra) {
   await prisma.clockAction.create({
-    data: { matchId, userId: socket.data.user.id, action },
+    data: { matchId, userId: socket.data.user.id, action, detail: extra ? JSON.stringify(extra) : null },
   });
   io.to(controlRoom(matchId)).emit(SERVER_EVENTS.MATCH_ACTION, {
     matchId,
@@ -171,8 +174,10 @@ function registerMatchHandlers(io, socket) {
       if (socket.rooms.size >= MAX_ROOMS) {
         return emitError(socket, matchId, 'Demasiadas suscripciones');
       }
-      const exists = await prisma.match.findUnique({ where: { id: matchId }, select: { id: true } });
+      const exists = await prisma.match.findUnique({ where: { id: matchId }, select: { id: true, hiddenAt: true } });
       if (!exists) return emitError(socket, matchId, 'Partido no encontrado');
+      const isAdminSocket = Boolean(socket.data.user && socket.data.user.roles.includes('ADMIN'));
+      if (exists.hiddenAt && !isAdminSocket) return emitError(socket, matchId, 'Partido no encontrado');
 
       socket.join(publicRoom(matchId));
       const snapshot = lastTick.get(matchId);

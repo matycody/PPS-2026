@@ -529,6 +529,8 @@ async function run() {
   const finP = waitFor(viewer, 'match:updated', 4000, (p) => p.status === 'FINISHED');
   r = await post('/finish', A);
   check('admin asignado como mesa finaliza el partido', r.status === 200 && r.data.status === 'FINISHED', JSON.stringify(r.data));
+  r = await api('GET', '/me/assignments', T.table);
+  check('la mesa sigue viendo el partido finalizado en "mis partidos asignados"', r.status === 200 && r.data.some((x) => x.match.id === m.id && x.match.status === 'FINISHED'));
   const fin = await finP;
   check('el espectador recibe match:updated con estado FINISHED', fin && fin.status === 'FINISHED', JSON.stringify(fin));
   r = await post('/finish', A);
@@ -644,6 +646,89 @@ async function run() {
   eq('un perfil sin cuenta ni partidos se borra del todo (200)', r.status, 200);
 
   // ── 12. Eliminar cuenta ──
+  section('13. Ocultar, restaurar y eliminar definitivamente un partido');
+  r = await api('POST', '/matches/' + mc.id + '/hide', A);
+  eq('no se puede ocultar un partido Habilitado (409)', r.status, 409);
+
+  r = await api('POST', '/matches/' + m2.id + '/hide', T.player);
+  eq('un jugador no puede ocultar (403)', r.status, 403);
+  r = await api('POST', '/matches/' + m2.id + '/hide', A);
+  check('admin oculta un partido cancelado', r.status === 200 && r.data.hiddenAt, JSON.stringify(r.data));
+  r = await api('POST', '/matches/' + m2.id + '/hide', A);
+  eq('ocultar de nuevo rechazado (409)', r.status, 409);
+
+  r = await api('GET', '/matches?tournamentId=' + tour.id);
+  check('un partido oculto no aparece en el listado público', r.status === 200 && !r.data.some((x) => x.id === m2.id), JSON.stringify(r.data.map((x) => x.id)));
+  r = await api('GET', '/matches/' + m2.id);
+  eq('un partido oculto da 404 a un visitante', r.status, 404);
+  r = await api('GET', '/matches/' + m2.id, T.plain);
+  eq('un partido oculto da 404 a una cuenta que no es admin', r.status, 404);
+  r = await api('GET', '/matches/' + m2.id, A);
+  check('el admin sí ve el partido oculto por su id', r.status === 200 && r.data.id === m2.id, JSON.stringify(r.data));
+  r = await api('GET', '/matches?tournamentId=' + tour.id + '&hidden=true', A);
+  check('el admin lo ve en la lista de ocultos (?hidden=true)', r.status === 200 && r.data.some((x) => x.id === m2.id), JSON.stringify(r.data.map((x) => x.id)));
+  r = await api('GET', '/matches?tournamentId=' + tour.id + '&hidden=true', T.plain);
+  check('?hidden=true no le sirve a quien no es admin', r.status === 200 && !r.data.some((x) => x.id === m2.id));
+
+  r = await api('PATCH', '/matches/' + m2.id, A, { court: 9 });
+  eq('no se puede editar un partido oculto (409)', r.status, 409);
+  r = await api('POST', '/matches/' + m2.id + '/cancel', A);
+  eq('no se puede cancelar un partido oculto (409)', r.status, 409);
+
+  r = await api('DELETE', '/matches/' + m.id + '/purge', A);
+  eq('no se puede purgar sin ocultar primero (409)', r.status, 409);
+
+  r = await api('POST', '/matches/' + m2.id + '/restore', T.player);
+  eq('un jugador no puede restaurar (403)', r.status, 403);
+  r = await api('POST', '/matches/' + m2.id + '/restore', A);
+  check('admin restaura el partido, y vuelve al estado en que estaba', r.status === 200 && !r.data.hiddenAt && r.data.status === 'CANCELLED', JSON.stringify(r.data));
+  r = await api('POST', '/matches/' + m2.id + '/restore', A);
+  eq('restaurar algo que no está oculto rechazado (409)', r.status, 409);
+  r = await api('GET', '/matches/' + m2.id);
+  check('restaurado: vuelve a verse para cualquiera', r.status === 200 && r.data.id === m2.id, JSON.stringify(r.data));
+
+  r = await api('POST', '/matches/' + m2.id + '/hide', A);
+  eq('se oculta de nuevo para purgarlo (200)', r.status, 200);
+  r = await api('DELETE', '/matches/' + m2.id + '/purge', T.player);
+  eq('un jugador no puede purgar (403)', r.status, 403);
+  r = await api('DELETE', '/matches/' + m2.id + '/purge', A);
+  eq('admin purga el partido definitivamente (200)', r.status, 200);
+  r = await api('GET', '/matches/' + m2.id, A);
+  eq('purgado: ya no existe ni para el admin (404)', r.status, 404);
+  r = await api('DELETE', '/matches/' + m2.id + '/purge', A);
+  eq('purgar de nuevo un partido inexistente (404)', r.status, 404);
+
+  section('14. Registro de ediciones: texto legible');
+  r = await api('PATCH', '/matches/' + mc.id, A, { court: 9 });
+  check('se edita la cancha del partido Cloth (200)', r.status === 200 && r.data.court === 9, JSON.stringify(r.data));
+  r = await api('GET', '/matches/' + mc.id + '/result-log', A);
+  const editEntry = r.data.find((x) => x.type === 'MATCH_EDIT');
+  check('la edición queda como frase legible, sin ids crudos', editEntry && editEntry.description.includes('cancha: 3 → 9') && !editEntry.description.includes(mc.id), JSON.stringify(editEntry));
+  check('el autor aparece con su nombre, no un id', editEntry && editEntry.by && !/^[0-9a-f-]{36}$/.test(editEntry.by), JSON.stringify(editEntry));
+
+  r = await api('POST', '/matches', A, { ...mBody, court: 4, teamAId: tB.id, teamBId: tC.id });
+  const m3 = r.data;
+  r = await api('POST', '/matches/' + m3.id + '/cancel', A);
+  check('se cancela un partido nuevo (200)', r.status === 200 && r.data.status === 'CANCELLED', JSON.stringify(r.data));
+  r = await api('GET', '/matches/' + m3.id + '/result-log', A);
+  const cancelEntry = r.data.find((x) => x.type === 'MATCH_CANCEL');
+  check('la cancelación queda con descripción legible', cancelEntry && cancelEntry.description === 'Canceló el partido', JSON.stringify(cancelEntry));
+
+  r = await api('GET', '/matches/' + m.id + '/result-log', A);
+  const setEntries = r.data.filter((x) => x.type === 'SET_ADD' || x.type === 'SET_EDIT');
+  check('los sets mencionan el nombre del equipo, no su id',
+    setEntries.length > 0 && setEntries.every((x) => !x.description.includes(tA.id) && (x.description.includes(tA.name) || x.description.includes(tC.name) || x.description.includes('empate'))),
+    JSON.stringify(setEntries));
+  const clockEntries = r.data.filter((x) => x.type.startsWith('CLOCK_'));
+  check('las acciones del reloj están mezcladas en la misma línea de tiempo, con texto legible',
+    clockEntries.length > 0 && clockEntries.some((x) => /reloj/i.test(x.description)), JSON.stringify(clockEntries.slice(0, 3)));
+  check('la línea de tiempo va de más reciente a más antigua',
+    r.data.every((x, i) => i === 0 || new Date(r.data[i - 1].at) >= new Date(x.at)));
+
+  r = await api('GET', '/matches/' + m2.id + '/result-log', A);
+  check('el registro de un partido purgado sigue disponible por su id',
+    r.status === 200 && r.data.some((x) => x.type === 'MATCH_PURGE'), JSON.stringify(r.data));
+
   section('12. Eliminar mi cuenta');
   r = await api('DELETE', '/me', T.plain, {});
   eq('eliminar cuenta exige confirmación (400)', r.status, 400);

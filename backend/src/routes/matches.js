@@ -3,6 +3,7 @@ const prisma = require('../db');
 const { authenticate, optionalAuth, requireRole } = require('../middleware/auth');
 const { getPermissions } = require('../services/matchAccess');
 const { notifyMatch } = require('../services/notify');
+const { editorLabel, setResultLabel, buildLogData, logEntry, describeClockAction } = require('../services/resultLog');
 
 const router = express.Router();
 const admin = [authenticate, requireRole('ADMIN')];
@@ -11,6 +12,8 @@ const BRANCHES = ['MIXED', 'MALE', 'FEMALE'];
 const MODALITIES = ['FOAM', 'CLOTH'];
 const STATUSES = ['SCHEDULED', 'READY', 'LIVE', 'FINISHED', 'CANCELLED'];
 const MAX_REFEREES = 6;
+const BRANCH_LABEL = { MIXED: 'Mixto', MALE: 'Masculino', FEMALE: 'Femenino' };
+const MODALITY_LABEL = { FOAM: 'Foam', CLOTH: 'Cloth' };
 
 const teamSelect = { id: true, name: true, logo: true };
 const baseInclude = {
@@ -33,6 +36,13 @@ function parseDate(v) {
   if (v === undefined || v === null || v === '') return null;
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? undefined : d; // undefined = inválida
+}
+
+function fmtDate(d) {
+  if (!d) return 'sin fecha';
+  const dt = new Date(d);
+  const pad = (n) => String(n).padStart(2, '0');
+  return pad(dt.getDate()) + '/' + pad(dt.getMonth() + 1) + ' ' + pad(dt.getHours()) + ':' + pad(dt.getMinutes());
 }
 
 // Puntos por set: en Foam el ganador suma 1; en Cloth el ganador suma 2 y un empate suma 1 a cada equipo
@@ -70,6 +80,7 @@ function serialize(match, isAdmin) {
   };
   if (isAdmin) {
     out.readyBy = match.readyBy;
+    out.hiddenAt = match.hiddenAt;
     out.assignments = (match.assignments || []).map((a) => ({
       id: a.id,
       function: a.function,
@@ -99,11 +110,31 @@ function fetchMatch(id, isAdmin) {
   return prisma.match.findUnique({ where: { id }, include: isAdmin ? adminInclude : baseInclude });
 }
 
+// Datos mínimos para armar frases del registro de ediciones
+function loadForLabel(matchId) {
+  return prisma.match.findUnique({
+    where: { id: matchId },
+    select: {
+      id: true,
+      court: true,
+      teamAId: true,
+      teamBId: true,
+      teamA: { select: { name: true } },
+      teamB: { select: { name: true } },
+    },
+  });
+}
+
 function handleError(err, res) {
   if (err.code === 'P2002') return res.status(409).json({ error: 'Registro duplicado (reintentá)' });
   if (err.code === 'P2025') return res.status(404).json({ error: 'No encontrado' });
   console.error('[matches]', err);
   return res.status(500).json({ error: 'Error interno' });
+}
+
+function assertVisible(match) {
+  if (match.hiddenAt) return { status: 409, error: 'El partido está oculto: restauralo antes de operarlo' };
+  return null;
 }
 
 async function validateTeams(teamAId, teamBId, branch) {
@@ -131,6 +162,11 @@ async function loadWithPerms(req, res) {
   const match = await prisma.match.findUnique({ where: { id: req.params.id } });
   if (!match) {
     res.status(404).json({ error: 'Partido no encontrado' });
+    return null;
+  }
+  const vis = assertVisible(match);
+  if (vis) {
+    res.status(vis.status).json({ error: vis.error });
     return null;
   }
   const perms = await getPermissions(req.user, match);
@@ -171,9 +207,10 @@ router.post('/', ...admin, async (req, res) => {
   }
 });
 
-// Público: ?tournamentId=&status=LIVE,FINISHED&branch=&court=&teamId=&from=&to=&limit=&offset=
-router.get('/', async (req, res) => {
+// Público: ?tournamentId=&status=LIVE,FINISHED&branch=&court=&teamId=&from=&to=&limit=&offset=&hidden=true (solo admin)
+router.get('/', optionalAuth, async (req, res) => {
   try {
+    const isAdmin = Boolean(req.user && req.user.roles.includes('ADMIN'));
     const { tournamentId, status, branch, court, teamId, from, to } = req.query;
     const where = {};
     if (tournamentId) where.tournamentId = String(tournamentId);
@@ -188,6 +225,12 @@ router.get('/', async (req, res) => {
     const fromD = parseDate(from);
     const toD = parseDate(to);
     if (fromD || toD) where.scheduledAt = { ...(fromD ? { gte: fromD } : {}), ...(toD ? { lte: toD } : {}) };
+
+    if (isAdmin && req.query.hidden === 'true') {
+      where.hiddenAt = { not: null };
+    } else {
+      where.hiddenAt = null;
+    }
 
     const limit = Math.min(Number(req.query.limit) || 100, 200);
     const offset = Number(req.query.offset) || 0;
@@ -210,6 +253,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
     const isAdmin = Boolean(req.user && req.user.roles.includes('ADMIN'));
     const match = await fetchMatch(req.params.id, isAdmin);
     if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
+    if (match.hiddenAt && !isAdmin) return res.status(404).json({ error: 'Partido no encontrado' });
     res.json(serialize(match, isAdmin));
   } catch (err) {
     handleError(err, res);
@@ -223,6 +267,8 @@ router.patch('/:id', ...admin, async (req, res) => {
       include: { assignments: true },
     });
     if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
+    const vis = assertVisible(match);
+    if (vis) return res.status(vis.status).json({ error: vis.error });
     if (!['SCHEDULED', 'READY'].includes(match.status)) {
       return res.status(409).json({ error: 'Solo se edita un partido Programado o Habilitado' });
     }
@@ -267,7 +313,52 @@ router.patch('/:id', ...admin, async (req, res) => {
       });
     }
 
+    // Nombres de equipos (antes y después), para describir el cambio en el registro de ediciones
+    const idsForNames = [...new Set([match.teamAId, match.teamBId, next.teamAId, next.teamBId].filter(Boolean))];
+    const teamsForLabel = idsForNames.length
+      ? await prisma.team.findMany({ where: { id: { in: idsForNames } }, select: { id: true, name: true } })
+      : [];
+    const nameOf = (id) => (id ? ((teamsForLabel.find((t) => t.id === id) || {}).name || 'equipo eliminado') : 'sin equipo');
+
+    const changes = [];
+    if (data.court !== undefined && data.court !== match.court) {
+      changes.push('cancha: ' + match.court + ' → ' + data.court);
+    }
+    if (data.branch !== undefined && data.branch !== match.branch) {
+      changes.push('rama: ' + BRANCH_LABEL[match.branch] + ' → ' + BRANCH_LABEL[data.branch]);
+    }
+    if (data.modality !== undefined && data.modality !== match.modality) {
+      changes.push('modalidad: ' + MODALITY_LABEL[match.modality] + ' → ' + MODALITY_LABEL[data.modality]);
+    }
+    if (data.scheduledAt !== undefined) {
+      const before = match.scheduledAt ? match.scheduledAt.getTime() : null;
+      const after = data.scheduledAt ? data.scheduledAt.getTime() : null;
+      if (before !== after) changes.push('fecha: ' + fmtDate(match.scheduledAt) + ' → ' + fmtDate(data.scheduledAt));
+    }
+    if ('teamAId' in data && data.teamAId !== match.teamAId) {
+      changes.push('equipo A: ' + nameOf(match.teamAId) + ' → ' + nameOf(data.teamAId));
+    }
+    if ('teamBId' in data && data.teamBId !== match.teamBId) {
+      changes.push('equipo B: ' + nameOf(match.teamBId) + ' → ' + nameOf(data.teamBId));
+    }
+
     await prisma.match.update({ where: { id: match.id }, data });
+
+    if (changes.length) {
+      const label = {
+        id: match.id,
+        court: next.court,
+        teamAId: next.teamAId,
+        teamBId: next.teamBId,
+        teamA: { name: nameOf(next.teamAId) },
+        teamB: { name: nameOf(next.teamBId) },
+      };
+      const editorLbl = await editorLabel(req.user);
+      await prisma.matchResultLog.create({
+        data: buildLogData(label, req.user.id, editorLbl, 'MATCH_EDIT', 'Editó el partido (' + changes.join(', ') + ')'),
+      });
+    }
+
     await notifyMatch(req.app.get('io'), req.params.id);
     res.json(serialize(await fetchMatch(match.id, true), true));
   } catch (err) {
@@ -279,16 +370,30 @@ router.post('/:id/cancel', ...admin, async (req, res) => {
   try {
     const match = await prisma.match.findUnique({ where: { id: req.params.id } });
     if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
+    const vis = assertVisible(match);
+    if (vis) return res.status(vis.status).json({ error: vis.error });
     if (['FINISHED', 'CANCELLED'].includes(match.status)) {
       return res.status(409).json({ error: 'El partido ya está finalizado o cancelado' });
     }
     await prisma.match.update({ where: { id: match.id }, data: { status: 'CANCELLED' } });
+
+    const label = await loadForLabel(match.id);
+    const editorLbl = await editorLabel(req.user);
+    await prisma.matchResultLog.create({
+      data: buildLogData(label, req.user.id, editorLbl, 'MATCH_CANCEL', 'Canceló el partido'),
+    });
+
     await notifyMatch(req.app.get('io'), req.params.id);
     res.json(serialize(await fetchMatch(match.id, true), true));
   } catch (err) {
     handleError(err, res);
   }
 });
+
+// ───────────── Ocultar y eliminar (solo admin) ─────────────
+// Solo se puede ocultar antes de Habilitar (SCHEDULED) o después de Finalizado/Cancelado.
+// Un partido oculto no aparece para nadie más que el admin (con ?hidden=true). Es reversible.
+// Purgar (borrado definitivo) exige que esté oculto primero, y no se puede deshacer.
 
 // ───────────── Ciclo de vida ─────────────
 
@@ -349,6 +454,81 @@ router.post('/:id/finish', authenticate, async (req, res) => {
   }
 });
 
+// ───────────── Ocultar y eliminar (solo admin) ─────────────
+// Solo se puede ocultar antes de Habilitar (SCHEDULED) o después de Finalizado/Cancelado.
+// Un partido oculto no aparece para nadie más que el admin (con ?hidden=true). Es reversible.
+// Purgar (borrado definitivo) exige que esté oculto primero, y no se puede deshacer.
+
+router.post('/:id/hide', ...admin, async (req, res) => {
+  try {
+    const match = await prisma.match.findUnique({ where: { id: req.params.id } });
+    if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
+    if (match.hiddenAt) return res.status(409).json({ error: 'El partido ya está oculto' });
+    if (!['SCHEDULED', 'FINISHED', 'CANCELLED'].includes(match.status)) {
+      return res.status(409).json({ error: 'Solo se puede ocultar un partido Programado, Finalizado o Cancelado' });
+    }
+
+    await prisma.match.update({ where: { id: match.id }, data: { hiddenAt: new Date() } });
+
+    const label = await loadForLabel(match.id);
+    const editorLbl = await editorLabel(req.user);
+    await prisma.matchResultLog.create({
+      data: buildLogData(label, req.user.id, editorLbl, 'MATCH_HIDE', 'Ocultó el partido'),
+    });
+
+    res.json(serialize(await fetchMatch(match.id, true), true));
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+router.post('/:id/restore', ...admin, async (req, res) => {
+  try {
+    const match = await prisma.match.findUnique({ where: { id: req.params.id } });
+    if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
+    if (!match.hiddenAt) return res.status(409).json({ error: 'El partido no está oculto' });
+
+    await prisma.match.update({ where: { id: match.id }, data: { hiddenAt: null } });
+
+    const label = await loadForLabel(match.id);
+    const editorLbl = await editorLabel(req.user);
+    await prisma.matchResultLog.create({
+      data: buildLogData(label, req.user.id, editorLbl, 'MATCH_RESTORE', 'Restauró el partido'),
+    });
+
+    await notifyMatch(req.app.get('io'), req.params.id);
+    res.json(serialize(await fetchMatch(match.id, true), true));
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+router.delete('/:id/purge', ...admin, async (req, res) => {
+  try {
+    const match = await prisma.match.findUnique({ where: { id: req.params.id } });
+    if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
+    if (!match.hiddenAt) {
+      return res.status(409).json({ error: 'Primero hay que ocultarlo antes de eliminarlo definitivamente' });
+    }
+
+    const label = await loadForLabel(match.id);
+    const editorLbl = await editorLabel(req.user);
+    const logCreate = logEntry(label, req.user.id, editorLbl, 'MATCH_PURGE', 'Eliminó definitivamente el partido');
+
+    await prisma.$transaction([
+      prisma.clockAction.deleteMany({ where: { matchId: match.id } }),
+      prisma.matchSet.deleteMany({ where: { matchId: match.id } }),
+      prisma.matchAssignment.deleteMany({ where: { matchId: match.id } }),
+      prisma.match.delete({ where: { id: match.id } }),
+      logCreate,
+    ]);
+
+    res.json({ ok: true });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
 // ───────────── Asignaciones (solo admin) ─────────────
 
 router.post('/:id/assignments', ...admin, async (req, res) => {
@@ -363,6 +543,8 @@ router.post('/:id/assignments', ...admin, async (req, res) => {
       include: { assignments: true },
     });
     if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
+    const vis = assertVisible(match);
+    if (vis) return res.status(vis.status).json({ error: vis.error });
     if (['FINISHED', 'CANCELLED'].includes(match.status)) {
       return res.status(409).json({ error: 'El partido ya terminó' });
     }
@@ -427,16 +609,14 @@ router.post('/:id/sets', authenticate, async (req, res) => {
     const last = await prisma.matchSet.aggregate({ where: { matchId: match.id }, _max: { number: true } });
     const number = (last._max.number || 0) + 1;
 
+    const label = await loadForLabel(match.id);
+    const description = 'Agregó el set ' + number + ': ' + setResultLabel(label, winnerTeamId);
+    const editorLbl = await editorLabel(req.user);
+    const logCreate = logEntry(label, req.user.id, editorLbl, 'SET_ADD', description);
+
     const [set] = await prisma.$transaction([
       prisma.matchSet.create({ data: { matchId: match.id, number, winnerTeamId } }),
-      prisma.matchResultLog.create({
-        data: {
-          matchId: match.id,
-          editedBy: req.user.id,
-          oldValue: 'null',
-          newValue: JSON.stringify({ number, winnerTeamId }),
-        },
-      }),
+      logCreate,
     ]);
     await notifyMatch(req.app.get('io'), req.params.id);
     res.status(201).json(set);
@@ -461,16 +641,16 @@ router.patch('/:id/sets/:number', authenticate, async (req, res) => {
     });
     if (!set) return res.status(404).json({ error: 'Set no encontrado' });
 
+    const label = await loadForLabel(match.id);
+    const description =
+      'Editó el set ' + number + ': ahora ' + setResultLabel(label, winnerTeamId) +
+      ' (antes ' + setResultLabel(label, set.winnerTeamId) + ')';
+    const editorLbl = await editorLabel(req.user);
+    const logCreate = logEntry(label, req.user.id, editorLbl, 'SET_EDIT', description);
+
     const [updated] = await prisma.$transaction([
       prisma.matchSet.update({ where: { id: set.id }, data: { winnerTeamId } }),
-      prisma.matchResultLog.create({
-        data: {
-          matchId: match.id,
-          editedBy: req.user.id,
-          oldValue: JSON.stringify({ number, winnerTeamId: set.winnerTeamId }),
-          newValue: JSON.stringify({ number, winnerTeamId }),
-        },
-      }),
+      logCreate,
     ]);
     await notifyMatch(req.app.get('io'), req.params.id);
     res.json(updated);
@@ -492,16 +672,14 @@ router.delete('/:id/sets/:number', authenticate, async (req, res) => {
     });
     if (!set) return res.status(404).json({ error: 'Set no encontrado' });
 
+    const label = await loadForLabel(match.id);
+    const description = 'Eliminó el set ' + number + ' (' + setResultLabel(label, set.winnerTeamId) + ')';
+    const editorLbl = await editorLabel(req.user);
+    const logCreate = logEntry(label, req.user.id, editorLbl, 'SET_DELETE', description);
+
     await prisma.$transaction([
       prisma.matchSet.delete({ where: { id: set.id } }),
-      prisma.matchResultLog.create({
-        data: {
-          matchId: match.id,
-          editedBy: req.user.id,
-          oldValue: JSON.stringify({ number, winnerTeamId: set.winnerTeamId }),
-          newValue: 'null',
-        },
-      }),
+      logCreate,
     ]);
     await notifyMatch(req.app.get('io'), req.params.id);
     res.json({ ok: true });
@@ -510,15 +688,54 @@ router.delete('/:id/sets/:number', authenticate, async (req, res) => {
   }
 });
 
-// Registro de ediciones: solo admin
+// Registro de ediciones y del reloj, en una sola línea de tiempo legible (solo admin)
 router.get('/:id/result-log', ...admin, async (req, res) => {
   try {
-    const logs = await prisma.matchResultLog.findMany({
-      where: { matchId: req.params.id },
-      orderBy: { editedAt: 'desc' },
-      include: { editor: { select: { id: true, email: true } } },
+    const [logs, actions] = await Promise.all([
+      prisma.matchResultLog.findMany({ where: { matchId: req.params.id }, orderBy: { editedAt: 'desc' } }),
+      prisma.clockAction.findMany({ where: { matchId: req.params.id }, orderBy: { at: 'desc' } }),
+    ]);
+
+    const userIds = [...new Set(actions.map((a) => a.userId))];
+    const users = userIds.length
+      ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, email: true, profileId: true } })
+      : [];
+    const profileIds = users.map((u) => u.profileId).filter(Boolean);
+    const profiles = profileIds.length
+      ? await prisma.profile.findMany({ where: { id: { in: profileIds } }, select: { id: true, nickname: true, name: true } })
+      : [];
+    const profileMap = new Map(profiles.map((p) => [p.id, p]));
+    const labelMap = new Map(
+      users.map((u) => {
+        const p = u.profileId ? profileMap.get(u.profileId) : null;
+        return [u.id, p ? p.nickname || p.name : u.email];
+      })
+    );
+
+    const clockEntries = actions.map((a) => {
+      let detail = {};
+      try {
+        detail = a.detail ? JSON.parse(a.detail) : {};
+      } catch (e) {
+        detail = {};
+      }
+      return {
+        at: a.at,
+        by: labelMap.get(a.userId) || 'Desconocido',
+        type: 'CLOCK_' + a.action,
+        description: describeClockAction(a.action, detail),
+      };
     });
-    res.json(logs);
+
+    const logEntries = logs.map((l) => ({
+      at: l.editedAt,
+      by: l.editorLabel,
+      type: l.type,
+      description: l.description,
+    }));
+
+    const timeline = [...logEntries, ...clockEntries].sort((a, b) => new Date(b.at) - new Date(a.at));
+    res.json(timeline);
   } catch (err) {
     handleError(err, res);
   }
