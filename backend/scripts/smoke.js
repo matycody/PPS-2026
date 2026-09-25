@@ -420,9 +420,21 @@ async function run() {
   r = await asg({ function: 'REFEREE', profileId: profile.extras[5] });
   eq('el 7.º árbitro es rechazado (409)', r.status, 409);
   r = await asg({ function: 'TABLE', userId: ids.table });
-  eq('admin asigna colaborador de mesa (201)', r.status, 201);
+  eq('una cuenta sin rol admin no puede ser mesa por cuenta directa (409)', r.status, 409);
+
+  // El colaborador de mesa ahora se inscribe como jugador de su propio equipo (rota por torneo)
+  r = await api('POST', '/profiles', A, { dni: dni(50), name: 'SMOKE Mesa', email: mail('table'), sex: 'M', isPlayer: true });
+  profile.table = r.data && r.data.id;
+  const tMesa = await mkTeam('Equipo Mesa', ['MIXED']);
+  r = await assign(tMesa, profile.table, 'MIXED');
+  eq('el colaborador de mesa se une a su equipo (201)', r.status, 201);
+  r = await api('GET', '/me', T.table);
+  check('el colaborador de mesa queda vinculado como jugador', r.status === 200 && r.data.user.roles.includes('PLAYER'));
+
+  r = await asg({ function: 'TABLE', profileId: profile.table });
+  eq('admin asigna al colaborador de mesa por perfil (201)', r.status, 201);
   r = await asg({ function: 'TABLE', userId: ids.admin });
-  eq('admin se asigna como mesa (201)', r.status, 201);
+  eq('admin se asigna como mesa por cuenta (201)', r.status, 201);
 
   // ── 5. Ciclo de vida ──
   section('5. Habilitar, sets, resultado y registro de ediciones');
@@ -577,6 +589,29 @@ async function run() {
   check('el set empatado viene marcado con draw', r.data.sets.some((s) => s.draw === true && s.winnerTeamId === null), JSON.stringify(r.data.sets));
   r = await api('POST', '/matches/' + m.id + '/sets', A, { draw: true });
   eq('Foam: el empate no existe (409)', r.status, 409);
+
+  section('7c. Mesa por equipo');
+  const tRota = await mkTeam('Equipo Rota', ['MIXED']);
+  r = await api('POST', '/profiles', A, { dni: dni(51), name: 'SMOKE Rotativo', email: mail('rota'), sex: 'F', isPlayer: true });
+  profile.rota = r.data && r.data.id;
+  r = await assign(tRota, profile.rota, 'MIXED');
+  eq('jugador rotativo entra a su equipo (201)', r.status, 201);
+
+  r = await api('POST', '/matches/' + mc.id + '/assignments', A, { function: 'TABLE', teamId: tRota.id });
+  eq('admin asigna un equipo como mesa (201)', r.status, 201);
+  r = await api('POST', '/matches/' + mc.id + '/assignments', A, { function: 'TABLE', teamId: tB.id });
+  eq('solo un equipo de mesa por partido (409)', r.status, 409);
+  r = await api('POST', '/matches/' + mc.id + '/assignments', A, { function: 'TABLE', teamId: tB.id, profileId: profile.rota });
+  eq('mandar dos campos a la vez para mesa se rechaza (400)', r.status, 400);
+  r = await api('POST', '/matches/' + mc.id + '/assignments', A, { function: 'TABLE', teamId: mc.teamA.id });
+  eq('un equipo no puede ser mesa de su propio partido (409)', r.status, 409);
+
+  await createAccount('rota');
+  const tokRota = await login('rota');
+  r = await api('POST', '/matches/' + mc.id + '/sets', tokRota, { winnerTeamId: mc.teamA.id });
+  check('cualquier jugador actual del equipo mesa puede operar el partido', r.status === 201, JSON.stringify(r));
+  r = await api('GET', '/me/assignments', tokRota);
+  check('el jugador del equipo mesa ve el partido en "mis partidos asignados"', r.status === 200 && r.data.some((x) => x.match.id === mc.id));
 
   section('8. Fotos y escudos');
   const png = await sharp({ create: { width: 40, height: 40, channels: 3, background: '#ff0000' } }).png().toBuffer();

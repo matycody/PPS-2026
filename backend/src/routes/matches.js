@@ -28,6 +28,7 @@ const adminInclude = {
     include: {
       profile: { select: { id: true, name: true, nickname: true, number: true } },
       user: { select: { id: true, email: true } },
+      team: { select: { id: true, name: true, logo: true } },
     },
   },
 };
@@ -86,6 +87,7 @@ function serialize(match, isAdmin) {
       function: a.function,
       profile: a.profile,
       user: a.user,
+      team: a.team,
     }));
   }
   return out;
@@ -565,9 +567,48 @@ router.post('/:id/assignments', ...admin, async (req, res) => {
       }
       data = { matchId: match.id, function: 'REFEREE', profileId: profile.id };
     } else {
-      const user = await prisma.user.findUnique({ where: { id: String(req.body.userId) } });
-      if (!user || !user.active) return res.status(409).json({ error: 'Usuario no encontrado o inactivo' });
-      data = { matchId: match.id, function: 'TABLE', userId: user.id };
+      // TABLE: exactamente uno de userId (solo admin), profileId (jugador o árbitro) o teamId (equipo)
+      const given = ['userId', 'profileId', 'teamId'].filter((k) => req.body[k]);
+      if (given.length !== 1) {
+        return res.status(400).json({ error: 'Para la mesa, mandá exactamente uno: userId, profileId o teamId' });
+      }
+
+      if (req.body.userId) {
+        const user = await prisma.user.findUnique({ where: { id: String(req.body.userId) } });
+        if (!user || !user.active) return res.status(409).json({ error: 'Usuario no encontrado o inactivo' });
+        if (!user.roles.includes('ADMIN')) {
+          return res.status(409).json({ error: 'Por cuenta directa, la mesa solo puede ser un admin' });
+        }
+        if (user.profileId) {
+          const conflicts = await refereeConflicts([user.profileId], [match.teamAId, match.teamBId].filter(Boolean));
+          if (conflicts.length) {
+            return res.status(409).json({ error: 'No puede ser mesa de un partido de un equipo al que pertenece' });
+          }
+        }
+        data = { matchId: match.id, function: 'TABLE', userId: user.id };
+      } else if (req.body.profileId) {
+        const profile = await prisma.profile.findUnique({ where: { id: String(req.body.profileId) } });
+        if (!profile || !profile.active || !(profile.isPlayer || profile.isReferee)) {
+          return res.status(409).json({ error: 'El perfil no es un jugador ni un árbitro activo' });
+        }
+        const conflicts = await refereeConflicts([profile.id], [match.teamAId, match.teamBId].filter(Boolean));
+        if (conflicts.length) {
+          return res.status(409).json({ error: 'No puede ser mesa de un partido de un equipo al que pertenece' });
+        }
+        data = { matchId: match.id, function: 'TABLE', profileId: profile.id };
+      } else {
+        const teamId = String(req.body.teamId);
+        if (teamId === match.teamAId || teamId === match.teamBId) {
+          return res.status(409).json({ error: 'El equipo no puede ser mesa de su propio partido' });
+        }
+        const team = await prisma.team.findUnique({ where: { id: teamId } });
+        if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
+        const alreadyTeamTable = match.assignments.some((a) => a.function === 'TABLE' && a.teamId);
+        if (alreadyTeamTable) {
+          return res.status(409).json({ error: 'El partido ya tiene un equipo asignado como mesa' });
+        }
+        data = { matchId: match.id, function: 'TABLE', teamId: team.id };
+      }
     }
 
     const created = await prisma.matchAssignment.create({ data });

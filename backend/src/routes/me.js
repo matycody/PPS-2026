@@ -29,6 +29,13 @@ function buildMenu(roles, hasTable) {
   return [...items];
 }
 
+// Ids de los equipos donde la persona juega HOY (para la mesa por equipo)
+async function currentTeamIds(profileId) {
+  if (!profileId) return [];
+  const rows = await prisma.playerTeam.findMany({ where: { profileId, to: null }, select: { teamId: true } });
+  return rows.map((r) => r.teamId);
+}
+
 // Ficha propia: datos del perfil y equipos actuales (uno por rama)
 async function loadProfile(profileId) {
   const p = await prisma.profile.findUnique({
@@ -69,9 +76,17 @@ async function loadProfile(profileId) {
 router.get('/', authenticate, async (req, res) => {
   try {
     const { id, email, roles, profileId } = req.user;
+
+    const tableOr = [{ function: 'TABLE', userId: id }];
+    if (profileId) {
+      tableOr.push({ function: 'TABLE', profileId });
+      const teamIds = await currentTeamIds(profileId);
+      if (teamIds.length) tableOr.push({ function: 'TABLE', teamId: { in: teamIds } });
+    }
     const tableCount = await prisma.matchAssignment.count({
-      where: { function: 'TABLE', userId: id, match: { status: { in: ACTIVE } } },
+      where: { OR: tableOr, match: { status: { in: ACTIVE }, hiddenAt: null } },
     });
+
     res.json({ user: { id, email, roles, profileId }, menu: buildMenu(roles, tableCount > 0) });
   } catch (err) {
     console.error('[me]', err);
@@ -79,11 +94,16 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// Mis partidos asignados (árbitro y/o mesa): pasados y futuros, sin los ocultos
+// Mis partidos asignados (árbitro y/o mesa, por cuenta, por perfil o por equipo): pasados y futuros, sin los ocultos
 router.get('/assignments', authenticate, async (req, res) => {
   try {
     const or = [{ function: 'TABLE', userId: req.user.id }];
-    if (req.user.profileId) or.push({ function: 'REFEREE', profileId: req.user.profileId });
+    if (req.user.profileId) {
+      or.push({ function: 'REFEREE', profileId: req.user.profileId });
+      or.push({ function: 'TABLE', profileId: req.user.profileId });
+      const teamIds = await currentTeamIds(req.user.profileId);
+      if (teamIds.length) or.push({ function: 'TABLE', teamId: { in: teamIds } });
+    }
 
     const rows = await prisma.matchAssignment.findMany({
       where: { OR: or, match: { hiddenAt: null } },
@@ -98,14 +118,19 @@ router.get('/assignments', authenticate, async (req, res) => {
       },
     });
 
-    rows.sort((a, b) => {
+    // Dedupe por partido: puede tener más de una vía de acceso al mismo (ej. árbitro y también mesa por equipo)
+    const byMatch = new Map();
+    for (const r of rows) if (!byMatch.has(r.match.id)) byMatch.set(r.match.id, r);
+    const list = [...byMatch.values()];
+
+    list.sort((a, b) => {
       const ta = a.match.scheduledAt ? a.match.scheduledAt.getTime() : Infinity;
       const tb = b.match.scheduledAt ? b.match.scheduledAt.getTime() : Infinity;
       return ta - tb || a.match.court - b.match.court;
     });
 
     res.json(
-      rows.map((r) => ({
+      list.map((r) => ({
         function: r.function,
         match: {
           id: r.match.id,

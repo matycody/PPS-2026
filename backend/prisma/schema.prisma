@@ -99,6 +99,7 @@ model Team {
   matchesA Match[]      @relation("MatchTeamA")
   matchesB Match[]      @relation("MatchTeamB")
   wonSets  MatchSet[]   @relation("SetWinner")
+  assignments MatchAssignment[]
 }
 
 model TeamBranch {
@@ -176,13 +177,16 @@ model MatchAssignment {
   function  MatchFunction
   profileId String?
   userId    String?
+  teamId    String?
 
   match   Match    @relation(fields: [matchId], references: [id])
   profile Profile? @relation(fields: [profileId], references: [id])
   user    User?    @relation(fields: [userId], references: [id])
+  team    Team?    @relation(fields: [teamId], references: [id])
 
   @@unique([matchId, profileId])
   @@unique([matchId, userId])
+  @@unique([matchId, teamId])
 }
 
 // Provisorio: estructura exacta del resultado a definir con Rodri
