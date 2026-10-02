@@ -50,7 +50,7 @@ export default function TorneosPage() {
       <form onSubmit={save} className="space-y-3 rounded-3xl border border-line bg-surface p-5">
         <p className="text-sm font-bold">{editId ? 'Editar torneo' : 'Nuevo torneo'}</p>
         <input className={inputCls} placeholder="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
           <label className="text-xs text-muted">Inicio
             <input type="date" className={inputCls} value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} />
           </label>
@@ -81,3 +81,4 @@ export default function TorneosPage() {
     </div>
   )
 }
+

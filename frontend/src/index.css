@@ -35,3 +35,12 @@ body {
 
 html, body { max-width: 100%; overflow-x: hidden; }
 body { -webkit-text-size-adjust: 100%; }
+
+input[type="date"], input[type="time"], input[type="datetime-local"] {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 3rem;
+}

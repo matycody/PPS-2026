@@ -65,7 +65,7 @@ export default function PersonasPage() {
       <form onSubmit={submit} className="space-y-3 rounded-3xl border border-line bg-surface p-5">
         <p className="text-sm font-bold">{editing ? 'Editar persona' : 'Inscribir jugador o árbitro'}</p>
         <input className={inputCls} placeholder="Nombre completo" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
           <input className={inputCls} placeholder="DNI" required value={form.dni} onChange={(e) => setForm({ ...form, dni: e.target.value })} />
           <select className={inputCls} value={form.sex} onChange={(e) => setForm({ ...form, sex: e.target.value })}>
             <option value="">Sexo…</option>
@@ -134,4 +134,5 @@ export default function PersonasPage() {
     </div>
   )
 }
+
 
