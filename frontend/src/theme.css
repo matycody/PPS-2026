@@ -1,0 +1,55 @@
+﻿@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --color-live: #22c55e;
+  --color-danger: #f43f5e;
+  --color-warn: #ff9a3c;
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+}
+
+/* Claro */
+:root {
+  --bg: #f5f6f8;
+  --fg: #0f1115;
+  --surface: #ffffff;
+  --surface-2: #eef0f3;
+  --line: #dcdfe5;
+  --muted: #6b7280;
+}
+
+/* Oscuro (clase que pone themeStore en <html>) */
+.dark {
+  --bg: #0a0a0b;
+  --fg: #f4f4f5;
+  --surface: #141416;
+  --surface-2: #1c1c20;
+  --line: #26262b;
+  --muted: #8a8a94;
+}
+
+/* Color de acento por rol (sirve en ambos temas) */
+:root,
+[data-role="visitor"],
+[data-role="player"] { --accent: #2f8cff; }
+[data-role="referee"] { --accent: #ff9a3c; }
+[data-role="table"]   { --accent: #14b8a6; }
+[data-role="admin"]   { --accent: #a855f7; }
+
+:root,
+[data-role] {
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+html, body, #root {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+}

@@ -1,4 +1,5 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
+@import "./theme.css";
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Big+Shoulders+Display:wght@800&display=swap');
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -30,4 +31,16 @@
 body {
   background-color: var(--color-bg);
   font-family: 'Outfit', sans-serif;
+}
+
+html, body { max-width: 100%; overflow-x: hidden; }
+body { -webkit-text-size-adjust: 100%; }
+
+input[type="date"], input[type="time"], input[type="datetime-local"] {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 3rem;
 }
