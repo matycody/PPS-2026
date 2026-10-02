@@ -13,7 +13,7 @@ function ClockCard({ label, time, paused, color }) {
   return (
     <div className="rounded-3xl border border-line bg-surface p-5">
       <p className="text-xs font-bold uppercase tracking-widest text-muted">{label}</p>
-      <p className={'my-4 text-center font-mono text-5xl font-extrabold tabular-nums ' + color}>{showTime(time)}</p>
+      <p className={'my-4 text-center font-mono text-[clamp(1.75rem,9vw,3rem)] font-extrabold tabular-nums ' + color}>{showTime(time)}</p>
       <p className={'rounded-full py-2 text-center text-xs font-bold uppercase ' + (paused ? 'bg-danger/15 text-danger' : 'bg-live/15 text-live')}>
         {paused ? 'Pausado' : 'En marcha'}
       </p>
@@ -113,3 +113,4 @@ export default function MatchPage() {
     </div>
   )
 }
+

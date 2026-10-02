@@ -83,16 +83,16 @@ export default function InicioPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap justify-center gap-3">
+      <div className="flex gap-2">
         {[
           ...GENERAL.slice(0, 3),
           ...(role === 'Organizador' || role === 'Árbitro' || menu.includes('control_mesa') ? [ITEMS.control_mesa] : []),
           ...(menu.includes('usuarios') ? [ITEMS.usuarios] : []),
         ].map(({ to, label, Icon, soon }) => (
-          <Link key={to} to={to} className="flex w-28 shrink-0 flex-col items-center gap-2 rounded-2xl border border-line bg-surface px-3 py-4 text-center text-sm font-semibold">
+          <Link key={to} to={to} className="flex min-w-0 flex-1 flex-col items-center justify-start gap-1.5 break-words rounded-2xl border border-line bg-surface px-1 py-3 text-center text-[10px] font-semibold leading-tight sm:text-sm">
             <Icon size={22} className="text-accent" />
             {label}
-            {soon && <span className="text-[10px] font-bold uppercase text-muted">Próximamente</span>}
+            {soon && <span className="text-[7px] font-bold uppercase text-muted sm:text-[10px]">Próximamente</span>}
           </Link>
         ))}
       </div>
@@ -143,6 +143,7 @@ export default function InicioPage() {
     </div>
   )
 }
+
 
 
 
