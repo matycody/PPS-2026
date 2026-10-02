@@ -182,13 +182,11 @@ class TimerEngine {
 
       if (
         this.modality === "cloth" &&
-        !this.clothAutoResetUsed &&
         this.matchTimeLeft < 120 &&
         this.matchTimeLeft > 0
       ) {
         this.matchTimeLeft = 90;
         this.isMatchPaused = true;
-        this.clothAutoResetUsed = true;
         this._stopIntervalIfFullyPaused();
         this._emitState();
       }
