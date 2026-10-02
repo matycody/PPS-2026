@@ -1,13 +1,244 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
-
 datasource db {
   provider = "postgresql"
+}
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Enums â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+enum Role {
+  ADMIN
+  REFEREE
+  PLAYER
+}
+
+enum Sex {
+  M
+  F
+}
+
+// Rama: mixto, masculino, femenino
+enum Branch {
+  MIXED
+  MALE
+  FEMALE
+}
+
+enum Modality {
+  FOAM
+  CLOTH
+}
+
+enum MatchFunction {
+  REFEREE
+  TABLE
+}
+
+enum MatchStatus {
+  SCHEDULED
+  READY
+  LIVE
+  FINISHED
+  CANCELLED
+}
+
+enum ProfileStatus {
+  PENDIENTE_VINCULACION
+  VINCULADO
+}
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Usuarios y perfiles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+model User {
+  id         String   @id @default(uuid())
+  supabaseId String?  @unique // null solo para admins del seed hasta su primer login
+  email      String   @unique // fuente de verdad del mail
+  roles      Role[] // vacÃ­o = usuario registrado
+  profileId  String?  @unique
+  photo      String?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  profile      Profile?          @relation(fields: [profileId], references: [id])
+  favorites    Favorite[]
+  assignments  MatchAssignment[]
+  clockActions ClockAction[]
+}
+
+// Perfil inscripto por la organizaciÃ³n (jugador y/o Ã¡rbitro)
+model Profile {
+  id        String        @id @default(uuid())
+  dni       String        @unique
+  name      String
+  email     String        @unique // solo para el vÃ­nculo inicial
+  sex       Sex? // obligatorio si juega
+  nickname  String?       @db.VarChar(30) // apodo, opcional (máx. 30 caracteres)
+  number    Int? // número de camiseta, opcional (0 a 999; CHECK en la migración)
+  photo     String?
+  isPlayer  Boolean       @default(false)
+  isReferee Boolean       @default(false)
+  active    Boolean       @default(true)
+  status    ProfileStatus @default(PENDIENTE_VINCULACION)
+  createdAt DateTime      @default(now())
+
+  user        User?
+  teams       PlayerTeam[]
+  assignments MatchAssignment[]
+}
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Equipos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+model Team {
+  id   String  @id @default(uuid())
+  name String
+  logo String?
+
+  branches TeamBranch[]
+  players  PlayerTeam[]
+  matchesA Match[]      @relation("MatchTeamA")
+  matchesB Match[]      @relation("MatchTeamB")
+  wonSets  MatchSet[]   @relation("SetWinner")
+  assignments MatchAssignment[]
+}
+
+model TeamBranch {
+  teamId String
+  branch Branch
+
+  team Team @relation(fields: [teamId], references: [id])
+
+  @@id([teamId, branch])
+}
+
+// Un solo registro con "to" = null por (profileId, branch).
+// Se refuerza con Ã­ndice Ãºnico parcial en SQL (ver migraciÃ³n):
+// CREATE UNIQUE INDEX "PlayerTeam_active_unique"
+//   ON "PlayerTeam"("profileId", "branch") WHERE "to" IS NULL;
+model PlayerTeam {
+  id        String    @id @default(uuid())
+  profileId String
+  teamId    String
+  branch    Branch
+  from      DateTime  @default(now())
+  to        DateTime? // null = equipo actual
+
+  profile Profile @relation(fields: [profileId], references: [id])
+  team    Team    @relation(fields: [teamId], references: [id])
+
+  @@index([profileId])
+  @@index([teamId])
+}
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Torneos y partidos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+model Tournament {
+  id       String    @id @default(uuid())
+  name     String
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  matches Match[]
+}
+
+model Match {
+  id           String      @id @default(uuid())
+  tournamentId String
+  court        Int
+  branch       Branch
+  modality     Modality
+  status       MatchStatus @default(SCHEDULED)
+  scheduledAt  DateTime? // informativa
+  teamAId      String?
+  teamBId      String?
+  readyAt      DateTime?
+  readyBy      String?
+  finishedAt   DateTime?
+  hiddenAt     DateTime? // oculto (reversible); null = visible
+  createdAt    DateTime    @default(now())
+
+  tournament   Tournament        @relation(fields: [tournamentId], references: [id])
+  teamA        Team?             @relation("MatchTeamA", fields: [teamAId], references: [id])
+  teamB        Team?             @relation("MatchTeamB", fields: [teamBId], references: [id])
+  assignments  MatchAssignment[]
+  sets         MatchSet[]
+  clockActions ClockAction[]
+
+  @@index([tournamentId])
+  @@index([status])
+}
+
+// REFEREE -> profileId (puede no estar vinculado aÃºn)
+// TABLE   -> userId (cuenta)
+// Validar en la app (o CHECK en SQL) que se complete el campo segÃºn "function"
+model MatchAssignment {
+  id        String        @id @default(uuid())
+  matchId   String
+  function  MatchFunction
+  profileId String?
+  userId    String?
+  teamId    String?
+
+  match   Match    @relation(fields: [matchId], references: [id])
+  profile Profile? @relation(fields: [profileId], references: [id])
+  user    User?    @relation(fields: [userId], references: [id])
+  team    Team?    @relation(fields: [teamId], references: [id])
+
+  @@unique([matchId, profileId])
+  @@unique([matchId, userId])
+  @@unique([matchId, teamId])
+}
+
+// Provisorio: estructura exacta del resultado a definir con Rodri
+model MatchSet {
+  id           String  @id @default(uuid())
+  matchId      String
+  number       Int
+  winnerTeamId String?
+
+  match      Match @relation(fields: [matchId], references: [id])
+  winnerTeam Team? @relation("SetWinner", fields: [winnerTeamId], references: [id])
+
+  @@unique([matchId, number])
+}
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ AuditorÃ­a â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+model ClockAction {
+  id      String   @id @default(uuid())
+  matchId String
+  userId  String
+  action  String // START | PAUSE | RESUME | ADJUST ...
+  detail  String? // JSON con target/timer/seconds/scope, para el registro legible
+  at      DateTime @default(now())
+
+  match Match @relation(fields: [matchId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([matchId])
+}
+
+model MatchResultLog {
+  id          String   @id @default(uuid())
+  matchId     String // sin relación: sobrevive a la eliminación definitiva del partido
+  matchLabel  String // ej. "Equipo A vs Equipo B (cancha 1)", fijado al momento del hecho
+  editedBy    String // userId, sin relación (ver editorLabel)
+  editorLabel String // apodo, nombre o mail de quien lo hizo, fijado al momento del hecho
+  type        String // SET_ADD | SET_EDIT | SET_DELETE | MATCH_EDIT | MATCH_CANCEL | MATCH_HIDE | MATCH_RESTORE | MATCH_PURGE
+  description String // frase lista para mostrar
+  editedAt    DateTime @default(now())
+
+  @@index([matchId])
+}
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Favoritos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+model Favorite {
+  userId     String
+  targetType String // TEAM | PLAYER
+  targetId   String
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([userId, targetType, targetId])
 }
