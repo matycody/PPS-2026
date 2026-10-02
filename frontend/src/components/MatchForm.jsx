@@ -40,7 +40,7 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
         <option value="" disabled>Torneo…</option>
         {tournaments.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
       </select>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-3 [&>*]:min-w-0">
         <label className="text-xs text-muted">Cancha
           <input type="number" min="1" required className={inputCls} value={f.court} onChange={(e) => set('court', e.target.value)} />
         </label>
@@ -58,7 +58,7 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
       <label className="block text-xs text-muted">Fecha y hora
         <input type="datetime-local" className={inputCls} value={f.scheduledAt} onChange={(e) => set('scheduledAt', e.target.value)} />
       </label>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
         {[['teamAId', 'Equipo A'], ['teamBId', 'Equipo B']].map(([k, l]) => (
           <label key={k} className="text-xs text-muted">{l}
             <select className={inputCls} value={f[k]} onChange={(e) => set(k, e.target.value)}>
@@ -72,3 +72,4 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
     </form>
   )
 }
+
