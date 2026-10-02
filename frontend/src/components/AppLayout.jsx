@@ -12,7 +12,7 @@ export default function AppLayout() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col">
-      <header className="sticky top-0 z-30 flex items-center gap-3 bg-bg/90 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-30 flex items-center gap-3 bg-bg/90 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur">
         <button
           aria-label="Abrir menú"
           onClick={() => setOpen(true)}
@@ -42,5 +42,6 @@ export default function AppLayout() {
     </div>
   )
 }
+
 
 

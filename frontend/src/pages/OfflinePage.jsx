@@ -96,7 +96,7 @@ function ClockCard({ label, clock, defaultSec, color }) {
           {clock.running ? 'En marcha' : 'Pausado'}
         </span>
       </div>
-      <p className={'my-3 text-center font-mono text-6xl font-extrabold tabular-nums ' + color}>{fmt(clock.left)}</p>
+      <p className={'my-3 text-center font-mono text-[clamp(2rem,10.5vw,3.75rem)] font-extrabold tabular-nums ' + color}>{fmt(clock.left)}</p>
       <div className="grid grid-cols-2 gap-2">
         <Btn tone={clock.running ? 'base' : 'live'} onClick={clock.running ? clock.pause : clock.start} disabled={!clock.running && clock.left === 0} className="col-span-2">
           {clock.running ? <Pause size={18} /> : <Play size={18} />} {clock.running ? 'Pausar' : 'Iniciar'}
@@ -123,7 +123,6 @@ export default function OfflinePage() {
   const [modality, setModality] = useState('FOAM')
   const [half, setHalf] = useState(1)
   const [notices, setNotices] = useState([])
-  const clothResetUsed = useRef({ 1: false, 2: false }) // una vez por tiempo
   const isCloth = modality === 'CLOTH'
   const push = (t) => setNotices((n) => [...n, { k: Date.now() + Math.random(), t }])
 
@@ -135,8 +134,7 @@ export default function OfflinePage() {
   // Reloj del set en 0: queda congelado hasta reinicio manual (ambas modalidades)
   const setClock = useClock(DEFAULTS.set, () => {
     push(isCloth ? MSG.set : MSG.sudden)
-    if (isCloth && matchClock.left > 0 && matchClock.left < CLOTH_LIMIT_MS && !clothResetUsed.current[half]) {
-      clothResetUsed.current[half] = true
+    if (isCloth && matchClock.left > 0 && matchClock.left < CLOTH_LIMIT_MS) {
       matchClock.reset(CLOTH_RESET_SEC) // vuelve a 01:30 y queda pausado
     }
   })
@@ -147,7 +145,6 @@ export default function OfflinePage() {
   const resetAll = () => {
     matchClock.reset(DEFAULTS.match)
     setClock.reset(DEFAULTS.set)
-    clothResetUsed.current = { 1: false, 2: false }
     setHalf(1)
     setNotices([])
   }
@@ -207,4 +204,6 @@ export default function OfflinePage() {
     </div>
   )
 }
+
+
 

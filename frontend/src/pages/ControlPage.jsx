@@ -32,7 +32,7 @@ function Btn({ children, onClick, disabled, tone = 'base', className = '' }) {
     <button
       onClick={onClick}
       disabled={disabled}
-      className={'flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-extrabold disabled:opacity-40 ' + tones[tone] + ' ' + className}
+      className={'flex items-center justify-center gap-2 rounded-2xl px-3 py-3 text-sm font-extrabold disabled:opacity-40 sm:px-4 ' + tones[tone] + ' ' + className}
     >
       {children}
     </button>
@@ -55,7 +55,7 @@ function Clock({ label, timer, time, paused, can, send, color }) {
           {paused ? 'Pausado' : 'En marcha'}
         </span>
       </div>
-      <p className={'my-3 text-center font-mono text-6xl font-extrabold tabular-nums ' + color}>{showTime(time)}</p>
+      <p className={'my-3 hidden text-center font-mono sm:block text-[clamp(2.5rem,16vw,3.75rem)] font-extrabold tabular-nums ' + color}>{showTime(time)}</p>
       <div className="grid grid-cols-2 gap-2">
         <Btn
           disabled={!can}
@@ -82,6 +82,65 @@ function Clock({ label, timer, time, paused, can, send, color }) {
         />
         <Btn disabled={!can || parseMMSS(val) == null} onClick={apply}>Fijar</Btn>
       </div>
+    </div>
+  )
+}
+
+function MiniClock({ label, time, paused, timer, color, can, send }) {
+  const [val, setVal] = useState('')
+  const apply = () => {
+    const s = parseMMSS(val)
+    if (s == null) return
+    send('match:setTime', { timer, totalSeconds: s })
+    setVal('')
+  }
+  return (
+    <div className="min-w-0 flex-1 rounded-2xl border border-line bg-bg p-2 text-center">
+      <div className="flex items-center justify-between gap-1">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted">{label}</p>
+        <span className={'rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase ' + (paused ? 'bg-danger/15 text-danger' : 'bg-live/15 text-live')}>
+          {paused ? 'Pausado' : 'En marcha'}
+        </span>
+      </div>
+      <p className={'my-2 font-mono text-[clamp(2rem,12vw,3rem)] font-extrabold leading-none tabular-nums ' + color}>{showTime(time)}</p>
+      <button
+        disabled={!can}
+        onClick={() => send(paused ? 'match:resume' : 'match:pause', { target: timer })}
+        className={'flex h-12 w-full items-center justify-center gap-1.5 rounded-xl text-sm font-extrabold disabled:opacity-40 ' + (paused ? 'bg-live text-black' : 'border border-line bg-surface-2')}
+      >
+        {paused ? <Play size={18} /> : <Pause size={18} />} {paused ? 'Reanudar' : 'Pausar'}
+      </button>
+      <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+        <button disabled={!can} onClick={() => send('match:adjust', { timer, seconds: -10 })} className="flex h-11 items-center justify-center gap-1 rounded-xl border border-line bg-surface-2 text-sm font-extrabold disabled:opacity-40"><Minus size={14} />10s</button>
+        <button disabled={!can} onClick={() => send('match:adjust', { timer, seconds: 10 })} className="flex h-11 items-center justify-center gap-1 rounded-xl border border-line bg-surface-2 text-sm font-extrabold disabled:opacity-40"><Plus size={14} />10s</button>
+      </div>
+      <button disabled={!can} onClick={() => send('match:reset', { timer })} className="mt-1.5 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-line bg-surface-2 text-sm font-extrabold disabled:opacity-40"><RotateCcw size={14} /> Reiniciar</button>
+      <div className="mt-1.5 flex gap-1.5">
+        <input value={val} onChange={(e) => setVal(e.target.value)} placeholder="MM:SS" inputMode="numeric" disabled={!can} className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-bg px-1 text-center font-mono text-sm outline-none focus:border-accent disabled:opacity-40" />
+        <button disabled={!can || parseMMSS(val) == null} onClick={apply} className="h-11 shrink-0 rounded-xl border border-line bg-surface-2 px-3 text-sm font-extrabold disabled:opacity-40">Fijar</button>
+      </div>
+    </div>
+  )
+}
+
+function MiniBoard({ a, b, score, tick, can, send, live }) {
+  return (
+    <div className="rounded-3xl border border-line bg-surface p-3 sm:hidden">
+      <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+        <p className="truncate text-right text-sm font-bold">{a?.name ?? 'Por definir'}</p>
+        <span className="font-mono text-4xl font-extrabold leading-none tabular-nums text-accent">{score?.teamA ?? 0} - {score?.teamB ?? 0}</span>
+        <p className="truncate text-sm font-bold">{b?.name ?? 'Por definir'}</p>
+      </div>
+      <div className="flex gap-2">
+        <MiniClock label="Partido" time={tick?.matchTime} paused={tick?.isMatchPaused ?? true} timer="match" color="text-accent" can={can} send={send} />
+        <MiniClock label="Set" time={tick?.setTime} paused={tick?.isSetPaused ?? true} timer="set" color="text-live" can={can} send={send} />
+      </div>
+      {live && (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button disabled={!can} onClick={() => send('match:resume', { target: 'both' })} className="flex h-11 items-center justify-center gap-1.5 rounded-xl bg-live text-sm font-extrabold text-black disabled:opacity-40"><Play size={16} /> Iniciar ambos</button>
+          <button disabled={!can} onClick={() => send('match:pause', { target: 'both' })} className="flex h-11 items-center justify-center gap-1.5 rounded-xl bg-danger text-sm font-extrabold text-white disabled:opacity-40"><Pause size={16} /> Pausar ambos</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -184,6 +243,7 @@ export default function ControlPage() {
         <p className="text-sm text-muted">Cancha {m.court} · {MODALITY[m.modality] ?? m.modality}</p>
       </div>
 
+      <MiniBoard a={a} b={b} score={m.score} tick={tick} can={can} send={send} live={live} />
       {err && (
         <button onClick={() => setErr('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-left text-sm font-bold text-danger">
           {err} <X size={16} className="shrink-0" />
@@ -195,7 +255,7 @@ export default function ControlPage() {
         </button>
       ))}
 
-      <div className="rounded-3xl border border-line bg-surface p-5">
+      <div className="hidden rounded-3xl border border-line bg-surface p-5 sm:block">
         <Versus
           a={a}
           b={b}
@@ -230,13 +290,13 @@ export default function ControlPage() {
         </p>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="hidden gap-3 sm:grid sm:grid-cols-2">
         <Clock label="Partido" timer="match" time={tick?.matchTime} paused={tick?.isMatchPaused ?? true} can={can} send={send} color="text-accent" />
         <Clock label="Set" timer="set" time={tick?.setTime} paused={tick?.isSetPaused ?? true} can={can} send={send} color="text-live" />
       </div>
 
       {live && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="hidden grid-cols-2 gap-2 sm:grid">
           <Btn tone="live" disabled={!can} onClick={() => send('match:resume', { target: 'both' })}>
             <Play size={18} /> Iniciar ambos
           </Btn>
@@ -326,6 +386,11 @@ export default function ControlPage() {
     </div>
   )
 }
+
+
+
+
+
 
 
 

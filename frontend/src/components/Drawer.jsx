@@ -38,7 +38,7 @@ export default function Drawer({ open, onClose }) {
       />
       <aside
         className={
-          'absolute left-0 top-0 flex h-full w-80 max-w-[85%] flex-col overflow-y-auto bg-bg p-5 transition-transform duration-200 ' +
+          'absolute left-0 top-0 flex h-full w-80 max-w-[85%] flex-col overflow-y-auto bg-bg px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] transition-transform duration-200 ' +
           (open ? 'translate-x-0' : '-translate-x-full')
         }
       >
@@ -47,7 +47,7 @@ export default function Drawer({ open, onClose }) {
             <p className="text-xs font-bold uppercase tracking-widest text-accent">Navegación</p>
             <p className="mt-1 text-2xl font-extrabold leading-tight">Cronómetro Dodgeball</p>
           </div>
-          <button aria-label="Cerrar" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full border border-line bg-surface">
+          <button aria-label="Cerrar" onClick={onClose} className="grid h-11 w-11 place-items-center rounded-full border border-line bg-surface">
             <X size={18} />
           </button>
         </div>
@@ -102,6 +102,7 @@ export default function Drawer({ open, onClose }) {
     </div>
   )
 }
+
 
 
 
