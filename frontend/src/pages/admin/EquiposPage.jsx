@@ -6,8 +6,10 @@ import { BRANCH } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import TeamBadge from '../../components/TeamBadge'
 import LogoPicker from '../../components/LogoPicker'
+import { useConfirm } from '../../components/ConfirmProvider'
 
 export default function EquiposPage() {
+  const ask = useConfirm()
   const [list, setList] = useState(null)
   const [name, setName] = useState('')
   const [branches, setBranches] = useState(['MIXED'])
@@ -54,7 +56,7 @@ export default function EquiposPage() {
   }
 
   async function remove(t) {
-    if (!confirm('¿Eliminar "' + t.name + '"?')) return
+    if (!(await ask({ title: 'Eliminar equipo', message: '¿Eliminar "' + t.name + '"?', confirmText: 'Eliminar', danger: true }))) return
     setErr('')
     try { await api('DELETE', '/teams/' + t.id); await load() } catch (e) { setErr(e.message) }
   }

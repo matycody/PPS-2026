@@ -28,6 +28,7 @@ import { accentRole } from './lib/roles'
 import { ITEMS, GENERAL } from './lib/navConfig'
 import { supabase } from './lib/supabase'
 import { socket } from './sockets/socket'
+import { usePersonalStore } from './stores/personalStore'
 import './App.css'
 
 // TEMPORAL (pruebas): borrar antes del commit
@@ -55,13 +56,14 @@ function App() {
   const init = useAuthStore((s) => s.init)
   const user = useAuthStore((s) => s.user)
   const menu = useAuthStore((s) => s.menu)
+  const accent = usePersonalStore((s) => s.accent)
 
   useEffect(() => {
     init()
   }, [init])
 
   return (
-    <div data-role={accentRole(user, menu)} className="min-h-screen">
+    <div data-role={accentRole(user, menu)} style={accent ? { '--accent': accent } : undefined} className="min-h-screen">
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />

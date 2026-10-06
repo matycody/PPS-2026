@@ -2,10 +2,14 @@
 import { Search } from 'lucide-react'
 import { api } from '../../lib/api'
 import { Btn, Alert, inputCls } from '../../components/ui'
+import { useConfirm } from '../../components/ConfirmProvider'
 
 const ROLE = { ADMIN: 'Organizador', REFEREE: 'Árbitro', PLAYER: 'Jugador' }
+const ROLE_COLOR = { ADMIN: '#a855f7', REFEREE: '#ff9a3c', PLAYER: '#2f8cff' }
+const roleColor = (r) => ROLE_COLOR[r] ?? '#8a8a94'
 
 export default function UsuariosPage() {
+  const ask = useConfirm()
   const [list, setList] = useState(null)
   const [q, setQ] = useState('')
   const [role, setRole] = useState('')
@@ -54,14 +58,14 @@ export default function UsuariosPage() {
               <div className="flex flex-wrap gap-1.5">
                 {u.roles.length === 0 && <span className="text-xs text-muted">Registrado (sin rol)</span>}
                 {u.roles.map((r) => (
-                  <span key={r} className="rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-bold uppercase text-accent">{ROLE[r] ?? r}</span>
+                  <span key={r} className="rounded-full px-2.5 py-1 text-[11px] font-bold uppercase" style={{ color: roleColor(r), background: 'color-mix(in srgb, ' + roleColor(r) + ' 16%, transparent)' }}>{ROLE[r] ?? r}</span>
                 ))}
               </div>
               <div className="flex flex-wrap gap-4 pt-1 text-sm font-bold">
-                {u.active && !isAdmin && <button disabled={busy} className="text-accent" onClick={() => confirm('¿Hacer admin a ' + u.email + '?') && act('POST', '/users/' + u.id + '/promote')}>Hacer admin</button>}
-                {u.active && isAdmin && <button disabled={busy} className="text-warn" onClick={() => confirm('¿Quitar admin a ' + u.email + '?') && act('POST', '/users/' + u.id + '/demote')}>Quitar admin</button>}
+                {u.active && !isAdmin && <button disabled={busy} className="text-accent" onClick={async () => (await ask({ title: 'Hacer admin', message: '¿Hacer admin a ' + u.email + '?', confirmText: 'Hacer admin' })) && act('POST', '/users/' + u.id + '/promote')}>Hacer admin</button>}
+                {u.active && isAdmin && <button disabled={busy} className="text-warn" onClick={async () => (await ask({ title: 'Quitar admin', message: '¿Quitar admin a ' + u.email + '?', confirmText: 'Quitar admin', danger: true })) && act('POST', '/users/' + u.id + '/demote')}>Quitar admin</button>}
                 {u.active
-                  ? <button disabled={busy} className="text-danger" onClick={() => confirm('¿Desactivar a ' + u.email + '?') && act('DELETE', '/users/' + u.id)}>Desactivar</button>
+                  ? <button disabled={busy} className="text-danger" onClick={async () => (await ask({ title: 'Desactivar usuario', message: '¿Desactivar a ' + u.email + '?', confirmText: 'Desactivar', danger: true })) && act('DELETE', '/users/' + u.id)}>Desactivar</button>
                   : <button disabled={busy} className="text-live" onClick={() => act('POST', '/users/' + u.id + '/reactivate')}>Reactivar</button>}
               </div>
             </div>

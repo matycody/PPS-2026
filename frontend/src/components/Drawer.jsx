@@ -59,7 +59,7 @@ export default function Drawer({ open, onClose }) {
             <p className="text-xs text-muted">{user ? 'Sesión iniciada' : 'Solo lectura'}</p>
           </div>
           {user && (
-            <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-bold uppercase text-accent">
+            <span className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase" style={{ color: 'var(--role-accent)', background: 'color-mix(in srgb, var(--role-accent) 16%, transparent)' }}>
               {roleLabel(user, menu)}
             </span>
           )}
