@@ -2,6 +2,8 @@
 
 const MATCH_DURATION_SECONDS = 20 * 60;
 const SET_DURATION_SECONDS = 3 * 60;
+const TIMEOUT_DURATION_SECONDS = 60;
+const newTimeoutsUsed = () => ({ A: { 1: false, 2: false }, B: { 1: false, 2: false } });
 
 function formatTime(totalSeconds) {
   const minutes = Math.floor(totalSeconds / 60);
@@ -15,6 +17,11 @@ class TimerEngine {
     this.callbacks = callbacks;
 
     this.modality = "foam";
+    this.timeoutTimeLeft = TIMEOUT_DURATION_SECONDS;
+    this.timeoutTeam = null;
+    this.isTimeoutRunning = false;
+    this.timeoutsUsed = newTimeoutsUsed();
+    this._resumeAfterTimeout = { match: false, set: false };
     this.matchTimeLeft = MATCH_DURATION_SECONDS;
     this.setTimeLeft = SET_DURATION_SECONDS;
     this.matchHalf = 1;
@@ -44,6 +51,7 @@ class TimerEngine {
   }
 
   finishHalf() {
+    this._clearTimeout(this.matchHalf === 2);
     this.isMatchPaused = true;
     this.isSetPaused = true;
     this._stopIntervalIfFullyPaused();
@@ -68,6 +76,7 @@ class TimerEngine {
   }
 
   start(target = "both") {
+    if (this.timeoutTeam !== null) return;
     if (target === "match" || target === "both") this.isMatchPaused = false;
     if (target === "set" || target === "both") this.isSetPaused = false;
 
@@ -128,13 +137,58 @@ class TimerEngine {
     this._emitState();
   }
 
+  // ---- Tiempo muerto: 1 minuto, 1 por equipo y por tiempo ----
+  startTimeout(team) {
+    if (team !== "A" && team !== "B") {
+      return { ok: false, message: "Equipo inv\u00e1lido" };
+    }
+    if (this.timeoutTeam !== null) {
+      return { ok: false, message: "Ya hay un tiempo muerto en curso" };
+    }
+    if (this.timeoutsUsed[team][this.matchHalf]) {
+      return { ok: false, message: `El equipo ${team} ya us\u00f3 su tiempo muerto en este tiempo` };
+    }
+    this._resumeAfterTimeout = { match: !this.isMatchPaused, set: !this.isSetPaused };
+    this.isMatchPaused = true;
+    this.isSetPaused = true;
+    this.timeoutsUsed[team][this.matchHalf] = true;
+    this.timeoutTeam = team;
+    this.timeoutTimeLeft = TIMEOUT_DURATION_SECONDS;
+    this.isTimeoutRunning = true;
+    this._ensureIntervalRunning();
+    this._emitState();
+    return { ok: true };
+  }
+
+  endTimeout() {
+    if (this.timeoutTeam === null) {
+      return { ok: false, message: "No hay un tiempo muerto en curso" };
+    }
+    const resume = this._resumeAfterTimeout;
+    this._clearTimeout(false);
+    if (resume.match && this.matchTimeLeft > 0) this.isMatchPaused = false;
+    if (resume.set && this.setTimeLeft > 0) this.isSetPaused = false;
+    if (!this.isMatchPaused || !this.isSetPaused) this._ensureIntervalRunning();
+    else this._stopIntervalIfFullyPaused();
+    this._emitState();
+    return { ok: true };
+  }
+
+  _clearTimeout(resetUsed) {
+    this.timeoutTeam = null;
+    this.isTimeoutRunning = false;
+    this.timeoutTimeLeft = TIMEOUT_DURATION_SECONDS;
+    this._resumeAfterTimeout = { match: false, set: false };
+    if (resetUsed) this.timeoutsUsed = newTimeoutsUsed();
+  }
+
   _ensureIntervalRunning() {
     if (this.intervalId) return;
     this.intervalId = setInterval(() => this._tick(), 1000);
   }
 
   _stopIntervalIfFullyPaused() {
-    if (this.isMatchPaused && this.isSetPaused && this.intervalId) {
+    if (this.isMatchPaused && this.isSetPaused && !this.isTimeoutRunning && this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
@@ -155,6 +209,7 @@ class TimerEngine {
             : "MUERTE SÚBITA (NO HAY ESCUDO)";
         this.callbacks.onSetExpired({
           action: this.modality === "cloth" ? "resetWithBonus" : "suddenDeath",
+          source: "match",
           message,
         });
       }
@@ -162,10 +217,22 @@ class TimerEngine {
   }
 
   _tick() {
+    if (this.isTimeoutRunning && this.timeoutTimeLeft > 0) this.timeoutTimeLeft--;
     if (!this.isMatchPaused && this.matchTimeLeft > 0) this.matchTimeLeft--;
     if (!this.isSetPaused && this.setTimeLeft > 0) this.setTimeLeft--;
 
+    let timeoutJustExpired = false;
+    if (this.isTimeoutRunning && this.timeoutTimeLeft === 0) {
+      this.isTimeoutRunning = false;
+      this._stopIntervalIfFullyPaused();
+      timeoutJustExpired = true;
+    }
+
     this._emitState();
+
+    if (timeoutJustExpired && this.callbacks.onTimeoutExpired) {
+      this.callbacks.onTimeoutExpired({ team: this.timeoutTeam, message: "TIEMPO MUERTO TERMINADO" });
+    }
 
     if (this.setTimeLeft === 0 && !this.isSetPaused) {
       const action = this.modality === "cloth" ? "resetWithBonus" : "suddenDeath";
@@ -175,7 +242,7 @@ class TimerEngine {
           : "MUERTE SÚBITA (NO HAY ESCUDO)";
 
       if (this.callbacks.onSetExpired) {
-        this.callbacks.onSetExpired({ action, message });
+        this.callbacks.onSetExpired({ action, message, source: "set" });
       }
 
       this.isSetPaused = true;
@@ -203,6 +270,10 @@ class TimerEngine {
         isMatchPaused: this.isMatchPaused,
         isSetPaused: this.isSetPaused,
         matchHalf: this.matchHalf,
+        timeoutTime: formatTime(this.timeoutTimeLeft),
+        timeoutTeam: this.timeoutTeam,
+        isTimeoutRunning: this.isTimeoutRunning,
+        timeoutsUsed: JSON.parse(JSON.stringify(this.timeoutsUsed)),
       });
     }
   }

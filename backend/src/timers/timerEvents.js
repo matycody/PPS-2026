@@ -1,4 +1,4 @@
-﻿// backend/src/timers/timerEvents.js
+// backend/src/timers/timerEvents.js
 
 // Eventos que el FRONTEND emite (nosotros escuchamos)
 const CLIENT_EVENTS = {
@@ -11,6 +11,8 @@ const CLIENT_EVENTS = {
   MATCH_SET_MODALITY: "match:setModality",
   MATCH_SET_HALF: "match:setHalf",
   MATCH_FINISH_HALF: "match:finishHalf",
+  MATCH_TIMEOUT_START: "match:timeout:start",
+  MATCH_TIMEOUT_END: "match:timeout:end",
   // Suscripción pública (visitantes y cuentas) y de control (asignados)
   MATCH_JOIN: "match:join",
   MATCH_LEAVE: "match:leave",
@@ -24,6 +26,7 @@ const CLIENT_EVENTS = {
 const SERVER_EVENTS = {
   MATCH_TICK: "match:tick",
   MATCH_SET_EXPIRED: "match:setExpired",
+  MATCH_TIMEOUT_EXPIRED: "match:timeoutExpired",
   MATCH_ENDED: "match:ended",
   MATCH_FINISHED: "match:finished",
   MATCH_PAUSED: "match:paused",

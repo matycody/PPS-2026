@@ -1,4 +1,4 @@
-﻿// backend/src/sockets/matchSocket.js
+// backend/src/sockets/matchSocket.js
 
 const prisma = require('../db');
 const { getPermissions } = require('../services/matchAccess');
@@ -18,19 +18,23 @@ const lastTick = new Map();
 
 function buildCallbacks(io, matchId) {
   return {
-    onTick: ({ matchTime, setTime, isMatchPaused, isSetPaused, matchHalf }) => {
-      const payload = { matchId, matchTime, setTime, isMatchPaused, isSetPaused, matchHalf };
+    onTick: ({ matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed }) => {
+      const payload = { matchId, matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed };
       lastTick.set(matchId, payload);
       io.to(publicRoom(matchId)).emit(SERVER_EVENTS.MATCH_TICK, payload);
     },
-    onSetExpired: ({ action, message }) => {
+    onSetExpired: ({ action, message, source }) => {
       const engine = getMatch(matchId);
       io.to(publicRoom(matchId)).emit(SERVER_EVENTS.MATCH_SET_EXPIRED, {
         matchId,
         modality: engine && engine.modality,
+        source,
         action,
         message,
       });
+    },
+    onTimeoutExpired: ({ team, message }) => {
+      io.to(publicRoom(matchId)).emit(SERVER_EVENTS.MATCH_TIMEOUT_EXPIRED, { matchId, team, message });
     },
     onMatchFinished: () => {
       // Solo congela el reloj: el estado FINISHED lo pone la mesa (POST /matches/:id/finish)
@@ -246,7 +250,11 @@ function registerMatchHandlers(io, socket) {
   // ── Comandos del reloj: árbitros asignados y mesa, con el partido Habilitado o En vivo ──
   on(CLIENT_EVENTS.MATCH_START, 'canControlClock', async ({ match }, p) => {
     const target = p.target || 'both';
-    getEngine(io, match).start(target);
+    const startEngine = getEngine(io, match);
+    if (startEngine.timeoutTeam !== null) {
+      return emitError(socket, match.id, 'Hay un tiempo muerto en curso');
+    }
+    startEngine.start(target);
 
     if (match.status === 'READY') {
       await prisma.match.updateMany({
@@ -286,6 +294,9 @@ function registerMatchHandlers(io, socket) {
     return runGuarded(socket, 'canControlClock', p, async ({ match }) => {
       if (!requireEngine(match)) return;
       if (alreadyRunning(match.id, target)) return; // idempotente
+      if (requireEngine(match).timeoutTeam !== null) {
+        return emitError(socket, match.id, 'Hay un tiempo muerto en curso');
+      }
       resumeMatch(match.id, target);
       io.to(publicRoom(match.id)).emit(SERVER_EVENTS.MATCH_RESUMED, {
         matchId: match.id,
@@ -359,6 +370,23 @@ function registerMatchHandlers(io, socket) {
     if (!engine) return;
     engine.setHalf(p.half);
     await logAction(io, socket, match.id, 'SET_HALF', { half: p.half });
+  });
+
+  // Tiempo muerto: 1 minuto, 1 por equipo y por tiempo (las reglas las valida TimerEngine)
+  on(CLIENT_EVENTS.MATCH_TIMEOUT_START, 'canControlClock', async ({ match }, p) => {
+    const engine = requireEngine(match);
+    if (!engine) return;
+    const r = engine.startTimeout(p.team);
+    if (!r.ok) return emitError(socket, match.id, r.message);
+    await logAction(io, socket, match.id, 'TIMEOUT_START', { team: p.team, half: engine.matchHalf });
+  });
+
+  on(CLIENT_EVENTS.MATCH_TIMEOUT_END, 'canControlClock', async ({ match }) => {
+    const engine = requireEngine(match);
+    if (!engine) return;
+    const r = engine.endTimeout();
+    if (!r.ok) return emitError(socket, match.id, r.message);
+    await logAction(io, socket, match.id, 'TIMEOUT_END');
   });
 
   on(CLIENT_EVENTS.MATCH_FINISH_HALF, 'canControlClock', async ({ match }) => {
