@@ -3,6 +3,7 @@ import { Search } from 'lucide-react'
 import { api } from '../../lib/api'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import PersonName from '../../components/PersonName'
+import { useConfirm } from '../../components/ConfirmProvider'
 
 const EMPTY = { dni: '', name: '', email: '', sex: '', isPlayer: true, isReferee: false }
 const Chip = ({ children, cls = 'bg-surface-2 text-muted' }) => (
@@ -10,6 +11,7 @@ const Chip = ({ children, cls = 'bg-surface-2 text-muted' }) => (
 )
 
 export default function PersonasPage() {
+  const ask = useConfirm()
   const [list, setList] = useState(null)
   const [q, setQ] = useState('')
   const [pending, setPending] = useState(false)
@@ -119,13 +121,13 @@ export default function PersonasPage() {
             <div className="flex flex-wrap gap-2 pt-1 text-sm font-bold">
               <button className="text-accent" onClick={() => startEdit(p)}>Editar</button>
               {p.status === 'VINCULADO' && (
-                <button className="text-warn" onClick={() => {
-                  const email = prompt('Mail nuevo para ' + p.name + ':')
+                <button className="text-warn" onClick={async () => {
+                  const email = await ask({ title: 'Desvincular cuenta', message: 'Mail nuevo para ' + p.name, input: { type: 'email', placeholder: 'nuevo@mail.com' }, confirmText: 'Desvincular' })
                   if (email) run(() => api('POST', '/profiles/' + p.id + '/unlink', { email: email.trim() }), 'Cuenta desvinculada')
                 }}>Desvincular</button>
               )}
               {p.active
-                ? <button className="text-danger" onClick={() => confirm('¿Dar de baja a ' + p.name + '?') && run(() => api('DELETE', '/profiles/' + p.id), 'Baja realizada')}>Dar de baja</button>
+                ? <button className="text-danger" onClick={async () => (await ask({ title: 'Dar de baja', message: '¿Dar de baja a ' + p.name + '?', confirmText: 'Dar de baja', danger: true })) && run(() => api('DELETE', '/profiles/' + p.id), 'Baja realizada')}>Dar de baja</button>
                 : <button className="text-live" onClick={() => run(() => api('PATCH', '/profiles/' + p.id, { active: true }), 'Reactivado (volvé a asignarle equipo)')}>Reactivar</button>}
             </div>
           </div>

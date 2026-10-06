@@ -5,6 +5,7 @@ import Drawer from './Drawer'
 import BottomNav from './BottomNav'
 import { useAuthStore } from '../stores/authStore'
 import UserAvatar from './UserAvatar'
+import ServerClock from './ServerClock'
 
 export default function AppLayout() {
   const [open, setOpen] = useState(false)
@@ -21,7 +22,10 @@ export default function AppLayout() {
           <Menu size={20} />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted">Dodgeball</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted">Dodgeball</p>
+            <ServerClock />
+          </div>
           <p className="truncate text-lg font-extrabold leading-tight">Cronómetro Dodgeball</p>
         </div>
         {user ? (

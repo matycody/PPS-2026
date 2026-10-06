@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Eye, X } from 'lucide-react'
 import { api } from '../lib/api'
@@ -6,6 +6,7 @@ import { socket } from '../sockets/socket'
 import { normMatch, MODALITY, BRANCH } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import Versus from '../components/Versus'
+import { useWakeLock } from '../hooks/useWakeLock'
 
 const showTime = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
 
@@ -21,12 +22,27 @@ function ClockCard({ label, time, paused, color }) {
   )
 }
 
+function TimeoutBanner({ tick, nameA, nameB }) {
+  const team = tick?.timeoutTeam
+  if (!team) return null
+  const expired = !tick.isTimeoutRunning
+  return (
+    <div className="rounded-3xl border border-warn/40 bg-warn/10 p-5 text-center">
+      <p className="text-xs font-bold uppercase tracking-widest text-warn">Tiempo muerto - {team === 'A' ? nameA : nameB}</p>
+      <p className={'my-3 font-mono text-[clamp(2rem,10vw,3.5rem)] font-extrabold tabular-nums ' + (expired ? 'text-danger' : 'text-warn')}>
+        {showTime(tick.timeoutTime)}
+      </p>
+    </div>
+  )
+}
+
 export default function MatchPage() {
   const { id } = useParams()
   const [m, setM] = useState(null)
   const [tick, setTick] = useState(null)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
+  useWakeLock(!!tick && (!tick.isMatchPaused || !tick.isSetPaused || !!tick.isTimeoutRunning))
 
   useEffect(() => {
     api('GET', '/matches/' + id).then((x) => setM(normMatch(x))).catch((e) => setError(e.message))
@@ -46,6 +62,7 @@ export default function MatchPage() {
     socket.on('match:setExpired', onMsg)
     socket.on('match:finished', onMsg)
     socket.on('match:ended', onMsg)
+    socket.on('match:timeoutExpired', onMsg)
 
     return () => {
       socket.emit('match:leave', { matchId: id })
@@ -55,6 +72,7 @@ export default function MatchPage() {
       socket.off('match:setExpired', onMsg)
       socket.off('match:finished', onMsg)
       socket.off('match:ended', onMsg)
+      socket.off('match:timeoutExpired', onMsg)
     }
   }, [id])
 
@@ -69,6 +87,8 @@ export default function MatchPage() {
         <StatusPill status={m.status} />
         <p className="text-sm text-muted">Cancha {m.court} · {BRANCH[m.branch] ?? m.branch}</p>
       </div>
+
+
 
       {notice && (
         <button onClick={() => setNotice('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-warn/40 bg-warn/10 px-4 py-3 text-left text-sm font-bold text-warn">
@@ -94,6 +114,9 @@ export default function MatchPage() {
         <ClockCard label="Partido" time={tick?.matchTime} paused={tick?.isMatchPaused ?? true} color="text-accent" />
         <ClockCard label="Set" time={tick?.setTime} paused={tick?.isSetPaused ?? true} color="text-live" />
       </div>
+
+      <TimeoutBanner tick={tick} nameA={m.teamA?.name ?? 'Equipo A'} nameB={m.teamB?.name ?? 'Equipo B'} />
+
 
       <div className="rounded-3xl border border-line bg-surface p-5 text-center">
         <p className="text-xs font-bold uppercase tracking-widest text-muted">Estado del partido</p>

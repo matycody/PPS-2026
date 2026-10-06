@@ -7,6 +7,8 @@ import { useAuthStore } from '../stores/authStore'
 import { BRANCH } from '../lib/format'
 import { roleLabel } from '../lib/navConfig'
 import PersonName from '../components/PersonName'
+import { ThemeToggle } from '../components/ThemeToggle'
+import ColorPicker from '../components/ColorPicker'
 
 function Card({ title, children }) {
   return (
@@ -155,6 +157,13 @@ export default function PerfilPage() {
           )}
         </Card>
       )}
+
+      <Card title="Apariencia">
+        <div className="space-y-4">
+          <ThemeToggle />
+          <ColorPicker />
+        </div>
+      </Card>
 
       <Card title="Cambiar mail">
         <div className="flex gap-2">

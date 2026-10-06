@@ -7,6 +7,7 @@ import MatchForm from '../../components/MatchForm'
 import StatusPill from '../../components/StatusPill'
 import Versus from '../../components/Versus'
 import { personNumber } from '../../lib/person'
+import { useConfirm } from '../../components/ConfirmProvider'
 
 const FN = { REFEREE: 'Árbitro', TABLE: 'Mesa' }
 const CONFLICT_MSG = 'No seleccionable: pertenece a un equipo de este partido'
@@ -75,6 +76,7 @@ function PickList({ query, onQuery, options, placeholder, emptyText, onPick, dis
 }
 
 export default function AdminMatchPage() {
+  const ask = useConfirm()
   const { id } = useParams()
   const [m, setM] = useState(null)
   const [tournaments, setTournaments] = useState(null)
@@ -171,7 +173,7 @@ export default function AdminMatchPage() {
         {m.status === 'SCHEDULED' && <Btn tone="accent" disabled={busy} onClick={() => run(() => api('POST', '/matches/' + id + '/ready'), 'Partido habilitado')}>Habilitar partido</Btn>}
         {m.status === 'READY' && <Btn disabled={busy} onClick={() => run(() => api('POST', '/matches/' + id + '/unready'), 'Habilitación revertida')}>Deshabilitar partido</Btn>}
         {m.status !== 'FINISHED' && m.status !== 'CANCELLED' && (
-          <Btn tone="danger" disabled={busy} onClick={() => confirm('¿Cancelar el partido?') && run(() => api('POST', '/matches/' + id + '/cancel'), 'Partido cancelado')}>Cancelar partido</Btn>
+          <Btn tone="danger" disabled={busy} onClick={async () => (await ask({ title: 'Cancelar partido', message: '¿Cancelar el partido?', confirmText: 'Cancelar partido', cancelText: 'Volver', danger: true })) && run(() => api('POST', '/matches/' + id + '/cancel'), 'Partido cancelado')}>Cancelar partido</Btn>
         )}
       </div>
 

@@ -7,6 +7,7 @@ import { Btn, Alert, inputCls } from '../../components/ui'
 import MatchForm from '../../components/MatchForm'
 import StatusPill from '../../components/StatusPill'
 import Versus from '../../components/Versus'
+import { useConfirm } from '../../components/ConfirmProvider'
 
 // Solo se puede ocultar un partido que no esté en curso
 const canHide = (status) => status === 'SCHEDULED' || status === 'FINISHED' || status === 'CANCELLED'
@@ -39,6 +40,7 @@ function MatchRow({ m, hidden, busy, onHide, onRestore, onPurge }) {
 }
 
 export default function PartidosPage() {
+  const ask = useConfirm()
   const [matches, setMatches] = useState(null)
   const [tournaments, setTournaments] = useState(null)
   const [teams, setTeams] = useState(null)
@@ -71,7 +73,7 @@ export default function PartidosPage() {
 
   async function hide(m) {
     const name = (m.teamA?.name ?? '—') + ' vs ' + (m.teamB?.name ?? '—')
-    if (!confirm('¿Eliminar ' + name + '? Podés restaurarlo después desde "Eliminados".')) return
+    if (!(await ask({ title: 'Eliminar partido', message: '¿Eliminar ' + name + '? Podés restaurarlo después desde "Eliminados".', confirmText: 'Eliminar', danger: true }))) return
     setBusyId(m.id); setErr('')
     try {
       await api('POST', '/matches/' + m.id + '/hide')
@@ -89,7 +91,7 @@ export default function PartidosPage() {
 
   async function purge(m) {
     const name = (m.teamA?.name ?? '—') + ' vs ' + (m.teamB?.name ?? '—')
-    if (!confirm('Esto borra "' + name + '" para siempre y no se puede deshacer. ¿Eliminar definitivamente?')) return
+    if (!(await ask({ title: 'Eliminar definitivamente', message: 'Esto borra "' + name + '" para siempre y no se puede deshacer.', confirmText: 'Eliminar definitivo', danger: true }))) return
     setBusyId(m.id); setErr('')
     try {
       await api('DELETE', '/matches/' + m.id + '/purge')

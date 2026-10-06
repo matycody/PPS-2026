@@ -2,6 +2,7 @@
 import { Pencil, Trash2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { Btn, Alert, inputCls } from '../../components/ui'
+import { useConfirm } from '../../components/ConfirmProvider'
 
 const EMPTY = { name: '', startsAt: '', endsAt: '' }
 // Mediodía UTC para que la fecha no se corra por zona horaria
@@ -9,6 +10,7 @@ const toIso = (d) => (d ? d + 'T12:00:00.000Z' : undefined)
 const fmt = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { timeZone: 'UTC' }) : '—')
 
 export default function TorneosPage() {
+  const ask = useConfirm()
   const [list, setList] = useState(null)
   const [form, setForm] = useState(EMPTY)
   const [editId, setEditId] = useState(null)
@@ -31,7 +33,7 @@ export default function TorneosPage() {
   }
 
   async function remove(t) {
-    if (!confirm('¿Eliminar "' + t.name + '"?')) return
+    if (!(await ask({ title: 'Eliminar torneo', message: '¿Eliminar "' + t.name + '"?', confirmText: 'Eliminar', danger: true }))) return
     setErr('')
     try { await api('DELETE', '/tournaments/' + t.id); await load() } catch (e) { setErr(e.message) }
   }

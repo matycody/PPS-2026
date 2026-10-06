@@ -42,6 +42,14 @@
 [data-role="table"]   { --accent: #14b8a6; }
 [data-role="admin"]   { --accent: #a855f7; }
 
+/* Color fijo del rol (chips); no cambia con el color personal */
+:root,
+[data-role="visitor"],
+[data-role="player"] { --role-accent: #2f8cff; }
+[data-role="referee"] { --role-accent: #ff9a3c; }
+[data-role="table"]   { --role-accent: #14b8a6; }
+[data-role="admin"]   { --role-accent: #a855f7; }
+
 :root,
 [data-role] {
   --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
