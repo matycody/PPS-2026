@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ChevronLeft, Play, Pause, RotateCcw, Minus, Plus, X } from 'lucide-react'
 import { api } from '../lib/api'
@@ -6,11 +6,15 @@ import { socket } from '../sockets/socket'
 import { normMatch, MODALITY } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import Versus from '../components/Versus'
+import SoundToggle from '../components/SoundToggle'
+import { useMatchSound } from '../hooks/useMatchSound'
+import { useWakeLock } from '../hooks/useWakeLock'
 
 const ACTIONS = {
   START: 'Iniciado', PAUSE: 'Pausado', RESUME: 'Reanudado', RESET: 'Reiniciado',
   ADJUST: 'Tiempo ajustado', SET_TIME: 'Tiempo fijado', SET_MODALITY: 'Modalidad cambiada',
   SET_HALF: 'Tiempo cambiado', FINISH_HALF: 'Tiempo finalizado',
+  TIMEOUT_START: 'Tiempo muerto pedido', TIMEOUT_END: 'Tiempo muerto terminado',
 }
 
 // El backend manda "1:48"; se muestra "01:48"
@@ -145,6 +149,40 @@ function MiniBoard({ a, b, score, tick, can, send, live }) {
   )
 }
 
+function TimeoutCard({ tick, can, half, send, nameA, nameB }) {
+  const used = tick?.timeoutsUsed
+  const team = tick?.timeoutTeam
+  const expired = !!team && !tick?.isTimeoutRunning
+  const teams = [['A', nameA], ['B', nameB]]
+  return (
+    <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
+      <p className="text-xs font-bold uppercase tracking-widest text-muted">Tiempo muerto (1 por equipo y por tiempo)</p>
+      {!team ? (
+        <div className="grid grid-cols-2 gap-2">
+          {teams.map(([k, name]) => {
+            const done = !!used?.[k]?.[half]
+            return (
+              <Btn key={k} disabled={!can || done || !half} onClick={() => send('match:timeout:start', { team: k })}>
+                <span className="truncate">{name}{done ? ' (usado)' : ''}</span>
+              </Btn>
+            )
+          })}
+        </div>
+      ) : (
+        <>
+          <p className="text-center text-xs font-bold uppercase text-muted">{team === 'A' ? nameA : nameB}</p>
+          <p className={'text-center font-mono text-6xl font-extrabold tabular-nums ' + (expired ? 'text-danger' : 'text-warn')}>
+            {showTime(tick?.timeoutTime)}
+          </p>
+          <Btn tone={expired ? 'live' : 'base'} disabled={!can} onClick={() => send('match:timeout:end')} className="w-full">
+            {expired ? 'Reanudar' : 'Terminar tiempo y reanudar'}
+          </Btn>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function ControlPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -156,6 +194,9 @@ export default function ControlPage() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
+  const soundAllowed = !!(perms?.isTable || perms?.isReferee)
+  useMatchSound(id, soundAllowed) // solo mesa y arbitro
+  useWakeLock(!!tick && (!tick.isMatchPaused || !tick.isSetPaused || !!tick.isTimeoutRunning))
 
   const send = (event, extra = {}) => socket.emit(event, { matchId: id, ...extra })
   const pushNotice = (t) => setNotices((n) => [...n, { k: Date.now() + Math.random(), t }])
@@ -188,6 +229,7 @@ export default function ControlPage() {
     socket.on('match:setExpired', onMsg)
     socket.on('match:finished', onMsg)
     socket.on('match:ended', onMsg)
+    socket.on('match:timeoutExpired', onMsg)
 
     return () => {
       socket.emit('match:controlLeave', { matchId: id })
@@ -201,6 +243,7 @@ export default function ControlPage() {
       socket.off('match:setExpired', onMsg)
       socket.off('match:finished', onMsg)
       socket.off('match:ended', onMsg)
+      socket.off('match:timeoutExpired', onMsg)
     }
   }, [id])
 
@@ -244,6 +287,7 @@ export default function ControlPage() {
       </div>
 
       <MiniBoard a={a} b={b} score={m.score} tick={tick} can={can} send={send} live={live} />
+      {soundAllowed && <SoundToggle />}
       {err && (
         <button onClick={() => setErr('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-left text-sm font-bold text-danger">
           {err} <X size={16} className="shrink-0" />
@@ -318,6 +362,10 @@ export default function ControlPage() {
           )}
         </div>
       </div>
+
+      {live && (
+        <TimeoutCard tick={tick} can={can} half={half} send={send} nameA={a?.name ?? 'Equipo A'} nameB={b?.name ?? 'Equipo B'} />
+      )}
 
       {hasTablePanel && (
         <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
