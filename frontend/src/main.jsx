@@ -6,6 +6,7 @@ import './index.css'
 import App from './App.jsx'
 import { ConfirmProvider } from './components/ConfirmProvider'
 import { useThemeStore } from './stores/themeStore'
+import './lib/syncPrefs'
 
 useThemeStore.getState().initTheme()
 
