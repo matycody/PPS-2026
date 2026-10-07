@@ -2,7 +2,7 @@
 import { Link } from 'react-router-dom'
 import { Trash2, ChevronRight } from 'lucide-react'
 import { api, apiUpload } from '../../lib/api'
-import { BRANCH } from '../../lib/format'
+import { BRANCH, MODALITY } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import TeamBadge from '../../components/TeamBadge'
 import LogoPicker from '../../components/LogoPicker'
@@ -13,6 +13,7 @@ export default function EquiposPage() {
   const [list, setList] = useState(null)
   const [name, setName] = useState('')
   const [branches, setBranches] = useState(['MIXED'])
+  const [modalities, setModalities] = useState(['FOAM', 'CLOTH'])
   const [logo, setLogo] = useState(null) // { file, url }
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
@@ -22,6 +23,7 @@ export default function EquiposPage() {
   useEffect(() => { load() }, [])
 
   const toggle = (b) => setBranches((cur) => (cur.includes(b) ? cur.filter((x) => x !== b) : [...cur, b]))
+  const toggleModality = (m) => setModalities((cur) => (cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m]))
 
   const pickLogo = (file) =>
     setLogo((prev) => {
@@ -37,9 +39,10 @@ export default function EquiposPage() {
   async function create(e) {
     e.preventDefault()
     if (!branches.length) return setErr('Elegí al menos una rama')
+    if (!modalities.length) return setErr('Elegi al menos una modalidad')
     setBusy(true); setErr(''); setOk('')
     try {
-      const team = await api('POST', '/teams', { name: name.trim(), branches })
+      const team = await api('POST', '/teams', { name: name.trim(), branches, modalities })
       let msg = 'Equipo creado'
       if (logo) {
         try {
@@ -83,6 +86,19 @@ export default function EquiposPage() {
             </button>
           ))}
         </div>
+        <p className="text-xs font-bold uppercase tracking-widest text-muted">Modalidad</p>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(MODALITY).map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => toggleModality(k)}
+              className={'rounded-full border px-4 py-2 text-sm font-bold ' + (modalities.includes(k) ? 'border-accent bg-accent text-black' : 'border-line bg-surface-2')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <Btn type="submit" tone="accent" disabled={busy} className="w-full">Crear equipo</Btn>
       </form>
 
@@ -95,7 +111,7 @@ export default function EquiposPage() {
             <Link to={'/admin/equipos/' + t.id} className="flex min-w-0 flex-1 items-center gap-2">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold">{t.name}</p>
-                <p className="text-xs text-muted">{(t.branches ?? []).map((b) => BRANCH[b] ?? b).join(' · ')}</p>
+                <p className="text-xs text-muted">{(t.branches ?? []).map((b) => BRANCH[b] ?? b).join(' \u00b7 ')}{' \u2014 '}{(t.modalities ?? []).length ? t.modalities.map((m) => MODALITY[m] ?? m).join(' \u00b7 ') : 'sin modalidad'}</p>
               </div>
               <ChevronRight size={18} className="text-muted" />
             </Link>

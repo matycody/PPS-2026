@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ChevronLeft, Play, Pause, RotateCcw, Minus, Plus, X } from 'lucide-react'
 import { api } from '../lib/api'
@@ -78,8 +78,8 @@ function Clock({ label, timer, time, paused, can, send, color }) {
       <div className="mt-3 flex gap-2">
         <input
           value={val}
-          onChange={(e) => setVal(e.target.value)}
-          placeholder="MM:SS"
+          onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4}
+          placeholder="mmss"
           inputMode="numeric"
           disabled={!can}
           className="min-w-0 flex-1 rounded-2xl border border-line bg-bg px-4 py-3 text-center font-mono outline-none focus:border-accent disabled:opacity-40"
@@ -120,7 +120,7 @@ function MiniClock({ label, time, paused, timer, color, can, send }) {
       </div>
       <button disabled={!can} onClick={() => send('match:reset', { timer })} className="mt-1.5 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-line bg-surface-2 text-sm font-extrabold disabled:opacity-40"><RotateCcw size={14} /> Reiniciar</button>
       <div className="mt-1.5 flex gap-1.5">
-        <input value={val} onChange={(e) => setVal(e.target.value)} placeholder="MM:SS" inputMode="numeric" disabled={!can} className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-bg px-1 text-center font-mono text-sm outline-none focus:border-accent disabled:opacity-40" />
+        <input value={val} onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} placeholder="mmss" inputMode="numeric" disabled={!can} className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-bg px-1 text-center font-mono text-sm outline-none focus:border-accent disabled:opacity-40" />
         <button disabled={!can || parseMMSS(val) == null} onClick={apply} className="h-11 shrink-0 rounded-xl border border-line bg-surface-2 px-3 text-sm font-extrabold disabled:opacity-40">Fijar</button>
       </div>
     </div>
@@ -356,8 +356,8 @@ export default function ControlPage() {
           <Btn disabled={!can} tone={half === 1 ? 'accent' : 'base'} onClick={() => send('match:setHalf', { half: 1 })}>1er tiempo</Btn>
           <Btn disabled={!can} tone={half === 2 ? 'accent' : 'base'} onClick={() => send('match:setHalf', { half: 2 })}>2do tiempo</Btn>
           {(isCloth || matchAtZero) && (
-            <Btn disabled={!can} onClick={() => send('match:finishHalf')} className="col-span-2">
-              {half === 2 ? 'Fin del partido (reloj)' : 'Finalizar tiempo'}
+            <Btn tone="danger" disabled={!can} onClick={() => send('match:finishHalf')} className="col-span-2 animate-pulse py-4 text-base ring-2 ring-danger/50">
+              {half === 2 ? 'Fin del partido' : 'Finalizar tiempo'}
             </Btn>
           )}
         </div>

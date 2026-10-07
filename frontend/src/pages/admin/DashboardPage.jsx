@@ -6,6 +6,8 @@ import { useMatchesStore } from '../../stores/matchesStore'
 import { fmtWhen } from '../../lib/format'
 import StatusPill from '../../components/StatusPill'
 import Versus from '../../components/Versus'
+import { matchInfo } from '../../lib/matchInfo'
+import { statusBorder } from '../../lib/statusStyle'
 
 const ORDER = { LIVE: 0, READY: 1, SCHEDULED: 2 }
 const pad = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
@@ -58,10 +60,13 @@ export default function DashboardPage() {
         const paused = m.status === 'LIVE' && t?.isMatchPaused
         const center =
           m.status === 'LIVE' ? (
-            <span className="font-mono text-2xl font-extrabold tabular-nums text-accent">{pad(t?.matchTime)}</span>
+            <div className="flex flex-col items-center gap-1">
+              <span className="font-mono text-4xl font-extrabold tabular-nums">{m.score?.teamA ?? 0} - {m.score?.teamB ?? 0}</span>
+              <span className="font-mono text-lg font-extrabold tabular-nums text-accent">{pad(t?.matchTime)}</span>
+            </div>
           ) : undefined
         return (
-          <Link key={court} to={'/partido/' + m.id} className="block rounded-3xl border border-line bg-surface p-5">
+          <Link key={court} to={'/partido/' + m.id} className={'block rounded-3xl border bg-surface p-5 ' + statusBorder(m.status)}>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-widest text-muted">Cancha {court}</span>
               {paused ? (
@@ -73,6 +78,7 @@ export default function DashboardPage() {
             <div className="mt-4">
               <Versus a={m.teamA} b={m.teamB} size="lg" center={center} />
             </div>
+            <p className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-muted">{matchInfo(m)}</p>
             <p className="mt-3 text-center text-sm text-muted">{fmtWhen(m.scheduledAt)}</p>
             {extra > 0 && <p className="mt-1 text-center text-xs text-muted">+{extra} más en esta cancha</p>}
           </Link>

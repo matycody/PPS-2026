@@ -1,37 +1,50 @@
 ﻿import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Trash2, RotateCcw } from 'lucide-react'
+import { Plus, Trash2, RotateCcw, Check, ChevronDown } from 'lucide-react'
 import { api } from '../../lib/api'
 import { STATUS, fmtWhen } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import MatchForm from '../../components/MatchForm'
 import StatusPill from '../../components/StatusPill'
 import Versus from '../../components/Versus'
+import { matchInfo } from '../../lib/matchInfo'
+import { statusBorder } from '../../lib/statusStyle'
 import { useConfirm } from '../../components/ConfirmProvider'
 
 // Solo se puede ocultar un partido que no esté en curso
 const canHide = (status) => status === 'SCHEDULED' || status === 'FINISHED' || status === 'CANCELLED'
 
-function MatchRow({ m, hidden, busy, onHide, onRestore, onPurge }) {
+function MatchRow({ m, hidden, busy, onHide, onRestore, onPurge, selecting, selected, onToggle }) {
   return (
-    <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
+    <div
+      onClick={selecting ? onToggle : undefined}
+      className={'space-y-3 rounded-3xl border bg-surface p-4 ' + (selecting ? 'cursor-pointer ' : '') + (selected ? 'border-accent ring-2 ring-accent/40' : statusBorder(m.status))}
+    >
       <div className="flex items-center justify-between">
         <StatusPill status={m.status} />
-        <span className="text-sm text-muted">Cancha {m.court}</span>
+        <span className="flex items-center gap-2 text-sm text-muted">
+          Cancha {m.court}
+          {selecting && (
+            <span className={'grid h-6 w-6 place-items-center rounded-md border-2 ' + (selected ? 'border-accent bg-accent text-black' : 'border-line')}>
+              {selected && <Check size={16} />}
+            </span>
+          )}
+        </span>
       </div>
-      <Link to={'/admin/partidos/' + m.id} className="block">
+      <Link to={'/admin/partidos/' + m.id} onClick={(e) => selecting && e.preventDefault()} className="block">
         <Versus a={m.teamA} b={m.teamB} />
       </Link>
+      <p className="text-center text-xs font-bold uppercase tracking-wider text-muted">{matchInfo(m)}</p>
       <p className="text-center text-sm text-muted">{fmtWhen(m.scheduledAt)}</p>
 
-      {!hidden && canHide(m.status) && (
+      {!selecting && !hidden && canHide(m.status) && (
         <Btn tone="danger" disabled={busy} onClick={onHide} className="w-full">
           <Trash2 size={16} /> Eliminar
         </Btn>
       )}
-      {hidden && (
+      {!selecting && hidden && (
         <div className="grid grid-cols-2 gap-2">
-          <Btn disabled={busy} onClick={onRestore}><RotateCcw size={16} /> Restaurar</Btn>
+          <Btn tone="accent" disabled={busy} onClick={onRestore}><RotateCcw size={16} /> Restaurar</Btn>
           <Btn tone="danger" disabled={busy} onClick={onPurge}><Trash2 size={16} /> Eliminar definitivo</Btn>
         </div>
       )}
@@ -48,6 +61,11 @@ export default function PartidosPage() {
   const [view, setView] = useState('active') // 'active' | 'hidden'
   const [open, setOpen] = useState(false)
   const [busyId, setBusyId] = useState(null)
+  const [ok, setOk] = useState('')
+  const [menu, setMenu] = useState(false)
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState(() => new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
   const [err, setErr] = useState('')
 
   const load = () => {
@@ -57,6 +75,7 @@ export default function PartidosPage() {
     return api('GET', '/matches?' + p).then(setMatches).catch((e) => setErr(e.message))
   }
   useEffect(() => { load() }, [status, view])
+  useEffect(() => { setSelecting(false); setSelected(new Set()); setMenu(false) }, [status, view])
   useEffect(() => {
     api('GET', '/tournaments').then(setTournaments).catch((e) => setErr(e.message))
     api('GET', '/teams').then(setTeams).catch((e) => setErr(e.message))
@@ -99,6 +118,63 @@ export default function PartidosPage() {
     } catch (e) { setErr(e.message) } finally { setBusyId(null) }
   }
 
+  // Acciones en lote sobre los partidos eliminados: restaurar o borrar definitivamente
+  async function bulk(kind, list) {
+    setBulkBusy(true); setErr(''); setOk('')
+    const queue = list.map((x) => x.id)
+    let done = 0
+    let failed = 0
+    let firstErr = ''
+    const worker = async () => {
+      while (queue.length) {
+        const id = queue.shift()
+        try {
+          if (kind === 'restore') await api('POST', '/matches/' + id + '/restore')
+          else await api('DELETE', '/matches/' + id + '/purge')
+          done++
+        } catch (e) {
+          failed++
+          if (!firstErr) firstErr = e.message
+        }
+      }
+    }
+    await Promise.all([worker(), worker(), worker()])
+    setSelected(new Set())
+    setSelecting(false)
+    await load()
+    const what = kind === 'restore' ? 'restaurados' : 'eliminados definitivamente'
+    if (failed) setErr(done + ' ' + what + ' y ' + failed + ' con error: ' + firstErr)
+    else setOk(done + (done === 1 ? ' partido ' : ' partidos ') + what)
+    setBulkBusy(false)
+  }
+
+  const askBulk = async (kind, list) => {
+    const n = list.length
+    if (!n) return
+    const restore = kind === 'restore'
+    const plural = n === 1 ? 'partido' : 'partidos'
+    const okAsk = await ask({
+      title: restore ? 'Restaurar partidos' : 'Eliminar definitivamente',
+      message: restore
+        ? 'Se restauran ' + n + ' ' + plural + '.'
+        : 'Se borran para siempre ' + n + ' ' + plural + ' y no se puede deshacer.',
+      confirmText: (restore ? 'Restaurar ' : 'Eliminar ') + n,
+      danger: !restore,
+    })
+    if (okAsk) await bulk(kind, list)
+  }
+
+  const all = matches ?? []
+  const chosen = all.filter((x) => selected.has(x.id))
+  const toggle = (id) => setSelected((s) => {
+    const n = new Set(s)
+    if (n.has(id)) n.delete(id)
+    else n.add(id)
+    return n
+  })
+  const toggleAll = () => setSelected(selected.size === all.length ? new Set() : new Set(all.map((x) => x.id)))
+  const cancelSelect = () => { setSelecting(false); setSelected(new Set()) }
+
   const ready = tournaments && teams
 
   return (
@@ -110,6 +186,7 @@ export default function PartidosPage() {
         )}
       </div>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
+      {ok && <Alert tone="ok" onClose={() => setOk('')}>{ok}</Alert>}
 
       {open && view === 'active' && ready && (
         <div className="rounded-3xl border border-line bg-surface p-5">
@@ -123,6 +200,44 @@ export default function PartidosPage() {
         <Btn tone={view === 'active' ? 'accent' : 'base'} onClick={() => setView('active')} className="flex-1">Partidos</Btn>
         <Btn tone={view === 'hidden' ? 'accent' : 'base'} onClick={() => setView('hidden')} className="flex-1">Eliminados</Btn>
       </div>
+
+      {view === 'hidden' && all.length > 0 && !selecting && (
+        <div className="relative">
+          <Btn onClick={() => setMenu((v) => !v)} disabled={bulkBusy} className="w-full">
+            Acciones sobre eliminados <ChevronDown size={16} />
+          </Btn>
+          {menu && <div className="fixed inset-0 z-10" onClick={() => setMenu(false)} />}
+          {menu && (
+            <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
+              <button className="block w-full px-4 py-3 text-left text-sm font-bold text-danger" onClick={() => { setMenu(false); askBulk('purge', all) }}>
+                Eliminar todos ({all.length})
+              </button>
+              <button className="block w-full border-t border-line px-4 py-3 text-left text-sm font-bold text-accent" onClick={() => { setMenu(false); askBulk('restore', all) }}>
+                Restaurar todos ({all.length})
+              </button>
+              <button className="block w-full border-t border-line px-4 py-3 text-left text-sm font-bold" onClick={() => { setMenu(false); setSelecting(true) }}>
+                Seleccionar
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {view === 'hidden' && selecting && (
+        <div className="space-y-2 rounded-3xl border border-line bg-surface p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold">{selected.size} seleccionados</p>
+            <button onClick={toggleAll} className="text-sm font-bold text-accent">
+              {selected.size === all.length ? 'Quitar selecci\u00f3n' : 'Seleccionar todos'}
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <Btn tone="accent" disabled={bulkBusy || !chosen.length} onClick={() => askBulk('restore', chosen)}>Restaurar</Btn>
+            <Btn tone="danger" disabled={bulkBusy || !chosen.length} onClick={() => askBulk('purge', chosen)}>Eliminar</Btn>
+            <Btn disabled={bulkBusy} onClick={cancelSelect}>Cancelar</Btn>
+          </div>
+        </div>
+      )}
 
       <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value)}>
         <option value="">Todos los estados</option>
@@ -143,6 +258,9 @@ export default function PartidosPage() {
             onHide={() => hide(m)}
             onRestore={() => restore(m)}
             onPurge={() => purge(m)}
+            selecting={selecting}
+            selected={selected.has(m.id)}
+            onToggle={() => toggle(m.id)}
           />
         ))}
       </div>
