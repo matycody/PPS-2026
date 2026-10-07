@@ -8,6 +8,15 @@ const admin = [authenticate, requireRole('ADMIN')];
 const BRANCHES = ['MIXED', 'MALE', 'FEMALE'];
 // Sexo -> ramas permitidas
 const ALLOWED = { M: ['MIXED', 'MALE'], F: ['MIXED', 'FEMALE'] };
+const MODALITIES = ['FOAM', 'CLOTH'];
+
+// Sin dato = las dos modalidades. Con dato: al menos una y todas validas.
+function parseModalities(raw) {
+  if (raw === undefined) return [...MODALITIES];
+  const modalities = [...new Set(raw || [])];
+  if (!modalities.length || modalities.some((m) => !MODALITIES.includes(m))) return null;
+  return modalities;
+}
 
 function parseBranches(raw) {
   const branches = [...new Set(raw || [])];
@@ -28,14 +37,17 @@ router.post('/', ...admin, async (req, res) => {
   try {
     const { name, logo } = req.body;
     const branches = parseBranches(req.body.branches);
+    const modalities = parseModalities(req.body.modalities);
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'Nombre obligatorio' });
     if (!branches) return res.status(400).json({ error: 'Ramas invÃ¡lidas (MIXED, MALE, FEMALE)' });
+    if (!modalities) return res.status(400).json({ error: 'Modalidades invalidas (FOAM, CLOTH)' });
 
     const team = await prisma.team.create({
       data: {
         name: String(name).trim(),
         logo: logo || null,
         branches: { create: branches.map((branch) => ({ branch })) },
+        modalities: { create: modalities.map((modality) => ({ modality })) },
       },
       include: { branches: true },
     });
@@ -49,7 +61,7 @@ router.post('/', ...admin, async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const teams = await prisma.team.findMany({
-      include: { branches: true },
+      include: { branches: true, modalities: true },
       orderBy: { name: 'asc' },
     });
     res.json(
@@ -58,6 +70,7 @@ router.get('/', async (req, res) => {
         name: t.name,
         logo: t.logo,
         branches: t.branches.map((b) => b.branch),
+        modalities: t.modalities.map((m) => m.modality),
       }))
     );
   } catch (err) {
@@ -72,6 +85,7 @@ router.get('/:id', async (req, res) => {
       where: { id: req.params.id },
       include: {
         branches: true,
+        modalities: true,
         players: {
           where: { to: null, profile: { active: true } },
           include: { profile: { select: { id: true, name: true, nickname: true, number: true } } },
@@ -85,6 +99,7 @@ router.get('/:id', async (req, res) => {
       name: team.name,
       logo: team.logo,
       branches: team.branches.map((b) => b.branch),
+      modalities: team.modalities.map((m) => m.modality),
       roster: team.players.map((p) => ({
         profileId: p.profile.id,
         name: p.profile.name,
@@ -103,7 +118,7 @@ router.patch('/:id', ...admin, async (req, res) => {
   try {
     const team = await prisma.team.findUnique({
       where: { id: req.params.id },
-      include: { branches: true },
+      include: { branches: true, modalities: true },
     });
     if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
 
@@ -139,7 +154,31 @@ router.patch('/:id', ...admin, async (req, res) => {
       }
     }
 
-    ops.push(prisma.team.update({ where: { id: team.id }, data, include: { branches: true } }));
+    if (req.body.modalities !== undefined) {
+      const nextM = parseModalities(req.body.modalities);
+      if (!nextM) return res.status(400).json({ error: 'Modalidades invalidas (FOAM, CLOTH)' });
+      const currentM = team.modalities.map((m) => m.modality);
+      const removedM = currentM.filter((m) => !nextM.includes(m));
+      const addedM = nextM.filter((m) => !currentM.includes(m));
+
+      if (removedM.length) {
+        const pending = await prisma.match.count({
+          where: {
+            hiddenAt: null,
+            modality: { in: removedM },
+            status: { in: ['SCHEDULED', 'READY', 'LIVE'] },
+            OR: [{ teamAId: team.id }, { teamBId: team.id }],
+          },
+        });
+        if (pending) return res.status(409).json({ error: 'No podes quitar una modalidad con partidos pendientes' });
+        ops.push(prisma.teamModality.deleteMany({ where: { teamId: team.id, modality: { in: removedM } } }));
+      }
+      if (addedM.length) {
+        ops.push(prisma.teamModality.createMany({ data: addedM.map((modality) => ({ teamId: team.id, modality })) }));
+      }
+    }
+
+    ops.push(prisma.team.update({ where: { id: team.id }, data, include: { branches: true, modalities: true } }));
     const results = await prisma.$transaction(ops);
     res.json(results[results.length - 1]);
   } catch (err) {
@@ -229,6 +268,7 @@ router.delete('/:id', ...admin, async (req, res) => {
     await prisma.$transaction([
       prisma.playerTeam.deleteMany({ where: { teamId: team.id } }),
       prisma.teamBranch.deleteMany({ where: { teamId: team.id } }),
+      prisma.teamModality.deleteMany({ where: { teamId: team.id } }),
       prisma.favorite.deleteMany({ where: { targetType: 'TEAM', targetId: team.id } }),
       prisma.team.delete({ where: { id: team.id } }),
     ]);

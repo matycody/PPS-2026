@@ -95,6 +95,7 @@ model Team {
   logo String?
 
   branches TeamBranch[]
+  modalities TeamModality[]
   players  PlayerTeam[]
   matchesA Match[]      @relation("MatchTeamA")
   matchesB Match[]      @relation("MatchTeamB")
@@ -109,6 +110,16 @@ model TeamBranch {
   team Team @relation(fields: [teamId], references: [id])
 
   @@id([teamId, branch])
+}
+
+// Modalidades que juega un equipo (foam, cloth o ambas)
+model TeamModality {
+  teamId   String
+  modality Modality
+
+  team Team @relation(fields: [teamId], references: [id])
+
+  @@id([teamId, modality])
 }
 
 // Un solo registro con "to" = null por (profileId, branch).
