@@ -6,6 +6,7 @@ import { socket } from '../sockets/socket'
 import { normMatch, MODALITY } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import Versus from '../components/Versus'
+import { MatchRosterToggle } from '../components/MatchRoster'
 import SoundToggle from '../components/SoundToggle'
 import { useMatchSound } from '../hooks/useMatchSound'
 import { useWakeLock } from '../hooks/useWakeLock'
@@ -28,7 +29,7 @@ function parseMMSS(v) {
 function Btn({ children, onClick, disabled, tone = 'base', className = '' }) {
   const tones = {
     base: 'border border-line bg-surface-2',
-    accent: 'bg-accent text-black',
+    accent: 'bg-live text-black',
     danger: 'bg-danger text-white',
     live: 'bg-live text-black',
   }
@@ -82,7 +83,7 @@ function Clock({ label, timer, time, paused, can, send, color }) {
           placeholder="mmss"
           inputMode="numeric"
           disabled={!can}
-          className="min-w-0 flex-1 rounded-2xl border border-line bg-bg px-4 py-3 text-center font-mono outline-none focus:border-accent disabled:opacity-40"
+          className="min-w-0 flex-1 rounded-2xl border border-line bg-bg px-4 py-3 text-center font-mono outline-none focus:border-live disabled:opacity-40"
         />
         <Btn disabled={!can || parseMMSS(val) == null} onClick={apply}>Fijar</Btn>
       </div>
@@ -120,7 +121,7 @@ function MiniClock({ label, time, paused, timer, color, can, send }) {
       </div>
       <button disabled={!can} onClick={() => send('match:reset', { timer })} className="mt-1.5 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-line bg-surface-2 text-sm font-extrabold disabled:opacity-40"><RotateCcw size={14} /> Reiniciar</button>
       <div className="mt-1.5 flex gap-1.5">
-        <input value={val} onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} placeholder="mmss" inputMode="numeric" disabled={!can} className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-bg px-1 text-center font-mono text-sm outline-none focus:border-accent disabled:opacity-40" />
+        <input value={val} onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} placeholder="mmss" inputMode="numeric" disabled={!can} className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-bg px-1 text-center font-mono text-sm outline-none focus:border-live disabled:opacity-40" />
         <button disabled={!can || parseMMSS(val) == null} onClick={apply} className="h-11 shrink-0 rounded-xl border border-line bg-surface-2 px-3 text-sm font-extrabold disabled:opacity-40">Fijar</button>
       </div>
     </div>
@@ -132,11 +133,11 @@ function MiniBoard({ a, b, score, tick, can, send, live }) {
     <div className="rounded-3xl border border-line bg-surface p-3 sm:hidden">
       <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <p className="truncate text-right text-sm font-bold">{a?.name ?? 'Por definir'}</p>
-        <span className="font-mono text-4xl font-extrabold leading-none tabular-nums text-accent">{score?.teamA ?? 0} - {score?.teamB ?? 0}</span>
+        <span className="font-mono text-4xl font-extrabold leading-none tabular-nums text-live">{score?.teamA ?? 0} - {score?.teamB ?? 0}</span>
         <p className="truncate text-sm font-bold">{b?.name ?? 'Por definir'}</p>
       </div>
       <div className="flex gap-2">
-        <MiniClock label="Partido" time={tick?.matchTime} paused={tick?.isMatchPaused ?? true} timer="match" color="text-accent" can={can} send={send} />
+        <MiniClock label="Partido" time={tick?.matchTime} paused={tick?.isMatchPaused ?? true} timer="match" color="text-live" can={can} send={send} />
         <MiniClock label="Set" time={tick?.setTime} paused={tick?.isSetPaused ?? true} timer="set" color="text-live" can={can} send={send} />
       </div>
       {live && (
@@ -305,7 +306,7 @@ export default function ControlPage() {
           b={b}
           size="lg"
           center={
-            <span className="font-mono text-4xl font-extrabold tabular-nums text-accent">
+            <span className="font-mono text-4xl font-extrabold tabular-nums text-live">
               {m.score?.teamA ?? 0} <span className="text-lg text-muted">-</span> {m.score?.teamB ?? 0}
             </span>
           }
@@ -335,7 +336,7 @@ export default function ControlPage() {
       )}
 
       <div className="hidden gap-3 sm:grid sm:grid-cols-2">
-        <Clock label="Partido" timer="match" time={tick?.matchTime} paused={tick?.isMatchPaused ?? true} can={can} send={send} color="text-accent" />
+        <Clock label="Partido" timer="match" time={tick?.matchTime} paused={tick?.isMatchPaused ?? true} can={can} send={send} color="text-live" />
         <Clock label="Set" timer="set" time={tick?.setTime} paused={tick?.isSetPaused ?? true} can={can} send={send} color="text-live" />
       </div>
 
@@ -362,10 +363,6 @@ export default function ControlPage() {
           )}
         </div>
       </div>
-
-      {live && (
-        <TimeoutCard tick={tick} can={can} half={half} send={send} nameA={a?.name ?? 'Equipo A'} nameB={b?.name ?? 'Equipo B'} />
-      )}
 
       {hasTablePanel && (
         <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
@@ -431,6 +428,12 @@ export default function ControlPage() {
           )}
         </div>
       )}
+
+      {live && (
+        <TimeoutCard tick={tick} can={can} half={half} send={send} nameA={a?.name ?? 'Equipo A'} nameB={b?.name ?? 'Equipo B'} />
+      )}
+
+      <MatchRosterToggle teamA={a} teamB={b} branch={m.branch} />
     </div>
   )
 }

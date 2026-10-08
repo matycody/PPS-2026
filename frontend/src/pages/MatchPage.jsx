@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Eye, X } from 'lucide-react'
 import { api } from '../lib/api'
@@ -6,6 +6,7 @@ import { socket } from '../sockets/socket'
 import { normMatch, MODALITY, BRANCH } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import Versus from '../components/Versus'
+import MatchRoster from '../components/MatchRoster'
 import { useWakeLock } from '../hooks/useWakeLock'
 
 const showTime = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
@@ -103,7 +104,7 @@ export default function MatchPage() {
           b={m.teamB}
           size="xl"
           center={
-            <span className="font-mono text-4xl font-extrabold tabular-nums text-accent">
+            <span className="font-mono text-4xl font-extrabold tabular-nums text-live">
               {m.score?.teamA ?? 0} <span className="text-lg text-muted">-</span> {m.score?.teamB ?? 0}
             </span>
           }
@@ -111,7 +112,7 @@ export default function MatchPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <ClockCard label="Partido" time={tick?.matchTime} paused={tick?.isMatchPaused ?? true} color="text-accent" />
+        <ClockCard label="Partido" time={tick?.matchTime} paused={tick?.isMatchPaused ?? true} color="text-live" />
         <ClockCard label="Set" time={tick?.setTime} paused={tick?.isSetPaused ?? true} color="text-live" />
       </div>
 
@@ -121,7 +122,7 @@ export default function MatchPage() {
       <div className="rounded-3xl border border-line bg-surface p-5 text-center">
         <p className="text-xs font-bold uppercase tracking-widest text-muted">Estado del partido</p>
         <div className="mt-3 flex flex-wrap justify-center gap-2">
-          <span className="rounded-full bg-accent-soft px-4 py-2 text-sm font-bold text-accent">{MODALITY[m.modality] ?? m.modality}</span>
+          <span className="rounded-full bg-live/15 px-4 py-2 text-sm font-bold text-live">{MODALITY[m.modality] ?? m.modality}</span>
           {tick && (
             <span className="rounded-full bg-live/15 px-4 py-2 text-sm font-bold uppercase text-live">
               {second ? '2do tiempo' : '1er tiempo'}
@@ -133,6 +134,8 @@ export default function MatchPage() {
       <p className="flex items-center justify-center gap-2 border-t border-line pt-4 text-xs font-semibold uppercase tracking-wider text-muted">
         <Eye size={14} /> Vista en vivo · solo lectura
       </p>
+
+      <MatchRoster teamA={m.teamA} teamB={m.teamB} branch={m.branch} />
     </div>
   )
 }

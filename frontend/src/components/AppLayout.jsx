@@ -1,19 +1,27 @@
 ﻿import { Link, Outlet } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Menu } from 'lucide-react'
 import Drawer from './Drawer'
 import BottomNav from './BottomNav'
 import { useAuthStore } from '../stores/authStore'
 import UserAvatar from './UserAvatar'
+import { useMenuPrefs } from '../stores/menuPrefsStore'
 import ServerClock from './ServerClock'
 
 export default function AppLayout() {
   const [open, setOpen] = useState(false)
   const user = useAuthStore((s) => s.user)
+  const look = useMenuPrefs((s) => s.look)
+  useEffect(() => {
+    const r = document.documentElement.style
+    r.setProperty('--menu-a', look.a + '%')
+    r.setProperty('--menu-da', look.da + '%')
+    r.setProperty('--menu-blur', look.b + 'px')
+  }, [look])
 
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col">
-      <header className="sticky top-0 z-30 flex items-center gap-3 bg-bg/90 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur">
+      <header className="sticky top-0 z-30 flex items-center gap-3 menu-glass px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <button
           aria-label="Abrir menú"
           onClick={() => setOpen(true)}

@@ -60,6 +60,13 @@ export default function AdminTeamPage() {
     })
   }
 
+  const setCoach = (r) =>
+    run(async () => {
+      await api('PUT', '/teams/' + id + '/coach', { profileId: r.coach ? null : r.profileId })
+      await load()
+      setOk(r.coach ? 'Se quit? al DT' : r.name + ' es el DT del equipo')
+    })
+
   const remove = (r) =>
     run(async () => {
       await api('DELETE', '/teams/' + id + '/players/' + r.profileId + '?branch=' + r.branch)
@@ -114,9 +121,14 @@ export default function AdminTeamPage() {
           roster={team.roster}
           meProfileId={user?.profileId}
           extra={(r) => (
-            <button aria-label="Quitar" disabled={busy} onClick={() => remove(r)}>
-              <X size={16} className="text-danger" />
-            </button>
+            <>
+              <button disabled={busy} onClick={() => setCoach(r)} className="rounded-full border border-line px-2 py-0.5 text-[10px] font-bold uppercase text-muted">
+                {r.coach ? 'Quitar DT' : 'DT'}
+              </button>
+              <button aria-label="Quitar" disabled={busy} onClick={() => remove(r)}>
+                <X size={16} className="text-danger" />
+              </button>
+            </>
           )}
         />
       </section>

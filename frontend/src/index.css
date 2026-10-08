@@ -60,3 +60,14 @@ body::before {
   background-position: center;
   background-repeat: no-repeat;
 }
+
+.menu-glass {
+  background: color-mix(in srgb, var(--bg) var(--menu-a, 30%), transparent);
+  -webkit-backdrop-filter: blur(var(--menu-blur, 12px));
+  backdrop-filter: blur(var(--menu-blur, 12px));
+}
+.menu-glass-drawer {
+  background: color-mix(in srgb, var(--bg) var(--menu-da, 30%), transparent);
+  -webkit-backdrop-filter: blur(var(--menu-blur, 12px));
+  backdrop-filter: blur(var(--menu-blur, 12px));
+}

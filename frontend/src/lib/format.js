@@ -3,7 +3,7 @@ export const MODALITY = { FOAM: 'Foam', CLOTH: 'Cloth' }
 
 export const STATUS = {
   SCHEDULED: { label: 'Programado', cls: 'bg-surface-2 text-muted' },
-  READY: { label: 'Habilitado', cls: 'bg-accent-soft text-accent' },
+  READY: { label: 'Habilitado', cls: 'bg-live/15 text-live' },
   LIVE: { label: 'En vivo', cls: 'bg-danger/15 text-danger' },
   FINISHED: { label: 'Finalizado', cls: 'bg-surface-2 text-muted' },
   CANCELLED: { label: 'Cancelado', cls: 'bg-surface-2 text-muted' },

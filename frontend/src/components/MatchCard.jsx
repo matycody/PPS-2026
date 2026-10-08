@@ -16,14 +16,14 @@ export default function MatchCard({ m, featured = false, to, badge }) {
   const center = showScore ? (
     <div className="flex flex-col items-center gap-1">
       <span className="font-mono text-3xl font-extrabold tabular-nums">{m.score?.teamA ?? 0} - {m.score?.teamB ?? 0}</span>
-      {m.status === 'LIVE' && <span className="font-mono text-lg font-extrabold tabular-nums text-accent">{clock(tick?.matchTime)}</span>}
+      {m.status === 'LIVE' && <span className="font-mono text-lg font-extrabold tabular-nums text-live">{clock(tick?.matchTime)}</span>}
     </div>
   ) : undefined
 
   return (
     <Link
       to={to ?? '/partido/' + m.id}
-      className={'block rounded-3xl border bg-surface p-5 ' + statusBorder(m.status, featured ? 'border-accent/40' : 'border-line')}
+      className={'block rounded-3xl border bg-surface p-5 ' + statusBorder(m.status, featured ? 'border-live/40' : 'border-line')}
     >
       <div className="flex items-center justify-between">
         <StatusPill status={m.status} />
@@ -40,7 +40,7 @@ export default function MatchCard({ m, featured = false, to, badge }) {
       )}
       <p className="mt-3 text-center text-sm text-muted">{fmtWhen(m.scheduledAt)}</p>
       {featured && (
-        <div className="mt-4 rounded-2xl bg-accent py-3 text-center font-extrabold text-black">
+        <div className="mt-4 rounded-2xl bg-live py-3 text-center font-extrabold text-black">
           {CTA[m.status] ?? 'Ver partido'}
         </div>
       )}
