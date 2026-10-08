@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ChevronLeft, X, Search } from 'lucide-react'
 import { api, apiUpload } from '../../lib/api'
 import LogoPicker from '../../components/LogoPicker'
-import { BRANCH } from '../../lib/format'
+import { BRANCH, MODALITY } from '../../lib/format'
 import { useAuthStore } from '../../stores/authStore'
 import Roster from '../../components/Roster'
 import PersonName from '../../components/PersonName'
@@ -15,6 +15,7 @@ export default function AdminTeamPage() {
   const [team, setTeam] = useState(null)
   const [name, setName] = useState('')
   const [branches, setBranches] = useState([])
+  const [modalities, setModalities] = useState([])
   const [q, setQ] = useState('')
   const [results, setResults] = useState(null)
   const [pick, setPick] = useState({}) // profileId -> rama elegida
@@ -24,7 +25,7 @@ export default function AdminTeamPage() {
 
   const load = () =>
     api('GET', '/teams/' + id)
-      .then((t) => { setTeam(t); setName(t.name); setBranches(t.branches ?? []) })
+      .then((t) => { setTeam(t); setName(t.name); setBranches(t.branches ?? []); setModalities(t.modalities ?? []) })
       .catch((e) => setErr(e.message))
   useEffect(() => { load() }, [id])
 
@@ -34,12 +35,13 @@ export default function AdminTeamPage() {
   }
 
   const toggle = (b) => setBranches((cur) => (cur.includes(b) ? cur.filter((x) => x !== b) : [...cur, b]))
+  const toggleModality = (m) => setModalities((cur) => (cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m]))
 
   const uploadLogo = (file) =>
     run(async () => { await apiUpload('/photos/teams/' + id, file); await load() }, 'Escudo actualizado')
 
   const saveTeam = () =>
-    run(async () => { await api('PATCH', '/teams/' + id, { name: name.trim(), branches }); await load() }, 'Equipo actualizado')
+    run(async () => { await api('PATCH', '/teams/' + id, { name: name.trim(), branches, modalities }); await load() }, 'Equipo actualizado')
 
   const search = (e) => {
     e.preventDefault()
@@ -57,6 +59,13 @@ export default function AdminTeamPage() {
       setOk(r.transfer ? p.name + ' fue traspasado a este equipo' : p.name + ' agregado')
     })
   }
+
+  const setCoach = (r) =>
+    run(async () => {
+      await api('PUT', '/teams/' + id + '/coach', { profileId: r.coach ? null : r.profileId })
+      await load()
+      setOk(r.coach ? 'Se quit? al DT' : r.name + ' es el DT del equipo')
+    })
 
   const remove = (r) =>
     run(async () => {
@@ -90,7 +99,20 @@ export default function AdminTeamPage() {
             </button>
           ))}
         </div>
-        <Btn tone="accent" disabled={busy || !name.trim() || !branches.length} onClick={saveTeam} className="w-full">Guardar</Btn>
+        <p className="text-xs font-bold uppercase tracking-widest text-muted">Modalidad</p>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(MODALITY).map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => toggleModality(k)}
+              className={'rounded-full border px-4 py-2 text-sm font-bold ' + (modalities.includes(k) ? 'border-accent bg-accent text-black' : 'border-line bg-surface-2')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <Btn tone="accent" disabled={busy || !name.trim() || !branches.length || !modalities.length} onClick={saveTeam} className="w-full">Guardar</Btn>
       </section>
 
       <section className="space-y-2 rounded-3xl border border-line bg-surface p-5">
@@ -99,9 +121,14 @@ export default function AdminTeamPage() {
           roster={team.roster}
           meProfileId={user?.profileId}
           extra={(r) => (
-            <button aria-label="Quitar" disabled={busy} onClick={() => remove(r)}>
-              <X size={16} className="text-danger" />
-            </button>
+            <>
+              <button disabled={busy} onClick={() => setCoach(r)} className="rounded-full border border-line px-2 py-0.5 text-[10px] font-bold uppercase text-muted">
+                {r.coach ? 'Quitar DT' : 'DT'}
+              </button>
+              <button aria-label="Quitar" disabled={busy} onClick={() => remove(r)}>
+                <X size={16} className="text-danger" />
+              </button>
+            </>
           )}
         />
       </section>

@@ -1,10 +1,9 @@
 ﻿import { useEffect, useState } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 
 export default function LoginPage() {
-  const { user, loading, signIn, signUp } = useAuthStore()
-  const [mode, setMode] = useState('login')
+  const { user, loading, signIn } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -26,13 +25,7 @@ export default function LoginPage() {
     setInfo('')
     setBusy(true)
     try {
-      if (mode === 'login') {
-        await signIn(email.trim(), password)
-      } else {
-        await signUp(email.trim(), password)
-        setInfo('Te enviamos un mail de confirmación. Confirmalo y después ingresá.')
-        setMode('login')
-      }
+      await signIn(email.trim(), password)
     } catch (err) {
       setError(err.message || 'Error')
     } finally {
@@ -53,21 +46,21 @@ export default function LoginPage() {
           value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
         <input className={field} type="password" placeholder="Contraseña" required minLength={6}
           value={password} onChange={(e) => setPassword(e.target.value)}
-          autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
+          autoComplete="current-password" />
 
         {error && <p className="text-sm text-danger">{error}</p>}
         {info && <p className="text-sm text-live">{info}</p>}
 
         <button disabled={busy}
           className="mt-2 rounded-xl bg-accent px-4 py-3 font-bold text-black disabled:opacity-50">
-          {busy ? '...' : mode === 'login' ? 'Ingresar' : 'Crear cuenta'}
+          {busy ? '...' : 'Ingresar'}
         </button>
       </form>
 
-      <button type="button" className="mt-4 text-sm text-muted"
-        onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); setInfo('') }}>
-        {mode === 'login' ? '¿No tenés cuenta? Registrate' : '¿Ya tenés cuenta? Ingresá'}
-      </button>
+      <div className="mt-4 flex flex-col gap-2 text-sm text-muted">
+        <Link to="/registro">¿Sos jugador? Registrate</Link>
+        <Link to="/registro?tipo=invitado">¿Sos nuevo? Registrate</Link>
+      </div>
     </main>
   )
 }

@@ -2,6 +2,7 @@
 import { api } from '../../lib/api'
 import { inputCls } from '../../components/ui'
 import { fmtWhen } from '../../lib/format'
+import MovimientosPanel from './MovimientosPanel'
 
 // Color del punto según el tipo de evento; lo que no reconozco queda gris
 const DOT = {
@@ -16,6 +17,7 @@ export default function EdicionesPage() {
   const [sel, setSel] = useState('')
   const [log, setLog] = useState(null)
   const [err, setErr] = useState('')
+  const [tab, setTab] = useState('matches')
 
   useEffect(() => { api('GET', '/matches?limit=200').then(setMatches).catch((e) => setErr(e.message)) }, [])
   useEffect(() => {
@@ -27,6 +29,12 @@ export default function EdicionesPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Registro de ediciones</h1>
+      <div className="flex gap-2 text-sm font-bold">
+        <button onClick={() => setTab('matches')} className={'rounded-full border px-4 py-1.5 ' + (tab === 'matches' ? 'border-accent text-accent' : 'border-line text-muted')}>Partidos</button>
+        <button onClick={() => setTab('users')} className={'rounded-full border px-4 py-1.5 ' + (tab === 'users' ? 'border-accent text-accent' : 'border-line text-muted')}>Movimientos</button>
+      </div>
+      {tab === 'users' && <MovimientosPanel />}
+      {tab === 'matches' && <>
       {err && <p className="text-danger">{err}</p>}
       <select className={inputCls} value={sel} onChange={(e) => setSel(e.target.value)}>
         <option value="">Elegí un partido…</option>
@@ -49,6 +57,7 @@ export default function EdicionesPage() {
           </div>
         ))}
       </div>
+      </>}
     </div>
   )
 }

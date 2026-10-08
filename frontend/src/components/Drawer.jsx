@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore'
 import UserAvatar from './UserAvatar'
 import PersonName from './PersonName'
 import { ITEMS, SECTIONS, GENERAL, roleLabel } from '../lib/navConfig'
+import { useMenuPrefs, sortKeys } from '../stores/menuPrefsStore'
 
 function Item({ to, label, Icon, soon, onClose }) {
   return (
@@ -29,16 +30,17 @@ function Title({ children }) {
 
 export default function Drawer({ open, onClose }) {
   const { user, menu, signOut, profile } = useAuthStore()
+  const order = useMenuPrefs((s) => s.byUser[user?.id]?.order)
 
   return (
     <div className={'fixed inset-0 z-40 ' + (open ? '' : 'pointer-events-none')}>
       <div
         onClick={onClose}
-        className={'absolute inset-0 bg-black/60 transition-opacity ' + (open ? 'opacity-100' : 'opacity-0')}
+        className={'absolute inset-0 bg-black/20 transition-opacity ' + (open ? 'opacity-100' : 'opacity-0')}
       />
       <aside
         className={
-          'absolute left-0 top-0 flex h-full w-80 max-w-[85%] flex-col overflow-y-auto bg-bg px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] transition-transform duration-200 ' +
+          'absolute left-0 top-0 flex h-full w-80 max-w-[85%] flex-col overflow-y-auto menu-glass-drawer px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] transition-transform duration-200 ' +
           (open ? 'translate-x-0' : '-translate-x-full')
         }
       >
@@ -59,7 +61,7 @@ export default function Drawer({ open, onClose }) {
             <p className="text-xs text-muted">{user ? 'Sesión iniciada' : 'Solo lectura'}</p>
           </div>
           {user && (
-            <span className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase" style={{ color: 'var(--role-accent)', background: 'color-mix(in srgb, var(--role-accent) 16%, transparent)' }}>
+            <span className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase" style={{ color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 16%, transparent)' }}>
               {roleLabel(user, menu)}
             </span>
           )}
@@ -69,7 +71,7 @@ export default function Drawer({ open, onClose }) {
           <Item {...ITEMS.home} label="Menú principal" onClose={onClose} />
 
           {SECTIONS.map((s) => {
-            const keys = s.keys.filter((k) => menu.includes(k))
+            const keys = sortKeys(s.keys.filter((k) => menu.includes(k)), order?.[s.title])
             if (!keys.length) return null
             return (
               <div key={s.title}>
@@ -80,7 +82,7 @@ export default function Drawer({ open, onClose }) {
           })}
 
           <Title>General</Title>
-          {GENERAL.map((g) => <Item key={g.to} {...g} onClose={onClose} />)}
+          {sortKeys(GENERAL.map((g) => g.to), order?.General).map((to) => <Item key={to} {...GENERAL.find((g) => g.to === to)} onClose={onClose} />)}
           {menu.includes('perfil') && <Item {...ITEMS.perfil} onClose={onClose} />}
         </nav>
 

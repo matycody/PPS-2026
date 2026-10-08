@@ -2,6 +2,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import OfflinePage from './pages/OfflinePage'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 import Placeholder from './pages/Placeholder'
 import InicioPage from './pages/InicioPage'
 import MatchPage from './pages/MatchPage'
@@ -67,6 +68,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/registro" element={<RegisterPage />} />
 
           <Route element={<AppLayout />}>
             <Route path="/" element={<InicioPage />} />

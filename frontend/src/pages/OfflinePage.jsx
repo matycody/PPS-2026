@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Play, Pause, RotateCcw, Minus, Plus, X, WifiOff, Volume2, VolumeX } from 'lucide-react'
 import { MODALITY } from '../lib/format'
 import { play, unlockAudio, isMuted, setMuted, setSoundAllowed } from '../lib/sound'
@@ -95,7 +95,7 @@ function useClock(storageKey, initialSec, onZero) {
 function Btn({ children, onClick, disabled, tone = 'base', className = '' }) {
   const tones = {
     base: 'border border-line bg-surface-2',
-    accent: 'bg-accent text-black',
+    accent: 'bg-live text-black',
     live: 'bg-live text-black',
     danger: 'bg-danger text-white',
   }
@@ -141,7 +141,7 @@ function ClockCard({ label, clock, defaultSec, color, locked }) {
           onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 4))}
           placeholder="mmss"
           inputMode="numeric"
-          className="min-w-0 flex-1 rounded-2xl border border-line bg-bg px-4 py-3 text-center font-mono outline-none focus:border-accent"
+          className="min-w-0 flex-1 rounded-2xl border border-line bg-bg px-4 py-3 text-center font-mono outline-none focus:border-live"
         />
         <Btn disabled={parseDigits(val) == null} onClick={apply}>Set</Btn>
       </div>
@@ -262,7 +262,7 @@ export default function OfflinePage() {
       ))}
 
       <div className="grid grid-cols-2 gap-3">
-        <ClockCard label="Partido" clock={matchClock} defaultSec={DEFAULTS.match} color="text-accent" locked={!!tmTeam} />
+        <ClockCard label="Partido" clock={matchClock} defaultSec={DEFAULTS.match} color="text-live" locked={!!tmTeam} />
         <ClockCard label="Set" clock={setClock} defaultSec={DEFAULTS.set} color="text-live" locked={!!tmTeam} />
       </div>
 

@@ -6,6 +6,8 @@ import { Btn, Alert, inputCls } from '../../components/ui'
 import MatchForm from '../../components/MatchForm'
 import StatusPill from '../../components/StatusPill'
 import Versus from '../../components/Versus'
+import { matchInfo } from '../../lib/matchInfo'
+import { statusBorder } from '../../lib/statusStyle'
 import { personNumber } from '../../lib/person'
 import { useConfirm } from '../../components/ConfirmProvider'
 
@@ -162,9 +164,10 @@ export default function AdminMatchPage() {
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
       {ok && <Alert tone="ok" onClose={() => setOk('')}>{ok}</Alert>}
 
-      <div className="space-y-3 rounded-3xl border border-line bg-surface p-5">
+      <div className={'space-y-3 rounded-3xl border bg-surface p-5 ' + statusBorder(m.status)}>
         <div className="flex justify-center"><StatusPill status={m.status} /></div>
         <Versus a={m.teamA} b={m.teamB} size="lg" />
+        <p className="text-center text-xs font-bold uppercase tracking-wider text-muted">{matchInfo(m)}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-2">

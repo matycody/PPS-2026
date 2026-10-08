@@ -12,6 +12,7 @@ export default function Roster({ roster = [], meProfileId, extra }) {
           .filter((r) => r.branch === branch)
           .sort(
             (a, b) =>
+              Number(!!b.coach) - Number(!!a.coach) ||
               Number(b.profileId === meProfileId) - Number(a.profileId === meProfileId) ||
               (a.nickname?.trim() || a.name).localeCompare(b.nickname?.trim() || b.name, 'es')
           )
@@ -32,7 +33,10 @@ export default function Roster({ roster = [], meProfileId, extra }) {
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface text-sm font-extrabold text-muted">
                     {(r.nickname?.trim() || r.name).charAt(0).toUpperCase()}
                   </div>
-                  <PersonName p={r} className="min-w-0 flex-1 truncate font-semibold" />
+                  <span className="min-w-0 flex-1 truncate font-semibold">
+                    <PersonName p={r} />
+                    {r.coach && <span className="ml-1.5 text-xs font-bold text-accent">(DT)</span>}
+                  </span>
                   {me && <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold uppercase text-black">Vos</span>}
                   {extra?.(r)}
                 </div>

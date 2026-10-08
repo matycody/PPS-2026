@@ -44,3 +44,30 @@ input[type="date"], input[type="time"], input[type="datetime-local"] {
   appearance: none;
   min-height: 3rem;
 }
+
+body, #root { background: transparent; }
+html { background-color: var(--bg); }
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--bg) 82%, transparent), color-mix(in srgb, var(--bg) 82%, transparent)),
+    url('/fondo.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.menu-glass {
+  background: color-mix(in srgb, var(--bg) var(--menu-a, 30%), transparent);
+  -webkit-backdrop-filter: blur(var(--menu-blur, 12px));
+  backdrop-filter: blur(var(--menu-blur, 12px));
+}
+.menu-glass-drawer {
+  background: color-mix(in srgb, var(--bg) var(--menu-da, 30%), transparent);
+  -webkit-backdrop-filter: blur(var(--menu-blur, 12px));
+  backdrop-filter: blur(var(--menu-blur, 12px));
+}

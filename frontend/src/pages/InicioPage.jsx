@@ -7,7 +7,9 @@ import { socket } from '../sockets/socket'
 import { toSeconds } from '../lib/format'
 import { GENERAL, ITEMS } from '../lib/navConfig'
 import { useAuthStore } from '../stores/authStore'
+import PlayerRequestBanner from '../components/PlayerRequestBanner'
 import { roleLabel } from '../lib/navConfig'
+import { useMenuPrefs } from '../stores/menuPrefsStore'
 
 const FILTERS = [
   { id: 'all', label: 'Todos' },
@@ -20,6 +22,7 @@ const SOON_SEC = 3 * 60 // el próximo partido de la cancha se agranda con 3 min
 export default function InicioPage() {
   useMatchesFeed()
   const { user, menu } = useAuthStore()
+  const cardsPref = useMenuPrefs((s) => s.byUser[user?.id]?.cards)
   const role = roleLabel(user, menu) // Organizador, Árbitro, Mesa, Jugador o Registrado
   const { byId, loading, error } = useMatchesStore()
   const [filter, setFilter] = useState('all')
@@ -83,12 +86,13 @@ export default function InicioPage() {
 
   return (
     <div className="space-y-5">
+      <PlayerRequestBanner />
       <div className="flex gap-2">
         {[
           ...GENERAL.slice(0, 3),
           ...(role === 'Organizador' || role === 'Árbitro' || menu.includes('control_mesa') ? [ITEMS.control_mesa] : []),
           ...(menu.includes('usuarios') ? [ITEMS.usuarios] : []),
-        ].map(({ to, label, Icon, soon }) => (
+        ].filter((c) => !cardsPref || cardsPref.includes(c.to)).map(({ to, label, Icon, soon }) => (
           <Link key={to} to={to} className="flex min-w-0 flex-1 flex-col items-center justify-start gap-1.5 break-words rounded-2xl border border-line bg-surface px-1 py-3 text-center text-[10px] font-semibold leading-tight sm:text-sm">
             <Icon size={22} className="text-accent" />
             {label}

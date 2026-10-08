@@ -19,7 +19,8 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
     teamBId: initial?.teamB?.id ?? '',
   })
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }))
-  const eligible = teams.filter((t) => (t.branches ?? []).includes(f.branch))
+  // Solo equipos que juegan esa rama y esa modalidad (sin dato de modalidad = ambas)
+  const eligible = teams.filter((t) => (t.branches ?? []).includes(f.branch) && (t.modalities ?? ['FOAM', 'CLOTH']).includes(f.modality))
 
   const submit = (e) => {
     e.preventDefault()
@@ -50,7 +51,7 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
           </select>
         </label>
         <label className="text-xs text-muted">Modalidad
-          <select className={inputCls} value={f.modality} onChange={(e) => set('modality', e.target.value)}>
+          <select className={inputCls} value={f.modality} onChange={(e) => setF((s) => ({ ...s, modality: e.target.value, teamAId: '', teamBId: '' }))}>
             {Object.entries(MODALITY).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select>
         </label>
