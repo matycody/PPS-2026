@@ -1,0 +1,802 @@
+﻿===== RAMA: feature/tiempo-muerto-backend =====
+
+===== backend/src/middleware/auth.js =====
+const prisma = require('../db');
+const supabase = require('../lib/supabase');
+
+// Vincula la cuenta a un perfil inscripto (mismo mail verificado). Una sola vez.
+async function linkProfileIfAny(user) {
+  if (user.profileId) return user;
+
+  const profile = await prisma.profile.findUnique({ where: { email: user.email } });
+  if (!profile || !profile.active || profile.status !== 'PENDIENTE_VINCULACION') {
+    return user;
+  }
+
+  const roles = new Set(user.roles);
+  if (profile.isPlayer) roles.add('PLAYER');
+  if (profile.isReferee) roles.add('REFEREE');
+
+  const [, updated] = await prisma.$transaction([
+    prisma.profile.update({
+      where: { id: profile.id },
+      data: { status: 'VINCULADO' },
+    }),
+    prisma.user.update({
+      where: { id: user.id },
+      data: { profileId: profile.id, roles: { set: [...roles] } },
+    }),
+  ]);
+  return updated;
+}
+
+// Busca o crea el User local a partir de la cuenta de Supabase
+async function syncUser(supaUser) {
+  const email = supaUser.email.trim().toLowerCase();
+
+  let user = await prisma.user.findUnique({ where: { supabaseId: supaUser.id } });
+
+  // Mail cambiado y confirmado en Supabase: la cuenta es la fuente de verdad
+  if (user && user.email !== email) {
+    const taken = await prisma.user.findUnique({ where: { email } });
+    if (!taken) user = await prisma.user.update({ where: { id: user.id }, data: { email } });
+  }
+
+  if (!user) {
+    const seeded = await prisma.user.findUnique({ where: { email } });
+    if (seeded && !seeded.supabaseId) {
+      // admin del seed: primer login
+      user = await prisma.user.update({
+        where: { id: seeded.id },
+        data: { supabaseId: supaUser.id },
+      });
+    } else if (!seeded) {
+      user = await prisma.user.create({
+        data: { supabaseId: supaUser.id, email, roles: [] },
+      });
+    } else {
+      return null; // mail ya asociado a otra cuenta
+    }
+  }
+
+  return linkProfileIfAny(user);
+}
+
+// Valida un token de Supabase y devuelve el User local (o un error con status)
+async function resolveToken(token) {
+  if (!token) return { status: 401, error: 'Falta token' };
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user) return { status: 401, error: 'Token inválido' };
+
+  if (!data.user.email_confirmed_at) {
+    return { status: 403, error: 'Mail sin confirmar' };
+  }
+
+  const user = await syncUser(data.user);
+  if (!user) return { status: 409, error: 'Mail asociado a otra cuenta' };
+  if (!user.active) return { status: 403, error: 'Cuenta desactivada' };
+
+  return { user };
+}
+
+function resolveUser(req) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  return resolveToken(token);
+}
+
+// Exige sesión válida
+async function authenticate(req, res, next) {
+  try {
+    const result = await resolveUser(req);
+    if (result.error) return res.status(result.status).json({ error: result.error });
+    req.user = result.user;
+    next();
+  } catch (err) {
+    console.error('[auth]', err);
+    res.status(500).json({ error: 'Error de autenticación' });
+  }
+}
+
+// Sesión opcional (endpoints públicos): req.user = null si no hay token
+async function optionalAuth(req, res, next) {
+  if (!req.headers.authorization) {
+    req.user = null;
+    return next();
+  }
+  return authenticate(req, res, next);
+}
+
+// Exige alguno de los roles
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user || !roles.some((r) => req.user.roles.includes(r))) {
+      return res.status(403).json({ error: 'Sin permiso' });
+    }
+    next();
+  };
+}
+
+module.exports = { authenticate, optionalAuth, requireRole, resolveToken };
+
+
+===== backend/src/routes/me.js =====
+const express = require('express');
+const prisma = require('../db');
+const { authenticate } = require('../middleware/auth');
+const storage = require('../services/storage');
+
+const router = express.Router();
+
+const ACTIVE = ['SCHEDULED', 'READY', 'LIVE'];
+const NICKNAME_MAX = 30;
+const NUMBER_MIN = 0;
+const NUMBER_MAX = 999;
+
+// Ítems de menú por rol (el front solo los renderiza)
+const MENU = {
+  BASE: ['home', 'favoritos', 'perfil'],
+  PLAYER: ['mis_partidos', 'mi_equipo', 'mis_estadisticas'],
+  REFEREE: ['mis_partidos_asignados'],
+  TABLE: ['control_mesa'], // solo si tiene una mesa asignada en un partido activo
+  ADMIN: [
+    'dashboard_canchas', 'torneos', 'partidos', 'equipos',
+    'personas', 'importar_excel', 'usuarios', 'registro_ediciones',
+  ],
+};
+
+function buildMenu(roles, hasTable) {
+  const items = new Set(MENU.BASE);
+  for (const role of roles) (MENU[role] || []).forEach((i) => items.add(i));
+  if (hasTable) MENU.TABLE.forEach((i) => items.add(i));
+  return [...items];
+}
+
+// Ids de los equipos donde la persona juega HOY (para la mesa por equipo)
+async function currentTeamIds(profileId) {
+  if (!profileId) return [];
+  const rows = await prisma.playerTeam.findMany({ where: { profileId, to: null }, select: { teamId: true } });
+  return rows.map((r) => r.teamId);
+}
+
+// Ficha propia: datos del perfil y equipos actuales (uno por rama)
+async function loadProfile(profileId) {
+  const p = await prisma.profile.findUnique({
+    where: { id: profileId },
+    include: {
+      teams: {
+        where: { to: null },
+        orderBy: { branch: 'asc' },
+        include: { team: { select: { id: true, name: true, logo: true } } },
+      },
+    },
+  });
+  if (!p) return null;
+  return {
+    photo: p.photo,
+    profile: {
+      id: p.id,
+      dni: p.dni,
+      name: p.name,
+      nickname: p.nickname,
+      number: p.number,
+      sex: p.sex,
+      isPlayer: p.isPlayer,
+      isReferee: p.isReferee,
+      active: p.active,
+      status: p.status,
+      teams: p.teams.map((t) => ({
+        teamId: t.team.id,
+        name: t.team.name,
+        logo: t.team.logo,
+        branch: t.branch,
+        since: t.from,
+      })),
+    },
+  };
+}
+
+router.get('/', authenticate, async (req, res) => {
+  try {
+    const { id, email, roles, profileId } = req.user;
+
+    const tableOr = [{ function: 'TABLE', userId: id }];
+    if (profileId) {
+      tableOr.push({ function: 'TABLE', profileId });
+      const teamIds = await currentTeamIds(profileId);
+      if (teamIds.length) tableOr.push({ function: 'TABLE', teamId: { in: teamIds } });
+    }
+    const tableCount = await prisma.matchAssignment.count({
+      where: { OR: tableOr, match: { status: { in: ACTIVE }, hiddenAt: null } },
+    });
+
+    res.json({ user: { id, email, roles, profileId }, menu: buildMenu(roles, tableCount > 0) });
+  } catch (err) {
+    console.error('[me]', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Mis partidos asignados (árbitro y/o mesa, por cuenta, por perfil o por equipo): pasados y futuros, sin los ocultos
+router.get('/assignments', authenticate, async (req, res) => {
+  try {
+    const or = [{ function: 'TABLE', userId: req.user.id }];
+    if (req.user.profileId) {
+      or.push({ function: 'REFEREE', profileId: req.user.profileId });
+      or.push({ function: 'TABLE', profileId: req.user.profileId });
+      const teamIds = await currentTeamIds(req.user.profileId);
+      if (teamIds.length) or.push({ function: 'TABLE', teamId: { in: teamIds } });
+    }
+
+    const rows = await prisma.matchAssignment.findMany({
+      where: { OR: or, match: { hiddenAt: null } },
+      include: {
+        match: {
+          include: {
+            tournament: { select: { id: true, name: true } },
+            teamA: { select: { id: true, name: true, logo: true } },
+            teamB: { select: { id: true, name: true, logo: true } },
+          },
+        },
+      },
+    });
+
+    // Dedupe por partido: puede tener más de una vía de acceso al mismo (ej. árbitro y también mesa por equipo)
+    const byMatch = new Map();
+    for (const r of rows) if (!byMatch.has(r.match.id)) byMatch.set(r.match.id, r);
+    const list = [...byMatch.values()];
+
+    list.sort((a, b) => {
+      const ta = a.match.scheduledAt ? a.match.scheduledAt.getTime() : Infinity;
+      const tb = b.match.scheduledAt ? b.match.scheduledAt.getTime() : Infinity;
+      return ta - tb || a.match.court - b.match.court;
+    });
+
+    res.json(
+      list.map((r) => ({
+        function: r.function,
+        match: {
+          id: r.match.id,
+          tournament: r.match.tournament,
+          court: r.match.court,
+          branch: r.match.branch,
+          modality: r.match.modality,
+          status: r.match.status,
+          scheduledAt: r.match.scheduledAt,
+          finishedAt: r.match.finishedAt,
+          teamA: r.match.teamA,
+          teamB: r.match.teamB,
+        },
+      }))
+    );
+  } catch (err) {
+    console.error('[me]', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Mi ficha: datos propios, equipos actuales por rama y foto
+router.get('/profile', authenticate, async (req, res) => {
+  try {
+    const { id, email, roles, profileId } = req.user;
+    let profile = null;
+    let photoPath = req.user.photo || null;
+
+    if (profileId) {
+      const loaded = await loadProfile(profileId);
+      if (loaded) {
+        profile = loaded.profile;
+        photoPath = loaded.photo;
+      }
+    }
+
+    const photoUrl = photoPath ? await storage.signedUrl(photoPath) : null;
+    res.json({ user: { id, email, roles, profileId }, profile, photoUrl });
+  } catch (err) {
+    console.error('[me]', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Edita SOLO el apodo y el número de camiseta. Todo opcional; null borra el valor.
+router.patch('/profile', authenticate, async (req, res) => {
+  try {
+    const profileId = req.user.profileId;
+    if (!profileId) {
+      return res.status(404).json({ error: 'Tu cuenta no tiene un perfil de jugador o árbitro' });
+    }
+
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const has = (key) => Object.prototype.hasOwnProperty.call(body, key);
+    const data = {};
+    const errors = [];
+
+    if (has('nickname')) {
+      if (body.nickname === null) {
+        data.nickname = null;
+      } else if (typeof body.nickname !== 'string') {
+        errors.push('El apodo debe ser un texto');
+      } else {
+        const nick = body.nickname.trim();
+        if (Array.from(nick).length > NICKNAME_MAX) {
+          errors.push('El apodo no puede tener más de ' + NICKNAME_MAX + ' caracteres');
+        } else {
+          data.nickname = nick === '' ? null : nick;
+        }
+      }
+    }
+
+    if (has('number')) {
+      if (body.number === null) {
+        data.number = null;
+      } else if (
+        typeof body.number !== 'number' ||
+        !Number.isInteger(body.number) ||
+        body.number < NUMBER_MIN ||
+        body.number > NUMBER_MAX
+      ) {
+        errors.push('El número de camiseta debe ser un entero de ' + NUMBER_MIN + ' a ' + NUMBER_MAX);
+      } else {
+        data.number = body.number;
+      }
+    }
+
+    if (errors.length) return res.status(400).json({ errors });
+
+    if (Object.keys(data).length) {
+      await prisma.profile.update({ where: { id: profileId }, data });
+    }
+
+    const loaded = await loadProfile(profileId);
+    if (!loaded) return res.status(404).json({ error: 'Tu cuenta no tiene un perfil de jugador o árbitro' });
+    res.json(loaded.profile);
+  } catch (err) {
+    console.error('[me]', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+module.exports = router;
+
+
+===== backend/src/routes/users.js =====
+const express = require('express');
+const prisma = require('../db');
+const { authenticate, requireRole } = require('../middleware/auth');
+
+const router = express.Router();
+router.use(authenticate, requireRole('ADMIN'));
+
+const ROLES = ['ADMIN', 'REFEREE', 'PLAYER'];
+
+const activeAdmins = () =>
+  prisma.user.count({ where: { active: true, roles: { has: 'ADMIN' } } });
+
+// Impide dejar el sistema sin admins activos
+async function isLastAdmin(user) {
+  return user.active && user.roles.includes('ADMIN') && (await activeAdmins()) <= 1;
+}
+
+function handleError(err, res) {
+  console.error('[users]', err);
+  return res.status(500).json({ error: 'Error interno' });
+}
+
+// ?q=texto&role=ADMIN&active=true
+router.get('/', async (req, res) => {
+  try {
+    const { q, role, active } = req.query;
+    const where = {};
+    if (q) where.email = { contains: String(q).toLowerCase() };
+    if (ROLES.includes(role)) where.roles = { has: role };
+    if (active !== undefined) where.active = active === 'true';
+
+    const users = await prisma.user.findMany({
+      where,
+      orderBy: { email: 'asc' },
+      select: { id: true, email: true, roles: true, active: true, profileId: true, createdAt: true },
+    });
+    res.json(users);
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+router.post('/:id/promote', async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (!user.active) return res.status(409).json({ error: 'El usuario está desactivado' });
+    if (user.roles.includes('ADMIN')) return res.status(409).json({ error: 'Ya es admin' });
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { roles: { set: [...user.roles, 'ADMIN'] } },
+    });
+    res.json(updated);
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+router.post('/:id/demote', async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (!user.roles.includes('ADMIN')) return res.status(409).json({ error: 'No es admin' });
+    if (await isLastAdmin(user)) {
+      return res.status(409).json({ error: 'El último admin no puede ser degradado' });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { roles: { set: user.roles.filter((r) => r !== 'ADMIN') } },
+    });
+    res.json(updated);
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+// Baja lógica
+router.delete('/:id', async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (await isLastAdmin(user)) {
+      return res.status(409).json({ error: 'El último admin no puede ser eliminado' });
+    }
+
+    await prisma.user.update({ where: { id: user.id }, data: { active: false } });
+    res.json({ ok: true });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+router.post('/:id/reactivate', async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const updated = await prisma.user.update({ where: { id: user.id }, data: { active: true } });
+    res.json(updated);
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+module.exports = router;
+
+
+===== backend/src/routes/profiles.js =====
+const express = require('express');
+const prisma = require('../db');
+const { authenticate, requireRole } = require('../middleware/auth');
+
+const router = express.Router();
+router.use(authenticate, requireRole('ADMIN'));
+
+const normEmail = (e) => String(e || '').trim().toLowerCase();
+const normDni = (d) => String(d || '').replace(/\D/g, '');
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isSex = (s) => s === 'M' || s === 'F';
+
+// Recalcula PLAYER/REFEREE de la cuenta vinculada segÃºn el perfil (conserva ADMIN)
+async function syncRoles(profileId) {
+  const profile = await prisma.profile.findUnique({
+    where: { id: profileId },
+    include: { user: true },
+  });
+  if (!profile?.user) return;
+
+  const roles = new Set(profile.user.roles);
+  const toggle = (role, on) => (on ? roles.add(role) : roles.delete(role));
+  toggle('PLAYER', profile.active && profile.isPlayer);
+  toggle('REFEREE', profile.active && profile.isReferee);
+
+  await prisma.user.update({
+    where: { id: profile.user.id },
+    data: { roles: { set: [...roles] } },
+  });
+}
+
+function handleDbError(err, res) {
+  if (err.code === 'P2002') {
+    return res.status(409).json({ error: 'DNI o mail ya existente en otro perfil' });
+  }
+  console.error('[profiles]', err);
+  return res.status(500).json({ error: 'Error interno' });
+}
+
+// Alta manual. Si el DNI ya existe, actualiza el perfil en vez de duplicarlo.
+router.post('/', async (req, res) => {
+  try {
+    const { dni, name, email, sex, isPlayer = false, isReferee = false } = req.body;
+    const dniN = normDni(dni);
+    const emailN = normEmail(email);
+    const errors = [];
+
+    if (dniN.length < 6) errors.push('DNI invÃ¡lido');
+    if (!name || !String(name).trim()) errors.push('Nombre obligatorio');
+    if (!EMAIL_RE.test(emailN)) errors.push('Mail invÃ¡lido');
+    if (!isPlayer && !isReferee) errors.push('IndicÃ¡ si es jugador y/o Ã¡rbitro');
+    if (sex && !isSex(sex)) errors.push('Sexo invÃ¡lido (M o F)');
+    if (isPlayer && !isSex(sex)) errors.push('El sexo es obligatorio para jugadores');
+    if (errors.length) return res.status(400).json({ errors });
+
+    const existing = await prisma.profile.findUnique({ where: { dni: dniN } });
+    const emailOwner = await prisma.profile.findUnique({ where: { email: emailN } });
+    if (emailOwner && emailOwner.id !== existing?.id) {
+      return res.status(409).json({ error: 'Ese mail ya estÃ¡ inscripto en otro perfil' });
+    }
+
+    let profile;
+    if (existing) {
+      profile = await prisma.profile.update({
+        where: { id: existing.id },
+        data: {
+          name: String(name).trim(),
+          sex: sex || existing.sex,
+          isPlayer: existing.isPlayer || isPlayer,
+          isReferee: existing.isReferee || isReferee,
+          active: true,
+          // el mail de un perfil vinculado lo cambia el propio usuario
+          ...(existing.status === 'PENDIENTE_VINCULACION' ? { email: emailN } : {}),
+        },
+      });
+    } else {
+      profile = await prisma.profile.create({
+        data: {
+          dni: dniN,
+          name: String(name).trim(),
+          email: emailN,
+          sex: sex || null,
+          isPlayer,
+          isReferee,
+        },
+      });
+    }
+
+    await syncRoles(profile.id);
+    res.status(existing ? 200 : 201).json(profile);
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Listado con filtros: ?status=PENDIENTE_VINCULACION&active=true&q=texto
+router.get('/', async (req, res) => {
+  try {
+    const { status, active, q } = req.query;
+    const where = {};
+    if (status) where.status = status;
+    if (active !== undefined) where.active = active === 'true';
+    if (q) {
+      where.OR = [
+        { name: { contains: String(q), mode: 'insensitive' } },
+        { dni: { contains: String(q) } },
+        { email: { contains: String(q).toLowerCase() } },
+      ];
+    }
+    const profiles = await prisma.profile.findMany({ where, orderBy: { name: 'asc' }, include: { teams: { where: { to: null }, include: { team: { select: { id: true, name: true } } } } } });
+    res.json(profiles);
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Editar (tambiÃ©n baja/reactivaciÃ³n con { active: false | true })
+router.patch('/:id', async (req, res) => {
+  try {
+    const profile = await prisma.profile.findUnique({ where: { id: req.params.id } });
+    if (!profile) return res.status(404).json({ error: 'Perfil no encontrado' });
+
+    const { dni, name, email, sex, isPlayer, isReferee, active } = req.body;
+    const data = {};
+
+    if (dni !== undefined) {
+      const dniN = normDni(dni);
+      if (dniN.length < 6) return res.status(400).json({ error: 'DNI invÃ¡lido' });
+      data.dni = dniN;
+    }
+    if (name !== undefined) {
+      if (!String(name).trim()) return res.status(400).json({ error: 'Nombre obligatorio' });
+      data.name = String(name).trim();
+    }
+    if (email !== undefined) {
+      if (profile.status !== 'PENDIENTE_VINCULACION') {
+        return res.status(409).json({
+          error: 'Perfil vinculado: el mail lo cambia el usuario, o desvinculÃ¡ el perfil primero',
+        });
+      }
+      const emailN = normEmail(email);
+      if (!EMAIL_RE.test(emailN)) return res.status(400).json({ error: 'Mail invÃ¡lido' });
+      data.email = emailN;
+    }
+    if (sex !== undefined) {
+      if (sex !== null && !isSex(sex)) return res.status(400).json({ error: 'Sexo invÃ¡lido' });
+      data.sex = sex;
+    }
+    if (isPlayer !== undefined) data.isPlayer = Boolean(isPlayer);
+    if (isReferee !== undefined) data.isReferee = Boolean(isReferee);
+    if (active !== undefined) data.active = Boolean(active);
+
+    const final = { ...profile, ...data };
+    if (final.isPlayer && !final.sex) {
+      return res.status(400).json({ error: 'El sexo es obligatorio para jugadores' });
+    }
+
+    const updated = await prisma.profile.update({ where: { id: profile.id }, data });
+    await syncRoles(profile.id);
+    res.json(updated);
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Desvincular cuenta (perdiÃ³ acceso al mail). Exige el mail nuevo para que no se revincule solo.
+router.post('/:id/unlink', async (req, res) => {
+  try {
+    const emailN = normEmail(req.body.email);
+    if (!EMAIL_RE.test(emailN)) {
+      return res.status(400).json({ error: 'IndicÃ¡ el mail nuevo del perfil' });
+    }
+
+    const profile = await prisma.profile.findUnique({
+      where: { id: req.params.id },
+      include: { user: true },
+    });
+    if (!profile) return res.status(404).json({ error: 'Perfil no encontrado' });
+    if (!profile.user) return res.status(409).json({ error: 'El perfil no estÃ¡ vinculado' });
+    if (emailN === profile.user.email) {
+      return res.status(400).json({ error: 'El mail nuevo debe ser distinto al de la cuenta actual' });
+    }
+
+    const roles = profile.user.roles.filter((r) => r !== 'PLAYER' && r !== 'REFEREE');
+
+    const [, updated] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: profile.user.id },
+        data: { profileId: null, roles: { set: roles } },
+      }),
+      prisma.profile.update({
+        where: { id: profile.id },
+        data: { email: emailN, status: 'PENDIENTE_VINCULACION' },
+      }),
+    ]);
+    res.json(updated);
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Baja lógica: sale de los planteles y conserva el historial.
+// ?permanent=true la borra del todo (solo si no tiene cuenta vinculada ni partidos asignados).
+router.delete('/:id', async (req, res) => {
+  try {
+    const profile = await prisma.profile.findUnique({
+      where: { id: req.params.id },
+      include: { user: true },
+    });
+    if (!profile) return res.status(404).json({ error: 'Perfil no encontrado' });
+
+    if (req.query.permanent === 'true') {
+      if (profile.user) {
+        return res.status(409).json({ error: 'Tiene una cuenta vinculada: desvinculala primero' });
+      }
+      const assigned = await prisma.matchAssignment.count({ where: { profileId: profile.id } });
+      if (assigned) {
+        return res.status(409).json({ error: 'Tiene partidos asignados como árbitro: usá la baja' });
+      }
+
+      await prisma.$transaction([
+        prisma.playerTeam.deleteMany({ where: { profileId: profile.id } }),
+        prisma.favorite.deleteMany({ where: { targetType: 'PLAYER', targetId: profile.id } }),
+        prisma.profile.delete({ where: { id: profile.id } }),
+      ]);
+      return res.json({ ok: true, permanent: true });
+    }
+
+    await prisma.$transaction([
+      prisma.playerTeam.updateMany({
+        where: { profileId: profile.id, to: null },
+        data: { to: new Date() },
+      }),
+      prisma.profile.update({ where: { id: profile.id }, data: { active: false } }),
+    ]);
+    await syncRoles(profile.id);
+    res.json({ ok: true, permanent: false });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Detalle de un perfil (admin), con sus equipos actuales
+router.get('/:id', async (req, res) => {
+  try {
+    const profile = await prisma.profile.findUnique({
+      where: { id: req.params.id },
+      include: {
+        teams: {
+          where: { to: null },
+          include: { team: { select: { id: true, name: true } } },
+        },
+      },
+    });
+    if (!profile) return res.status(404).json({ error: 'Perfil no encontrado' });
+    res.json(profile);
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+module.exports = router;
+
+===== backend/src/sockets/auth.js =====
+const prisma = require('../db');
+const { resolveToken } = require('../middleware/auth');
+
+const MAX_CONN_PER_IP = 30;
+const connections = new Map();
+
+function clientIp(socket) {
+  const fwd = socket.handshake.headers['x-forwarded-for'];
+  return (fwd ? String(fwd).split(',')[0].trim() : socket.handshake.address) || 'unknown';
+}
+
+// El token ya fue validado por Supabase: solo leemos su vencimiento
+function tokenExp(token) {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+    return payload.exp || 0;
+  } catch (err) {
+    return 0;
+  }
+}
+
+function registerSocketAuth(io) {
+  io.use(async (socket, next) => {
+    try {
+      const ip = clientIp(socket);
+      const count = connections.get(ip) || 0;
+      if (count >= MAX_CONN_PER_IP) return next(new Error('Demasiadas conexiones'));
+
+      socket.data.user = null; // sin token = visitante (viewer)
+      socket.data.displayName = 'Visitante';
+
+      const token = socket.handshake.auth && socket.handshake.auth.token;
+      if (token) {
+        const result = await resolveToken(token);
+        if (result.error) return next(new Error(result.error));
+
+        const user = result.user;
+        let displayName = user.email.split('@')[0];
+        if (user.profileId) {
+          const profile = await prisma.profile.findUnique({
+            where: { id: user.profileId },
+            select: { name: true },
+          });
+          if (profile) displayName = profile.name;
+        }
+        socket.data.user = user;
+        socket.data.displayName = displayName;
+        socket.data.tokenExp = tokenExp(token);
+      }
+
+      connections.set(ip, count + 1);
+      socket.on('disconnect', () => {
+        const left = (connections.get(ip) || 1) - 1;
+        if (left <= 0) connections.delete(ip);
+        else connections.set(ip, left);
+      });
+      next();
+    } catch (err) {
+      console.error('[socket-auth]', err);
+      next(new Error('Error de autenticación'));
+    }
+  });
+}
+
+module.exports = { registerSocketAuth };
+
