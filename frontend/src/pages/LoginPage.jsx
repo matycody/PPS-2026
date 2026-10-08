@@ -59,7 +59,7 @@ export default function LoginPage() {
 
       <div className="mt-4 flex flex-col gap-2 text-sm text-muted">
         <Link to="/registro">¿Sos jugador? Registrate</Link>
-        <Link to="/registro?tipo=invitado">¿Familiar o amigo? Creá tu cuenta de invitado</Link>
+        <Link to="/registro?tipo=invitado">¿Sos nuevo? Registrate</Link>
       </div>
     </main>
   )
