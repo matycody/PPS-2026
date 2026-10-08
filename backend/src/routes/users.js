@@ -76,6 +76,41 @@ router.post('/:id/demote', async (req, res) => {
   }
 });
 
+// Designar / quitar el rol de arbitro (el usuario necesita perfil)
+router.post('/:id/referee', async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.params.id }, include: { profile: true } });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (!user.active) return res.status(409).json({ error: 'El usuario está desactivado' });
+    if (!user.profile) {
+      return res.status(409).json({ error: 'El usuario no tiene perfil: cargalo en Personas con su mail o que complete su registro' });
+    }
+    if (!user.profile.active) return res.status(409).json({ error: 'El perfil está inactivo' });
+    if (user.roles.includes('REFEREE')) return res.status(409).json({ error: 'Ya es árbitro' });
+    await prisma.$transaction([
+      prisma.profile.update({ where: { id: user.profile.id }, data: { isReferee: true } }),
+      prisma.user.update({ where: { id: user.id }, data: { roles: { set: [...user.roles, 'REFEREE'] } } }),
+    ]);
+    res.json({ ok: true });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+router.delete('/:id/referee', async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (!user.roles.includes('REFEREE')) return res.status(409).json({ error: 'No es árbitro' });
+    const ops = [prisma.user.update({ where: { id: user.id }, data: { roles: { set: user.roles.filter((r) => r !== 'REFEREE') } } })];
+    if (user.profileId) ops.push(prisma.profile.update({ where: { id: user.profileId }, data: { isReferee: false } }));
+    await prisma.$transaction(ops);
+    res.json({ ok: true });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
 // Baja lógica
 router.delete('/:id', async (req, res) => {
   try {

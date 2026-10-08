@@ -18,6 +18,7 @@ app.use(cors({
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
 }));
 app.use(express.json());
+app.use(require("./src/lib/audit").auditWrites);
 
 // Anti-abuso: límite de requests por IP
 app.use(rateLimit({
@@ -27,6 +28,11 @@ app.use(rateLimit({
   legacyHeaders: false,
   message: { error: "Demasiadas solicitudes, probá en un minuto" },
 }));
+
+app.get("/time", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({ now: Date.now(), iso: new Date().toISOString() });
+});
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Servidor backend PPS Dodgeball corriendo" });
@@ -38,7 +44,9 @@ app.use("/profiles", require("./src/routes/profiles"));
 app.use("/teams", require("./src/routes/teams"));
 app.use("/tournaments", require("./src/routes/tournaments"));
 app.use("/matches", require("./src/routes/matches"));
+app.use("/audit", require("./src/routes/audit"));
 app.use("/users", require("./src/routes/users"));
+app.use('/player-requests', require('./src/routes/playerRequests'))
 app.use("/favorites", require("./src/routes/favorites"));
 app.use("/me", require("./src/routes/account"));
 app.use("/photos", require("./src/routes/photos"));

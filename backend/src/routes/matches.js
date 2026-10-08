@@ -139,14 +139,17 @@ function assertVisible(match) {
   return null;
 }
 
-async function validateTeams(teamAId, teamBId, branch) {
+async function validateTeams(teamAId, teamBId, branch, modality) {
   if (teamAId && teamAId === teamBId) return 'Los equipos deben ser distintos';
   const ids = [teamAId, teamBId].filter(Boolean);
   if (!ids.length) return null;
-  const teams = await prisma.team.findMany({ where: { id: { in: ids } }, include: { branches: true } });
+  const teams = await prisma.team.findMany({ where: { id: { in: ids } }, include: { branches: true, modalities: true } });
   if (teams.length !== ids.length) return 'Equipo no encontrado';
   if (teams.some((t) => !t.branches.some((b) => b.branch === branch))) {
     return 'Un equipo no tiene esa rama';
+  }
+  if (modality && teams.some((t) => !t.modalities.some((m) => m.modality === modality))) {
+    return 'Un equipo no juega esa modalidad';
   }
   return null;
 }
@@ -196,7 +199,7 @@ router.post('/', ...admin, async (req, res) => {
     const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
     if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
 
-    const teamError = await validateTeams(teamAId, teamBId, branch);
+    const teamError = await validateTeams(teamAId, teamBId, branch, modality);
     if (teamError) return res.status(409).json({ error: teamError });
 
     const match = await prisma.match.create({
@@ -299,7 +302,7 @@ router.patch('/:id', ...admin, async (req, res) => {
     if ('teamBId' in b) data.teamBId = b.teamBId || null;
 
     const next = { ...match, ...data };
-    const teamError = await validateTeams(next.teamAId, next.teamBId, next.branch);
+    const teamError = await validateTeams(next.teamAId, next.teamBId, next.branch, next.modality);
     if (teamError) return res.status(409).json({ error: teamError });
 
     const refereeIds = match.assignments

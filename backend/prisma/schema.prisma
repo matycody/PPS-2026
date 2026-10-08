@@ -64,6 +64,7 @@ model User {
   favorites    Favorite[]
   assignments  MatchAssignment[]
   clockActions ClockAction[]
+  playerRequests PlayerRequest[]
 }
 
 // Perfil inscripto por la organizaciÃ³n (jugador y/o Ã¡rbitro)
@@ -95,11 +96,13 @@ model Team {
   logo String?
 
   branches TeamBranch[]
+  modalities TeamModality[]
   players  PlayerTeam[]
   matchesA Match[]      @relation("MatchTeamA")
   matchesB Match[]      @relation("MatchTeamB")
   wonSets  MatchSet[]   @relation("SetWinner")
   assignments MatchAssignment[]
+  playerRequestTeams PlayerRequestTeam[]
 }
 
 model TeamBranch {
@@ -109,6 +112,16 @@ model TeamBranch {
   team Team @relation(fields: [teamId], references: [id])
 
   @@id([teamId, branch])
+}
+
+// Modalidades que juega un equipo (foam, cloth o ambas)
+model TeamModality {
+  teamId   String
+  modality Modality
+
+  team Team @relation(fields: [teamId], references: [id])
+
+  @@id([teamId, modality])
 }
 
 // Un solo registro con "to" = null por (profileId, branch).
@@ -122,6 +135,7 @@ model PlayerTeam {
   branch    Branch
   from      DateTime  @default(now())
   to        DateTime? // null = equipo actual
+  isCoach   Boolean   @default(false) // DT: marca visual, sin permisos extra
 
   profile Profile @relation(fields: [profileId], references: [id])
   team    Team    @relation(fields: [teamId], references: [id])
@@ -241,4 +255,57 @@ model Favorite {
   user User @relation(fields: [userId], references: [id])
 
   @@id([userId, targetType, targetId])
+}
+
+enum PlayerRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model PlayerRequest {
+  id           String               @id @default(cuid())
+  userId       String
+  name         String
+  dni          String
+  sex          Sex
+  number       Int?
+  status       PlayerRequestStatus  @default(PENDING)
+  rejectReason String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime             @default(now())
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teams        PlayerRequestTeam[]
+
+  @@index([status])
+  @@index([userId])
+}
+
+model PlayerRequestTeam {
+  id        String        @id @default(cuid())
+  requestId String
+  teamId    String
+  branch    Branch
+  request   PlayerRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  team      Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, branch])
+}
+
+// Movimientos de usuarios y administradores (quien hizo que y cuando)
+model AuditLog {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+  actorId    String?
+  actorEmail String?
+  method     String
+  path       String
+  label      String
+  targetId   String?
+  status     Int
+  data       Json?
+
+  @@index([createdAt])
+  @@index([actorId])
 }
