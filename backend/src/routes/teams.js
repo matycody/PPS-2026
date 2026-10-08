@@ -106,6 +106,7 @@ router.get('/:id', async (req, res) => {
         nickname: p.profile.nickname,
         number: p.profile.number,
         branch: p.branch,
+        coach: p.isCoach,
       })),
     });
   } catch (err) {
@@ -246,6 +247,27 @@ router.delete('/:id/players/:profileId', ...admin, async (req, res) => {
       data: { to: new Date() },
     });
     if (!result.count) return res.status(404).json({ error: 'El jugador no estÃ¡ en ese equipo/rama' });
+    res.json({ ok: true });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Designar (profileId) o quitar (profileId: null) al DT del equipo. Uno solo por equipo; es solo una marca visual.
+router.put('/:id/coach', ...admin, async (req, res) => {
+  try {
+    const profileId = req.body && req.body.profileId ? String(req.body.profileId) : null;
+    const team = await prisma.team.findUnique({ where: { id: req.params.id } });
+    if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
+    if (profileId) {
+      const member = await prisma.playerTeam.findFirst({ where: { teamId: team.id, profileId, to: null } });
+      if (!member) return res.status(409).json({ error: 'El jugador no está en el plantel actual del equipo' });
+    }
+    const ops = [prisma.playerTeam.updateMany({ where: { teamId: team.id, to: null }, data: { isCoach: false } })];
+    if (profileId) {
+      ops.push(prisma.playerTeam.updateMany({ where: { teamId: team.id, profileId, to: null }, data: { isCoach: true } }));
+    }
+    await prisma.$transaction(ops);
     res.json({ ok: true });
   } catch (err) {
     handleDbError(err, res);
