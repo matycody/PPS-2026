@@ -68,7 +68,9 @@ export default function RegisterPage() {
     run(async () => {
       const { error } = await supabase.auth.updateUser({ password: pass })
       if (error) throw error
-      if (guest) navigate('/', { replace: true })
+      // Cuenta que ya existía y está completa (jugador, árbitro, admin): directo al inicio
+      const me = await api('GET', '/me').catch(() => null)
+      if (guest || me?.user?.profileId || me?.user?.roles?.length) navigate('/', { replace: true })
       else setStep('form')
     })
   }
