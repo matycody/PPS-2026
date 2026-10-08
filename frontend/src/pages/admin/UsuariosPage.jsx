@@ -3,6 +3,7 @@ import { Search } from 'lucide-react'
 import { api } from '../../lib/api'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import { useConfirm } from '../../components/ConfirmProvider'
+import SolicitudesPanel from './SolicitudesPanel'
 
 const ROLE = { ADMIN: 'Organizador', REFEREE: 'Árbitro', PLAYER: 'Jugador' }
 const ROLE_COLOR = { ADMIN: '#a855f7', REFEREE: '#ff9a3c', PLAYER: '#2f8cff' }
@@ -16,6 +17,10 @@ export default function UsuariosPage() {
   const [inactive, setInactive] = useState(false)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+  const [tab, setTab] = useState('users')
+  const [pending, setPending] = useState(0)
+  const countPending = () => api('GET', '/player-requests?status=PENDING').then((l) => setPending(l.length)).catch(() => {})
+  useEffect(() => { countPending() }, [])
 
   const load = () => {
     const p = new URLSearchParams({ active: inactive ? 'false' : 'true' })
@@ -33,6 +38,12 @@ export default function UsuariosPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Usuarios y roles</h1>
+      <div className="flex gap-2 text-sm font-bold">
+        <button onClick={() => setTab('users')} className={'rounded-full border px-4 py-1.5 ' + (tab === 'users' ? 'border-accent text-accent' : 'border-line text-muted')}>Usuarios</button>
+        <button onClick={() => setTab('req')} className={'rounded-full border px-4 py-1.5 ' + (tab === 'req' ? 'border-accent text-accent' : 'border-line text-muted')}>Solicitudes{pending ? ' (' + pending + ')' : ''}</button>
+      </div>
+      {tab === 'req' && <SolicitudesPanel onChange={() => { countPending(); load() }} />}
+      {tab === 'users' && <>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
 
       <form onSubmit={(e) => { e.preventDefault(); load() }} className="flex gap-2">
@@ -62,6 +73,8 @@ export default function UsuariosPage() {
                 ))}
               </div>
               <div className="flex flex-wrap gap-4 pt-1 text-sm font-bold">
+                {u.active && !u.roles.includes('REFEREE') && <button disabled={busy} className="text-accent" onClick={async () => (await ask({ title: 'Designar árbitro', message: '¿Designar a ' + u.email + ' como árbitro?', confirmText: 'Designar' })) && act('POST', '/users/' + u.id + '/referee')}>Designar árbitro</button>}
+                {u.active && u.roles.includes('REFEREE') && <button disabled={busy} className="text-warn" onClick={async () => (await ask({ title: 'Quitar árbitro', message: '¿Quitar el rol de árbitro a ' + u.email + '?', confirmText: 'Quitar', danger: true })) && act('DELETE', '/users/' + u.id + '/referee')}>Quitar árbitro</button>}
                 {u.active && !isAdmin && <button disabled={busy} className="text-accent" onClick={async () => (await ask({ title: 'Hacer admin', message: '¿Hacer admin a ' + u.email + '?', confirmText: 'Hacer admin' })) && act('POST', '/users/' + u.id + '/promote')}>Hacer admin</button>}
                 {u.active && isAdmin && <button disabled={busy} className="text-warn" onClick={async () => (await ask({ title: 'Quitar admin', message: '¿Quitar admin a ' + u.email + '?', confirmText: 'Quitar admin', danger: true })) && act('POST', '/users/' + u.id + '/demote')}>Quitar admin</button>}
                 {u.active
@@ -72,6 +85,7 @@ export default function UsuariosPage() {
           )
         })}
       </div>
+      </>}
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { socket } from '../sockets/socket'
 import { toSeconds } from '../lib/format'
 import { GENERAL, ITEMS } from '../lib/navConfig'
 import { useAuthStore } from '../stores/authStore'
+import PlayerRequestBanner from '../components/PlayerRequestBanner'
 import { roleLabel } from '../lib/navConfig'
 
 const FILTERS = [
@@ -83,6 +84,7 @@ export default function InicioPage() {
 
   return (
     <div className="space-y-5">
+      <PlayerRequestBanner />
       <div className="flex gap-2">
         {[
           ...GENERAL.slice(0, 3),
