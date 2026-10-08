@@ -73,7 +73,7 @@ export default function PerfilPage() {
     <div className="space-y-4">
       {err && <p className="rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm font-bold text-danger">{err}</p>}
       {msg && <p className="rounded-2xl border border-live/40 bg-live/10 px-4 py-3 text-sm font-bold text-live">{msg}</p>}
-      <PlayerRequestBanner />
+      <PlayerRequestBanner cta />
 
       <div className="flex items-center gap-4 rounded-3xl border border-line bg-surface p-5">
         <div className="relative shrink-0">

@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 
 // Aviso para cuentas sin perfil: pide el alta, muestra "en revisión" o el motivo del rechazo
-export default function PlayerRequestBanner() {
+export default function PlayerRequestBanner({ cta = false }) {
   const user = useAuthStore((s) => s.user)
   const [req, setReq] = useState(undefined)
   const need = user && !user.profileId && !(user.roles ?? []).length
@@ -14,6 +14,7 @@ export default function PlayerRequestBanner() {
   }, [need])
 
   if (!need || req === undefined) return null
+  if (!req && !cta) return null // invitados: sin aviso salvo en el Perfil
   const box = 'rounded-2xl border p-4 text-sm '
   if (req?.status === 'PENDING') {
     return <div className={box + 'border-line bg-surface'}><p className="font-bold">Solicitud en revisión</p><p className="mt-1 text-muted">La organización la está revisando. Te habilitan cuando la aprueben.</p></div>

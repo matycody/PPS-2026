@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { api } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
@@ -11,6 +11,7 @@ const ALLOWED = { M: ['MIXED', 'MALE'], F: ['MIXED', 'FEMALE'] }
 // Pasos: mail -> código -> contraseña -> datos de jugador (queda pendiente de aprobación)
 export default function RegisterPage() {
   const navigate = useNavigate()
+  const guest = useSearchParams()[0].get('tipo') === 'invitado' // familiar o amigo: solo cuenta, sin alta de jugador
   const { session, user, loading } = useAuthStore()
   const [step, setStep] = useState('mail')
   const [email, setEmail] = useState('')
@@ -28,9 +29,10 @@ export default function RegisterPage() {
   useEffect(() => {
     if (loading || !session || step !== 'mail') return
     if (user?.profileId || user?.roles?.length) return navigate('/', { replace: true })
+    if (guest) return navigate('/', { replace: true })
     setEmail(session.user?.email ?? '')
     setStep('form')
-  }, [loading, session, user, step, navigate])
+  }, [loading, session, user, step, navigate, guest])
 
   useEffect(() => {
     if (step === 'form') api('GET', '/teams').then(setTeams).catch((e) => setErr(e.message))
@@ -66,7 +68,8 @@ export default function RegisterPage() {
     run(async () => {
       const { error } = await supabase.auth.updateUser({ password: pass })
       if (error) throw error
-      setStep('form')
+      if (guest) navigate('/', { replace: true })
+      else setStep('form')
     })
   }
 
@@ -85,13 +88,13 @@ export default function RegisterPage() {
     })
   }
 
-  const titles = { mail: 'Registrate', code: 'Ingresá el código', pass: 'Elegí tu contraseña', form: 'Tus datos de jugador' }
+  const titles = { mail: guest ? 'Creá tu cuenta' : 'Registrate', code: 'Ingresá el código', pass: 'Elegí tu contraseña', form: 'Tus datos de jugador' }
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-10">
       <p className="text-xs font-semibold uppercase tracking-widest text-muted">Dodgeball</p>
       <h1 className="mb-2 mt-1 text-3xl font-extrabold">{titles[step]}</h1>
-      {step === 'mail' && <p className="mb-6 text-sm text-muted">Te mandamos un código al mail para confirmar que es tuyo.</p>}
+      {step === 'mail' && <p className="mb-6 text-sm text-muted">{guest ? 'Para seguir partidos y equipos. ' : ''}Te mandamos un código al mail para confirmar que es tuyo.</p>}
       {step === 'code' && <p className="mb-6 text-sm text-muted">Lo enviamos a {email}. Revisá también spam o promociones.</p>}
       {step === 'form' && <p className="mb-6 text-sm text-muted">La organización los revisa contra la planilla de inscripción y te habilita.</p>}
 

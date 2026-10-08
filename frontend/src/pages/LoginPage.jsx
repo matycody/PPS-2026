@@ -57,7 +57,10 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <Link to="/registro" className="mt-4 text-sm text-muted">¿Sos jugador? Registrate</Link>
+      <div className="mt-4 flex flex-col gap-2 text-sm text-muted">
+        <Link to="/registro">¿Sos jugador? Registrate</Link>
+        <Link to="/registro?tipo=invitado">¿Familiar o amigo? Creá tu cuenta de invitado</Link>
+      </div>
     </main>
   )
 }
