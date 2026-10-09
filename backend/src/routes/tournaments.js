@@ -291,6 +291,12 @@ router.patch('/:id', ...admin, async (req, res) => {
         });
       }
       await tx.tournament.update({ where: { id: t.id }, data });
+      if (data.branch || data.modality) {
+        await tx.match.updateMany({
+          where: { tournamentId: t.id },
+          data: { ...(data.branch ? { branch: data.branch } : {}), ...(data.modality ? { modality: data.modality } : {}) },
+        });
+      }
     });
 
     res.json(
