@@ -14,43 +14,60 @@ import { useConfirm } from '../../components/ConfirmProvider'
 // Solo se puede ocultar un partido que no esté en curso
 const canHide = (status) => status === 'SCHEDULED' || status === 'FINISHED' || status === 'CANCELLED'
 
+const hourOf = (iso) => (iso ? new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--')
+const dayKey = (iso) => (iso ? new Date(iso).toLocaleDateString('en-CA') : 'none')
+const dayLabel = (iso) => {
+  if (!iso) return 'Sin fecha'
+  const d = new Date(iso)
+  const t = new Date(); t.setHours(0, 0, 0, 0)
+  const diff = Math.round((new Date(d).setHours(0, 0, 0, 0) - t.getTime()) / 864e5)
+  const base = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+  return (diff === 0 ? 'Hoy \u00b7 ' : diff === 1 ? 'Ma\u00f1ana \u00b7 ' : '') + base
+}
+
 function MatchRow({ m, hidden, busy, onHide, onRestore, onPurge, selecting, selected, onToggle }) {
   return (
     <div
       onClick={selecting ? onToggle : undefined}
-      className={'space-y-3 rounded-3xl border bg-surface p-4 ' + (selecting ? 'cursor-pointer ' : '') + (selected ? 'border-accent ring-2 ring-accent/40' : statusBorder(m.status))}
+      className={'rounded-2xl border bg-surface px-3 py-2.5 ' + (selecting ? 'cursor-pointer ' : '') + (selected ? 'border-accent ring-2 ring-accent/40' : statusBorder(m.status))}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        {selecting && (
+          <span className={'grid h-6 w-6 shrink-0 place-items-center rounded-md border-2 ' + (selected ? 'border-accent bg-accent text-black' : 'border-line')}>
+            {selected && <Check size={16} />}
+          </span>
+        )}
+        <div className="w-12 shrink-0 text-center">
+          <p className="font-mono text-sm font-bold">{hourOf(m.scheduledAt)}</p>
+          <p className="text-[10px] text-muted">{courtLabel(m.court)}</p>
+        </div>
+        <Link to={'/admin/partidos/' + m.id} onClick={(e) => selecting && e.preventDefault()} className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold">{(m.teamA?.name ?? '\u2014') + ' vs ' + (m.teamB?.name ?? '\u2014')}</p>
+          <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-muted">{matchInfo(m)}</p>
+        </Link>
         <StatusPill status={m.status} />
-        <span className="flex items-center gap-2 text-sm text-muted">
-          {courtLabel(m.court)}
-          {selecting && (
-            <span className={'grid h-6 w-6 place-items-center rounded-md border-2 ' + (selected ? 'border-accent bg-accent text-black' : 'border-line')}>
-              {selected && <Check size={16} />}
-            </span>
-          )}
-        </span>
+        {!selecting && !hidden && canHide(m.status) && (
+          <button disabled={busy} onClick={onHide} aria-label="Eliminar" className="shrink-0 rounded-lg p-2 text-danger disabled:opacity-40"><Trash2 size={16} /></button>
+        )}
       </div>
-      <Link to={'/admin/partidos/' + m.id} onClick={(e) => selecting && e.preventDefault()} className="block">
-        <Versus a={m.teamA} b={m.teamB} />
-      </Link>
-      <p className="text-center text-xs font-bold uppercase tracking-wider text-muted">{matchInfo(m)}</p>
-      <p className="text-center text-sm text-muted">{fmtWhen(m.scheduledAt)}</p>
-
-      {!selecting && !hidden && canHide(m.status) && (
-        <Btn tone="danger" disabled={busy} onClick={onHide} className="w-full">
-          <Trash2 size={16} /> Eliminar
-        </Btn>
-      )}
       {!selecting && hidden && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="mt-2 grid grid-cols-2 gap-2">
           <Btn tone="accent" disabled={busy} onClick={onRestore}><RotateCcw size={16} /> Restaurar</Btn>
-          <Btn tone="danger" disabled={busy} onClick={onPurge}><Trash2 size={16} /> Eliminar definitivo</Btn>
+          <Btn tone="danger" disabled={busy} onClick={onPurge}><Trash2 size={16} /> Definitivo</Btn>
         </div>
       )}
     </div>
   )
 }
+
+const PAGE = 50
+const PERIODS = [
+  { id: 'upcoming', label: 'Hoy y pr\u00f3ximos' },
+  { id: 'today', label: 'Hoy' },
+  { id: 'week', label: 'Pr\u00f3ximos 7 d\u00edas' },
+  { id: 'past', label: 'Anteriores' },
+  { id: 'all', label: 'Todos (incluye sin fecha)' },
+]
 
 export default function PartidosPage() {
   const ask = useConfirm()
@@ -58,6 +75,11 @@ export default function PartidosPage() {
   const [tournaments, setTournaments] = useState(null)
   const [teams, setTeams] = useState(null)
   const [status, setStatus] = useState('')
+  const [tournamentId, setTournamentId] = useState('')
+  const [teamId, setTeamId] = useState('')
+  const [period, setPeriod] = useState('upcoming')
+  const [hasMore, setHasMore] = useState(false)
+  const [moreBusy, setMoreBusy] = useState(false)
   const [view, setView] = useState('active') // 'active' | 'hidden'
   const [open, setOpen] = useState(false)
   const [busyId, setBusyId] = useState(null)
@@ -68,14 +90,35 @@ export default function PartidosPage() {
   const [bulkBusy, setBulkBusy] = useState(false)
   const [err, setErr] = useState('')
 
-  const load = () => {
-    const p = new URLSearchParams({ limit: '200' })
+  const query = (offset) => {
+    const p = new URLSearchParams({ limit: String(PAGE + 1), offset: String(offset) })
     if (status) p.set('status', status)
+    if (tournamentId) p.set('tournamentId', tournamentId)
+    if (teamId) p.set('teamId', teamId)
     if (view === 'hidden') p.set('hidden', 'true')
-    return api('GET', '/matches?' + p).then(setMatches).catch((e) => setErr(e.message))
+    else {
+      const t0 = new Date(); t0.setHours(0, 0, 0, 0)
+      const t1 = new Date(t0.getTime() + 864e5 - 1)
+      if (period === 'upcoming') p.set('from', t0.toISOString())
+      if (period === 'today') { p.set('from', t0.toISOString()); p.set('to', t1.toISOString()) }
+      if (period === 'week') { p.set('from', t0.toISOString()); p.set('to', new Date(t0.getTime() + 7 * 864e5).toISOString()) }
+      if (period === 'past') p.set('to', new Date(t0.getTime() - 1).toISOString())
+    }
+    return p
   }
-  useEffect(() => { load() }, [status, view])
-  useEffect(() => { setSelecting(false); setSelected(new Set()); setMenu(false) }, [status, view])
+  const load = () => api('GET', '/matches?' + query(0))
+    .then((r) => { setHasMore(r.length > PAGE); setMatches(r.slice(0, PAGE)) })
+    .catch((e) => setErr(e.message))
+  const loadMore = async () => {
+    setMoreBusy(true)
+    try {
+      const r = await api('GET', '/matches?' + query((matches ?? []).length))
+      setHasMore(r.length > PAGE)
+      setMatches((prev) => [...(prev ?? []), ...r.slice(0, PAGE)])
+    } catch (e) { setErr(e.message) } finally { setMoreBusy(false) }
+  }
+  useEffect(() => { setMatches(null); load() }, [status, view, tournamentId, teamId, period])
+  useEffect(() => { setSelecting(false); setSelected(new Set()); setMenu(false) }, [status, view, tournamentId, teamId, period])
   useEffect(() => {
     api('GET', '/tournaments').then(setTournaments).catch((e) => setErr(e.message))
     api('GET', '/teams').then(setTeams).catch((e) => setErr(e.message))
@@ -210,10 +253,10 @@ export default function PartidosPage() {
           {menu && (
             <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
               <button className="block w-full px-4 py-3 text-left text-sm font-bold text-danger" onClick={() => { setMenu(false); askBulk('purge', all) }}>
-                Eliminar todos ({all.length})
+                Eliminar {hasMore ? 'los primeros ' : 'todos '}({all.length})
               </button>
               <button className="block w-full border-t border-line px-4 py-3 text-left text-sm font-bold text-accent" onClick={() => { setMenu(false); askBulk('restore', all) }}>
-                Restaurar todos ({all.length})
+                Restaurar {hasMore ? 'los primeros ' : 'todos '}({all.length})
               </button>
               <button className="block w-full border-t border-line px-4 py-3 text-left text-sm font-bold" onClick={() => { setMenu(false); setSelecting(true) }}>
                 Seleccionar
@@ -239,31 +282,51 @@ export default function PartidosPage() {
         </div>
       )}
 
-      <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value)}>
-        <option value="">Todos los estados</option>
-        {Object.entries(STATUS).map(([k, s]) => <option key={k} value={k}>{s.label}</option>)}
-      </select>
+      <div className="grid grid-cols-2 gap-2">
+        {view === 'active' && (
+          <select className={inputCls + ' col-span-2'} value={period} onChange={(e) => setPeriod(e.target.value)}>
+            {PERIODS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+          </select>
+        )}
+        <select className={inputCls} value={tournamentId} onChange={(e) => setTournamentId(e.target.value)}>
+          <option value="">Todos los torneos</option>
+          {(tournaments ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">Todos los estados</option>
+          {Object.entries(STATUS).map(([k, st]) => <option key={k} value={k}>{st.label}</option>)}
+        </select>
+        <select className={inputCls + ' col-span-2'} value={teamId} onChange={(e) => setTeamId(e.target.value)}>
+          <option value="">Todos los equipos</option>
+          {(teams ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+      </div>
 
       {matches === null && <p className="text-muted">Cargando…</p>}
       {matches && matches.length === 0 && (
         <p className="text-muted">{view === 'hidden' ? 'No hay partidos eliminados.' : 'No hay partidos.'}</p>
       )}
-      <div className="space-y-3">
-        {(matches ?? []).map((m) => (
-          <MatchRow
-            key={m.id}
-            m={m}
-            hidden={view === 'hidden'}
-            busy={busyId === m.id}
-            onHide={() => hide(m)}
-            onRestore={() => restore(m)}
-            onPurge={() => purge(m)}
-            selecting={selecting}
-            selected={selected.has(m.id)}
-            onToggle={() => toggle(m.id)}
-          />
+      <div className="space-y-2">
+        {(matches ?? []).map((m, i, arr) => (
+          <div key={m.id} className="space-y-2">
+            {view === 'active' && (i === 0 || dayKey(arr[i - 1].scheduledAt) !== dayKey(m.scheduledAt)) && (
+              <h2 className="pt-2 text-xs font-bold uppercase tracking-widest text-muted">{dayLabel(m.scheduledAt)}</h2>
+            )}
+            <MatchRow
+              m={m}
+              hidden={view === 'hidden'}
+              busy={busyId === m.id}
+              onHide={() => hide(m)}
+              onRestore={() => restore(m)}
+              onPurge={() => purge(m)}
+              selecting={selecting}
+              selected={selected.has(m.id)}
+              onToggle={() => toggle(m.id)}
+            />
+          </div>
         ))}
       </div>
+      {hasMore && <Btn onClick={loadMore} disabled={moreBusy} className="w-full">{moreBusy ? 'Cargando\u2026' : 'Cargar m\u00e1s'}</Btn>}
     </div>
   )
 }
