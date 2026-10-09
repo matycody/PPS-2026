@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const storage = require('../services/storage');
@@ -126,7 +126,7 @@ router.get('/assignments', authenticate, async (req, res) => {
     list.sort((a, b) => {
       const ta = a.match.scheduledAt ? a.match.scheduledAt.getTime() : Infinity;
       const tb = b.match.scheduledAt ? b.match.scheduledAt.getTime() : Infinity;
-      return ta - tb || a.match.court - b.match.court;
+      return ta - tb || (a.match.court ?? 999) - (b.match.court ?? 999);
     });
 
     res.json(

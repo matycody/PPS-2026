@@ -1,6 +1,7 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
 }
@@ -60,10 +61,10 @@ model User {
   active     Boolean  @default(true)
   createdAt  DateTime @default(now())
 
-  profile      Profile?          @relation(fields: [profileId], references: [id])
-  favorites    Favorite[]
-  assignments  MatchAssignment[]
-  clockActions ClockAction[]
+  profile        Profile?          @relation(fields: [profileId], references: [id])
+  favorites      Favorite[]
+  assignments    MatchAssignment[]
+  clockActions   ClockAction[]
   playerRequests PlayerRequest[]
 }
 
@@ -95,14 +96,18 @@ model Team {
   name String
   logo String?
 
-  branches TeamBranch[]
-  modalities TeamModality[]
-  players  PlayerTeam[]
-  matchesA Match[]      @relation("MatchTeamA")
-  matchesB Match[]      @relation("MatchTeamB")
-  wonSets  MatchSet[]   @relation("SetWinner")
-  assignments MatchAssignment[]
+  branches           TeamBranch[]
+  modalities         TeamModality[]
+  players            PlayerTeam[]
+  matchesA           Match[]             @relation("MatchTeamA")
+  matchesB           Match[]             @relation("MatchTeamB")
+  wonSets            MatchSet[]          @relation("SetWinner")
+  assignments        MatchAssignment[]
   playerRequestTeams PlayerRequestTeam[]
+  championOf         Tournament[]        @relation("TournamentChampion")
+  tournamentTeams    TournamentTeam[]
+  stageTeams         StageTeam[]
+  standings          StageStanding[]
 }
 
 model TeamBranch {
@@ -147,18 +152,35 @@ model PlayerTeam {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Torneos y partidos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model Tournament {
-  id       String    @id @default(uuid())
-  name     String
-  startsAt DateTime?
-  endsAt   DateTime?
+  id         String           @id @default(uuid())
+  name       String
+  startsAt   DateTime?
+  endsAt     DateTime?
+  branch     Branch
+  modality   Modality
+  year       Int
+  edition    String?
+  format     TournamentFormat @default(LEAGUE)
+  status     TournamentStatus @default(DRAFT)
+  pointsWin  Int              @default(3)
+  pointsDraw Int              @default(1)
+  pointsLoss Int              @default(0)
+  championId String?
 
-  matches Match[]
+  champion    Team?            @relation("TournamentChampion", fields: [championId], references: [id])
+  matches     Match[]
+  teams       TournamentTeam[]
+  stages      Stage[]
+  tiebreakers Tiebreaker[]
+
+  @@index([year])
+  @@index([status])
 }
 
 model Match {
   id           String      @id @default(uuid())
   tournamentId String
-  court        Int
+  court        Int?
   branch       Branch
   modality     Modality
   status       MatchStatus @default(SCHEDULED)
@@ -178,7 +200,22 @@ model Match {
   sets         MatchSet[]
   clockActions ClockAction[]
 
+  stageId    String?
+  matchdayId String?
+  round      Int?
+  slot       Int?
+  stage      Stage?    @relation(fields: [stageId], references: [id])
+  matchday   Matchday? @relation(fields: [matchdayId], references: [id])
+
+  // Llaves: a que partido pasa el ganador / el perdedor
+  nextMatchId  String?
+  nextSide     MatchSide?
+  loserMatchId String?
+  loserSide    MatchSide?
+
   @@index([tournamentId])
+  @@index([stageId])
+  @@index([matchdayId])
   @@index([status])
 }
 
@@ -264,18 +301,18 @@ enum PlayerRequestStatus {
 }
 
 model PlayerRequest {
-  id           String               @id @default(cuid())
+  id           String              @id @default(cuid())
   userId       String
   name         String
   dni          String
   sex          Sex
   number       Int?
-  status       PlayerRequestStatus  @default(PENDING)
+  status       PlayerRequestStatus @default(PENDING)
   rejectReason String?
   reviewedById String?
   reviewedAt   DateTime?
-  createdAt    DateTime             @default(now())
-  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime            @default(now())
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   teams        PlayerRequestTeam[]
 
   @@index([status])
@@ -308,4 +345,121 @@ model AuditLog {
 
   @@index([createdAt])
   @@index([actorId])
+}
+
+// ─────────────── Torneos: formatos, zonas y fixture ───────────────
+
+enum TournamentFormat {
+  LEAGUE
+  LEAGUE_CUP
+  CUP
+}
+
+enum TournamentStatus {
+  DRAFT
+  ACTIVE
+  FINISHED
+}
+
+enum StageType {
+  LEAGUE
+  KNOCKOUT
+}
+
+enum TiebreakerCriterion {
+  HEAD_TO_HEAD
+  SET_DIFFERENCE
+  SETS_WON
+  WINS
+  DRAW_LOT
+}
+
+model TournamentTeam {
+  tournamentId String
+  teamId       String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  team         Team       @relation(fields: [teamId], references: [id])
+
+  @@id([tournamentId, teamId])
+  @@index([teamId])
+}
+
+// Una zona o una llave (Zona A y Zona B son dos Stage con la misma phase)
+model Stage {
+  id           String    @id @default(uuid())
+  tournamentId String
+  name         String
+  type         StageType
+  phase        Int
+  tier         Int?
+  promotions   Int       @default(0)
+  relegations  Int       @default(0)
+
+  tournament Tournament      @relation(fields: [tournamentId], references: [id])
+  teams      StageTeam[]
+  matchdays  Matchday[]
+  matches    Match[]
+  standings  StageStanding[]
+
+  @@index([tournamentId])
+}
+
+model StageTeam {
+  stageId    String
+  teamId     String
+  seed       Int?
+  entryRound Int?
+  stage      Stage  @relation(fields: [stageId], references: [id])
+  team       Team   @relation(fields: [teamId], references: [id])
+
+  @@id([stageId, teamId])
+  @@index([teamId])
+}
+
+// "Fecha N" de una zona con su día de juego; cada partido puede pisarla con su scheduledAt
+model Matchday {
+  id      String    @id @default(uuid())
+  stageId String
+  number  Int
+  date    DateTime?
+  stage   Stage     @relation(fields: [stageId], references: [id])
+  matches Match[]
+
+  @@unique([stageId, number])
+}
+
+model Tiebreaker {
+  id           String              @id @default(uuid())
+  tournamentId String
+  order        Int
+  criterion    TiebreakerCriterion
+  tournament   Tournament          @relation(fields: [tournamentId], references: [id])
+
+  @@unique([tournamentId, order])
+}
+
+// Tabla final congelada al cerrar el torneo (registro histórico permanente)
+model StageStanding {
+  stageId     String
+  teamId      String
+  position    Int
+  points      Int
+  played      Int
+  won         Int
+  drawn       Int
+  lost        Int
+  setsFor     Int
+  setsAgainst Int
+  stage       Stage   @relation(fields: [stageId], references: [id])
+  team        Team    @relation(fields: [teamId], references: [id])
+  tied        Boolean @default(false)
+  zone        String? // PROMOTION | RELEGATION | null
+
+  @@id([stageId, teamId])
+  @@index([teamId])
+}
+
+enum MatchSide {
+  A
+  B
 }

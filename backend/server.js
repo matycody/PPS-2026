@@ -1,4 +1,4 @@
-﻿// backend/server.js
+// backend/server.js
 
 require("dotenv").config();
 const express = require("express");
@@ -43,6 +43,12 @@ app.use("/me", require("./src/routes/me"));
 app.use("/profiles", require("./src/routes/profiles"));
 app.use("/teams", require("./src/routes/teams"));
 app.use("/tournaments", require("./src/routes/tournaments"));
+app.use("/tournaments", require("./src/routes/fixture"));
+app.use("/tournaments", require("./src/routes/standings"));
+app.use("/tournaments", require("./src/routes/bracket"));
+app.use("/tournaments", require("./src/routes/lifecycle"));
+app.use("/stats", require("./src/routes/stats"));
+app.use("/matches", require("./src/middleware/bracketAdvance"));
 app.use("/matches", require("./src/routes/matches"));
 app.use("/audit", require("./src/routes/audit"));
 app.use("/users", require("./src/routes/users"));

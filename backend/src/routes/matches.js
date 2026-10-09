@@ -183,14 +183,14 @@ async function loadWithPerms(req, res) {
 router.post('/', ...admin, async (req, res) => {
   try {
     const { tournamentId, branch, modality } = req.body;
-    const court = Number(req.body.court);
+    const court = req.body.court === undefined || req.body.court === null || req.body.court === '' ? null : Number(req.body.court);
     const teamAId = req.body.teamAId || null;
     const teamBId = req.body.teamBId || null;
     const scheduledAt = parseDate(req.body.scheduledAt);
 
     const errors = [];
     if (!tournamentId) errors.push('Torneo obligatorio');
-    if (!Number.isInteger(court) || court < 1) errors.push('Cancha inválida');
+    if (court !== null && (!Number.isInteger(court) || court < 1)) errors.push('Cancha inválida');
     if (!BRANCHES.includes(branch)) errors.push('Rama inválida');
     if (!MODALITIES.includes(modality)) errors.push('Modalidad inválida');
     if (scheduledAt === undefined) errors.push('Fecha inválida');
@@ -281,8 +281,8 @@ router.patch('/:id', ...admin, async (req, res) => {
     const b = req.body;
     const data = {};
     if (b.court !== undefined) {
-      const court = Number(b.court);
-      if (!Number.isInteger(court) || court < 1) return res.status(400).json({ error: 'Cancha inválida' });
+      const court = b.court === null || b.court === '' ? null : Number(b.court);
+      if (court !== null && (!Number.isInteger(court) || court < 1)) return res.status(400).json({ error: 'Cancha inválida' });
       data.court = court;
     }
     if (b.branch !== undefined) {
@@ -327,7 +327,7 @@ router.patch('/:id', ...admin, async (req, res) => {
 
     const changes = [];
     if (data.court !== undefined && data.court !== match.court) {
-      changes.push('cancha: ' + match.court + ' → ' + data.court);
+      changes.push('cancha: ' + (match.court ?? 'sin asignar') + ' → ' + (data.court ?? 'sin asignar'));
     }
     if (data.branch !== undefined && data.branch !== match.branch) {
       changes.push('rama: ' + BRANCH_LABEL[match.branch] + ' → ' + BRANCH_LABEL[data.branch]);
