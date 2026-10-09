@@ -2,7 +2,7 @@
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
-import { normMatch, fmtWhen } from '../lib/format'
+import { normMatch, fmtWhen, courtLabel } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import Versus from '../components/Versus'
 
@@ -16,7 +16,7 @@ function Card({ m }) {
     <Link to={to} className={'block rounded-3xl border bg-surface p-5 ' + (live ? 'border-accent' : 'border-line')}>
       <div className="flex items-center justify-between">
         <StatusPill status={m.status} />
-        <span className="text-sm text-muted">Cancha {m.court}</span>
+        <span className="text-sm text-muted">{courtLabel(m.court)}</span>
       </div>
       <div className="mt-4"><Versus a={m.teamA} b={m.teamB} /></div>
       <p className="mt-1 text-center text-sm text-muted">{fmtWhen(m.scheduledAt)}</p>

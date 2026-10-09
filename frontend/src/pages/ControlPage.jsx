@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ChevronLeft, Play, Pause, RotateCcw, Minus, Plus, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
-import { normMatch, MODALITY } from '../lib/format'
+import { normMatch, MODALITY, courtLabel } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import Versus from '../components/Versus'
 import { MatchRosterToggle } from '../components/MatchRoster'
@@ -284,7 +284,7 @@ export default function ControlPage() {
 
       <div className="flex flex-col items-center gap-2 text-center">
         <StatusPill status={m.status} />
-        <p className="text-sm text-muted">Cancha {m.court} · {MODALITY[m.modality] ?? m.modality}</p>
+        <p className="text-sm text-muted">{courtLabel(m.court)} · {MODALITY[m.modality] ?? m.modality}</p>
       </div>
 
       <MiniBoard a={a} b={b} score={m.score} tick={tick} can={can} send={send} live={live} />

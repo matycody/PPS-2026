@@ -1,7 +1,7 @@
 ﻿import { Link } from 'react-router-dom'
 import StatusPill from './StatusPill'
 import Versus from './Versus'
-import { fmtWhen, BRANCH, MODALITY } from '../lib/format'
+import { fmtWhen, BRANCH, MODALITY, courtLabel } from '../lib/format'
 import { useLiveTick } from '../lib/liveTicks'
 import { statusBorder } from '../lib/statusStyle'
 
@@ -27,7 +27,7 @@ export default function MatchCard({ m, featured = false, to, badge }) {
     >
       <div className="flex items-center justify-between">
         <StatusPill status={m.status} />
-        <span className="text-sm text-muted">Cancha {m.court}</span>
+        <span className="text-sm text-muted">{courtLabel(m.court)}</span>
       </div>
       {badge && <p className="mt-2 text-center text-xs font-bold uppercase tracking-widest text-warn">{badge}</p>}
       <div className="mt-4">

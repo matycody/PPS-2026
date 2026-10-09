@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { socket } from '../../sockets/socket'
 import { useMatchesFeed } from '../../hooks/useMatchesFeed'
 import { useMatchesStore } from '../../stores/matchesStore'
-import { fmtWhen } from '../../lib/format'
+import { fmtWhen, courtLabel } from '../../lib/format'
 import StatusPill from '../../components/StatusPill'
 import Versus from '../../components/Versus'
 import { matchInfo } from '../../lib/matchInfo'
@@ -21,7 +21,7 @@ export default function DashboardPage() {
     const groups = {}
     Object.values(byId)
       .filter((m) => m.status in ORDER)
-      .forEach((m) => { (groups[m.court] ??= []).push(m) })
+      .forEach((m) => { (groups[m.court ?? 0] ??= []).push(m) })
     return Object.entries(groups)
       .map(([court, list]) => {
         list.sort((a, b) =>
@@ -29,7 +29,7 @@ export default function DashboardPage() {
         )
         return { court: Number(court), main: list[0], extra: list.length - 1 }
       })
-      .sort((a, b) => a.court - b.court)
+      .sort((a, b) => (a.court || 999) - (b.court || 999))
   }, [byId])
 
   // Relojes: solo los partidos en vivo (máx. 10, el límite es 12 suscripciones)
@@ -68,7 +68,7 @@ export default function DashboardPage() {
         return (
           <Link key={court} to={'/partido/' + m.id} className={'block rounded-3xl border bg-surface p-5 ' + statusBorder(m.status)}>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-widest text-muted">Cancha {court}</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-muted">{courtLabel(court)}</span>
               {paused ? (
                 <span className="rounded-full bg-warn/15 px-3 py-1 text-xs font-bold uppercase text-warn">Pausado</span>
               ) : (

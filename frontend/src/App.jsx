@@ -15,6 +15,10 @@ import MiEquipoPage from './pages/MiEquipoPage'
 import MisPartidosPage from './pages/MisPartidosPage'
 import DashboardPage from './pages/admin/DashboardPage'
 import TorneosPage from './pages/admin/TorneosPage'
+import TorneoAdminPage from './pages/admin/TorneoAdminPage'
+import LigaPage from './pages/LigaPage'
+import TorneoPage from './pages/TorneoPage'
+import EstadisticasPage from './pages/EstadisticasPage'
 import EquiposPage from './pages/admin/EquiposPage'
 import AdminTeamPage from './pages/admin/AdminTeamPage'
 import PartidosPage from './pages/admin/PartidosPage'
@@ -75,7 +79,10 @@ function App() {
             <Route path="/partido/:id" element={<MatchPage />} />
             <Route path="/equipo/:id" element={<TeamPage />} />
             <Route path="/cronometro" element={<OfflinePage />} />
-            {GENERAL.filter((g) => g.to !== '/cronometro').map((g) => (
+            <Route path="/liga" element={<LigaPage />} />
+            <Route path="/liga/:id" element={<TorneoPage />} />
+            <Route path="/estadisticas" element={<EstadisticasPage />} />
+            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas'].includes(g.to)).map((g) => (
               <Route key={g.to} path={g.to} element={<Placeholder title={g.label} />} />
             ))}
 
@@ -99,6 +106,7 @@ function App() {
             </Route>
             <Route element={<ProtectedRoute need="torneos" />}>
               <Route path="/admin/torneos" element={<TorneosPage />} />
+              <Route path="/admin/torneos/:id" element={<TorneoAdminPage />} />
             </Route>
             <Route element={<ProtectedRoute need="equipos" />}>
               <Route path="/admin/equipos" element={<EquiposPage />} />

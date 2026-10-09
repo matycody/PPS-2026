@@ -33,7 +33,7 @@ export default function InicioPage() {
     const groups = {}
     Object.values(byId)
       .filter((m) => m.status in ORDER)
-      .forEach((m) => { (groups[m.court] ??= []).push(m) })
+      .forEach((m) => { (groups[m.court ?? 0] ??= []).push(m) })
     return Object.entries(groups)
       .map(([court, list]) => {
         list.sort((a, b) =>
@@ -41,7 +41,7 @@ export default function InicioPage() {
         )
         return { court: Number(court), list }
       })
-      .sort((a, b) => a.court - b.court)
+      .sort((a, b) => (a.court || 999) - (b.court || 999))
   }, [byId])
 
   // Reloj de cada partido en vivo, para saber cuándo está por terminar
@@ -79,7 +79,7 @@ export default function InicioPage() {
   const upcoming = courts
     .flatMap((c) => c.list)
     .filter((m) => m.status !== 'LIVE' && !promotedIds.has(m.id))
-    .sort((a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || a.court - b.court)
+    .sort((a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || (a.court || 999) - (b.court || 999))
 
   const showLive = filter !== 'sched'
   const showUpcoming = filter !== 'live'

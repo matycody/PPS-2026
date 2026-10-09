@@ -26,3 +26,24 @@ export function toSeconds(t) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(t ?? '')
   return m ? Number(m[1]) * 60 + Number(m[2]) : null
 }
+
+export const FORMAT = { LEAGUE: 'Liga', LEAGUE_CUP: 'Liga + Copa', CUP: 'Copa' }
+
+export const TSTATUS = {
+  DRAFT: { label: 'Borrador', cls: 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400' },
+  ACTIVE: { label: 'En curso', cls: 'bg-live/15 text-live' },
+  FINISHED: { label: 'Finalizado', cls: 'bg-surface-2 text-muted' },
+}
+
+export const CRITERIA = {
+  HEAD_TO_HEAD: 'Resultado entre sí',
+  SET_DIFFERENCE: 'Diferencia de sets',
+  SETS_WON: 'Sets ganados',
+  WINS: 'Partidos ganados',
+  DRAW_LOT: 'Sorteo',
+}
+
+// La cancha es opcional: el organizador la define según el lugar y el día
+export const courtLabel = (c) => (c ? 'Cancha ' + c : 'Sin cancha')
+
+export const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { timeZone: 'UTC' }) : '—')

@@ -2,7 +2,7 @@
 import { Link } from 'react-router-dom'
 import { Plus, Trash2, RotateCcw, Check, ChevronDown } from 'lucide-react'
 import { api } from '../../lib/api'
-import { STATUS, fmtWhen } from '../../lib/format'
+import { STATUS, fmtWhen, courtLabel } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import MatchForm from '../../components/MatchForm'
 import StatusPill from '../../components/StatusPill'
@@ -23,7 +23,7 @@ function MatchRow({ m, hidden, busy, onHide, onRestore, onPurge, selecting, sele
       <div className="flex items-center justify-between">
         <StatusPill status={m.status} />
         <span className="flex items-center gap-2 text-sm text-muted">
-          Cancha {m.court}
+          {courtLabel(m.court)}
           {selecting && (
             <span className={'grid h-6 w-6 place-items-center rounded-md border-2 ' + (selected ? 'border-accent bg-accent text-black' : 'border-line')}>
               {selected && <Check size={16} />}
