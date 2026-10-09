@@ -25,6 +25,7 @@ export default function TorneosPage() {
   const [form, setForm] = useState(EMPTY)
   const [tb, setTb] = useState(null) // null = desempates por defecto del backend
   const [editId, setEditId] = useState(null)
+  const [editDraft, setEditDraft] = useState(true) // rama, modalidad, año y formato solo se editan en borrador
   const [yearFilter, setYearFilter] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -45,8 +46,15 @@ export default function TorneosPage() {
     setBusy(true); setErr('')
     try {
       if (editId) {
-        await api('PATCH', '/tournaments/' + editId, { name: form.name.trim(), startsAt: toIso(form.startsAt) ?? null, endsAt: toIso(form.endsAt) ?? null })
-        setForm(EMPTY); setEditId(null); await load()
+        const body = {
+          name: form.name.trim(), edition: form.edition.trim() || null,
+          startsAt: toIso(form.startsAt) ?? null, endsAt: toIso(form.endsAt) ?? null,
+          pointsWin: Number(form.pointsWin), pointsDraw: Number(form.pointsDraw), pointsLoss: Number(form.pointsLoss),
+          ...(tb ? { tiebreakers: tb } : {}),
+          ...(editDraft ? { year: Number(form.year), branch: form.branch, modality: form.modality, format: form.format } : {}),
+        }
+        await api('PATCH', '/tournaments/' + editId, body)
+        setForm(EMPTY); setTb(null); setEditId(null); await load()
       } else {
         const body = {
           name: form.name.trim(), year: Number(form.year), edition: form.edition.trim() || undefined,
@@ -67,10 +75,20 @@ export default function TorneosPage() {
     try { await api('DELETE', '/tournaments/' + t.id); await load() } catch (e) { setErr(e.message) }
   }
 
-  function edit(t) {
-    setEditId(t.id)
-    setForm({ ...EMPTY, name: t.name, startsAt: t.startsAt?.slice(0, 10) ?? '', endsAt: t.endsAt?.slice(0, 10) ?? '' })
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+  async function edit(t) {
+    setErr('')
+    try {
+      const full = await api('GET', '/tournaments/' + t.id)
+      setEditId(t.id)
+      setEditDraft(full.status === 'DRAFT')
+      setForm({
+        name: full.name, year: full.year, edition: full.edition ?? '', branch: full.branch, modality: full.modality, format: full.format,
+        startsAt: full.startsAt?.slice(0, 10) ?? '', endsAt: full.endsAt?.slice(0, 10) ?? '',
+        pointsWin: full.pointsWin, pointsDraw: full.pointsDraw, pointsLoss: full.pointsLoss,
+      })
+      setTb(full.tiebreakers.map((x) => x.criterion))
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (e) { setErr(e.message) }
   }
 
   return (
@@ -79,37 +97,35 @@ export default function TorneosPage() {
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
 
       <form onSubmit={save} className="space-y-3 rounded-3xl border border-line bg-surface p-5">
-        <p className="text-sm font-bold">{editId ? 'Editar torneo (nombre y fechas)' : 'Nuevo torneo'}</p>
+        <p className="text-sm font-bold">{editId ? 'Editar torneo' : 'Nuevo torneo'}</p>
+        {editId && !editDraft && <p className="text-xs text-muted">El torneo ya está en curso: rama, modalidad, año y formato no se pueden cambiar.</p>}
         <input className={inputCls} placeholder="Nombre" required value={form.name} onChange={(e) => set('name', e.target.value)} />
-        {!editId && (
-          <>
+        <>
             <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
-              <Field label="Año"><input type="number" className={inputCls} required value={form.year} onChange={(e) => set('year', e.target.value)} /></Field>
+              <Field label="Año"><input type="number" disabled={!editDraft} className={inputCls} required value={form.year} onChange={(e) => set('year', e.target.value)} /></Field>
               <Field label="Edición (opcional)"><input className={inputCls} placeholder="Apertura, 2.ª…" value={form.edition} onChange={(e) => set('edition', e.target.value)} /></Field>
               <Field label="Rama">
-                <select className={inputCls} value={form.branch} onChange={(e) => set('branch', e.target.value)}>
+                <select disabled={!editDraft} className={inputCls} value={form.branch} onChange={(e) => set('branch', e.target.value)}>
                   {Object.entries(BRANCH).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </Field>
               <Field label="Modalidad">
-                <select className={inputCls} value={form.modality} onChange={(e) => set('modality', e.target.value)}>
+                <select disabled={!editDraft} className={inputCls} value={form.modality} onChange={(e) => set('modality', e.target.value)}>
                   {Object.entries(MODALITY).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </Field>
             </div>
             <Field label="Formato">
-              <select className={inputCls} value={form.format} onChange={(e) => set('format', e.target.value)}>
+              <select disabled={!editDraft} className={inputCls} value={form.format} onChange={(e) => set('format', e.target.value)}>
                 {Object.entries(FORMAT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </Field>
-          </>
-        )}
+        </>
         <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
           <Field label="Inicio"><input type="date" className={inputCls} value={form.startsAt} onChange={(e) => set('startsAt', e.target.value)} /></Field>
           <Field label="Fin"><input type="date" className={inputCls} value={form.endsAt} onChange={(e) => set('endsAt', e.target.value)} /></Field>
         </div>
-        {!editId && (
-          <>
+        <>
             <div className="grid grid-cols-3 gap-3 [&>*]:min-w-0">
               <Field label="Pts victoria"><input type="number" min="0" className={inputCls} value={form.pointsWin} onChange={(e) => set('pointsWin', e.target.value)} /></Field>
               <Field label="Pts empate"><input type="number" min="0" className={inputCls} value={form.pointsDraw} onChange={(e) => set('pointsDraw', e.target.value)} /></Field>
@@ -138,11 +154,10 @@ export default function TorneosPage() {
                 </div>
               )}
             </div>
-          </>
-        )}
+        </>
         <div className="flex gap-2">
           <Btn type="submit" tone="accent" disabled={busy} className="flex-1">{editId ? 'Guardar' : 'Crear torneo'}</Btn>
-          {editId && <Btn onClick={() => { setEditId(null); setForm(EMPTY) }}>Cancelar</Btn>}
+          {editId && <Btn onClick={() => { setEditId(null); setEditDraft(true); setForm(EMPTY); setTb(null) }}>Cancelar</Btn>}
         </div>
       </form>
 
