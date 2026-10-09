@@ -133,7 +133,12 @@ function StructureTab({ t, reload, setErr }) {
           </div>
           <div className="grid grid-cols-2 gap-3 text-xs text-muted [&>*]:min-w-0 sm:grid-cols-4">
             <label>Fase<input disabled={!draft} type="number" min="1" className={inputCls} value={s.phase} onChange={(e) => setStage(i, { phase: e.target.value })} /></label>
-            <label>Categoría<input disabled={!draft} type="number" min="1" className={inputCls} placeholder="—" value={s.tier} onChange={(e) => setStage(i, { tier: e.target.value })} /></label>
+            <label>Categoría
+              <select disabled={!draft} className={inputCls} value={s.tier} onChange={(e) => setStage(i, { tier: e.target.value })}>
+                <option value="">—</option>
+                {Array.from({ length: 26 }, (_, k) => <option key={k} value={k + 1}>{String.fromCharCode(65 + k)}</option>)}
+              </select>
+            </label>
             {s.type === 'LEAGUE' && (
               <>
                 <label>Ascienden<input disabled={!draft} type="number" min="0" className={inputCls} value={s.promotions} onChange={(e) => setStage(i, { promotions: e.target.value })} /></label>
