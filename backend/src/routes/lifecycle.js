@@ -33,8 +33,8 @@ router.post('/:id/activate', ...admin, async (req, res) => {
     const withMatches = new Set(counts.filter((c) => c._count._all > 0).map((c) => c.stageId));
     const missing = t.stages
       .filter((s) => !withMatches.has(s.id))
-      // En Liga+Copa los playoffs se arman al terminar la liga
-      .filter((s) => !(t.format === 'LEAGUE_CUP' && s.type === 'KNOCKOUT'))
+      // En Liga y Liga+Copa las llaves se arman al terminar la liga
+      .filter((s) => !(t.format !== 'CUP' && s.type === 'KNOCKOUT'))
       .map((s) => s.name);
     if (missing.length) {
       return res.status(409).json({ error: 'Faltan generar partidos (sorteo o llave) en: ' + missing.join(', ') });
@@ -100,7 +100,7 @@ router.post('/:id/close', ...admin, async (req, res) => {
         if (!byStage.has(m.stageId)) byStage.set(m.stageId, []);
         byStage.get(m.stageId).push(m);
       }
-      championId = knockoutChampion(t.stages, byStage);
+      championId = t.format === 'LEAGUE' ? null : knockoutChampion(t.stages, byStage);
     }
 
     const data = await computeStandings(t.id);
@@ -127,7 +127,7 @@ router.post('/:id/close', ...admin, async (req, res) => {
     }
 
     // Torneo solo de liga sin campeón definido a mano: líder único de la zona de mayor nivel
-    if (!championId && !t.stages.some((s) => s.type === 'KNOCKOUT')) {
+    if (!championId && (t.format === 'LEAGUE' || !t.stages.some((s) => s.type === 'KNOCKOUT'))) {
       const leagues = t.stages.filter((s) => s.type === 'LEAGUE');
       const topPhase = Math.max(...leagues.map((s) => s.phase));
       const topTier = Math.min(...leagues.filter((s) => s.phase === topPhase).map((s) => s.tier ?? 1));

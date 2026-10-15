@@ -1,5 +1,6 @@
 const prisma = require('../db');
 const { decide, syncAdvance } = require('../services/bracket');
+const { resolveFromSlots } = require('../services/slotFrom');
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const RE = new RegExp('^/(' + UUID + ')/(finish|sets|cancel|unready)(?:/|$)', 'i');
@@ -23,11 +24,25 @@ module.exports = function bracketAdvance(req, res, next) {
         teamBId: true,
         nextMatchId: true,
         loserMatchId: true,
+        stageId: true,
+        tournamentId: true,
         stage: { select: { type: true } },
         sets: { select: { winnerTeamId: true } },
       },
     })
     .then(async (m) => {
+      // Zona de liga: al cambiar un resultado se revisa si ya terminó para completar los "2° Zona A" de las llaves
+      if (m && m.stage && m.stage.type === 'LEAGUE') {
+        const original = res.json.bind(res);
+        res.json = (body) => {
+          if (res.statusCode >= 400) return original(body);
+          resolveFromSlots(req.app.get('io'), m.tournamentId, m.stageId)
+            .catch((err) => console.error('[slotFrom]', err))
+            .then(() => original(body));
+          return res;
+        };
+        return next();
+      }
       if (!m || !m.stage || m.stage.type !== 'KNOCKOUT') return next();
 
       if (action === 'sets' && req.body && req.body.draw) {

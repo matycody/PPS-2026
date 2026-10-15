@@ -33,7 +33,8 @@ export const SECTIONS = [
 // Rutas fijas del frontend (no dependen del menú del backend)
 export const GENERAL = [
   { to: '/cronometro', label: 'Cronómetro offline', Icon: Timer },
-  { to: '/liga', label: 'Liga o copas', Icon: Trophy, soon: true },
+  { to: '/liga', label: 'Liga o copas', Icon: Trophy },
+  { to: '/estadisticas', label: 'Estadísticas', Icon: BarChart3 },
   { to: '/reglas', label: 'Reglas del juego', Icon: BookOpen, soon: true },
   { to: '/acerca', label: 'Acerca de / Contacto', Icon: Info, soon: true },
 ]

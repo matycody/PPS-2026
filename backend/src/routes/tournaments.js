@@ -237,10 +237,10 @@ router.patch('/:id', ...admin, async (req, res) => {
       else data[key] = p;
     }
 
-    // Rama, modalidad, año y formato definen la estructura: solo en borrador
-    const structural = ['branch', 'modality', 'year', 'format'].filter((k) => b[k] !== undefined);
+    // El formato define la estructura: solo en borrador (lo demás se edita siempre, salvo torneo finalizado)
+    const structural = ['format'].filter((k) => b[k] !== undefined);
     if (structural.length && t.status !== 'DRAFT') {
-      return res.status(409).json({ error: 'Rama, modalidad, año y formato solo se editan en borrador' });
+      return res.status(409).json({ error: 'El formato solo se edita en borrador' });
     }
     if (b.branch !== undefined) {
       if (BRANCHES.includes(b.branch)) data.branch = b.branch;
@@ -396,8 +396,7 @@ router.put('/:id/stages', ...admin, async (req, res) => {
       names.add(name.toLowerCase());
 
       if (!STAGE_TYPES.includes(s?.type)) errors.push(`${label}: tipo inválido (LEAGUE, KNOCKOUT)`);
-      else if (t.format === 'LEAGUE' && s.type !== 'LEAGUE') errors.push(`${label}: un torneo de liga solo tiene zonas`);
-      else if (t.format === 'CUP' && s.type !== 'KNOCKOUT') errors.push(`${label}: un torneo de copa solo tiene llaves`);
+     else if (t.format === 'CUP' && s.type !== 'KNOCKOUT') errors.push(`${label}: un torneo de copa solo tiene llaves`);
 
       if (!posInt(s?.phase)) errors.push(`${label}: fase inválida (entero desde 1)`);
       const tier = s?.tier ?? null;
@@ -495,14 +494,12 @@ router.delete('/:id', ...admin, async (req, res) => {
     const id = req.params.id;
     const t = await prisma.tournament.findUnique({ where: { id } });
     if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
-    if (t.status === 'FINISHED') {
-      return res.status(409).json({ error: 'El torneo finalizó: no se puede eliminar' });
-    }
-    const matches = await prisma.match.count({ where: { tournamentId: id } });
-    if (matches) {
-      return res.status(409).json({ error: 'El torneo tiene partidos: no se puede eliminar' });
-    }
+    // Se puede eliminar en cualquier estado: borra también partidos y todo lo que cuelga de ellos
     await prisma.$transaction([
+      prisma.clockAction.deleteMany({ where: { match: { tournamentId: id } } }),
+      prisma.matchSet.deleteMany({ where: { match: { tournamentId: id } } }),
+      prisma.matchAssignment.deleteMany({ where: { match: { tournamentId: id } } }),
+      prisma.match.deleteMany({ where: { tournamentId: id } }),
       prisma.stageStanding.deleteMany({ where: { stage: { tournamentId: id } } }),
       prisma.stageTeam.deleteMany({ where: { stage: { tournamentId: id } } }),
       prisma.matchday.deleteMany({ where: { stage: { tournamentId: id } } }),

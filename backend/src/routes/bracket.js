@@ -102,6 +102,8 @@ async function persist(stage, specs, directOrder) {
         scheduledAt: s.scheduledAt ?? null,
         teamAId: s.a && s.a.teamId ? s.a.teamId : null,
         teamBId: s.b && s.b.teamId ? s.b.teamId : null,
+        teamAFrom: s.a && s.a.from ? s.a.from : undefined,
+        teamBFrom: s.b && s.b.from ? s.b.from : undefined,
         nextMatchId: null,
         nextSide: null,
         loserMatchId: null,
@@ -166,11 +168,30 @@ async function view(stageId) {
       nextSide: true,
       loserMatchId: true,
       loserSide: true,
+      teamAFrom: true,
+      teamBFrom: true,
       teamA: { select: TEAM_SELECT },
       teamB: { select: TEAM_SELECT },
       sets: { select: { number: true, winnerTeamId: true }, orderBy: { number: 'asc' } },
     },
   });
+  // Lugares de zona ("2° Zona A") y si esa zona ya terminó
+  const fromIds = [...new Set(matches.flatMap((m) => [m.teamAFrom, m.teamBFrom]).filter(Boolean).map((f) => f.stageId))];
+  const zoneInfo = new Map();
+  if (fromIds.length) {
+    const [zones, zms] = await Promise.all([
+      prisma.stage.findMany({ where: { id: { in: fromIds } }, select: { id: true, name: true } }),
+      prisma.match.findMany({ where: { stageId: { in: fromIds }, hiddenAt: null }, select: { stageId: true, status: true } }),
+    ]);
+    for (const z of zones) {
+      const own = zms.filter((x) => x.stageId === z.id);
+      zoneInfo.set(z.id, { name: z.name, done: own.length > 0 && own.every((x) => x.status === 'FINISHED' || x.status === 'CANCELLED') });
+    }
+  }
+  const slotFrom = (f) => {
+    const z = f && zoneInfo.get(f.stageId);
+    return z ? { stageId: f.stageId, position: f.position, label: f.position + '° ' + z.name, done: z.done } : null;
+  };
   const feeds = new Map();
   const feed = (target, side, from, kind) => {
     if (!target) return;
@@ -206,6 +227,8 @@ async function view(stageId) {
       loserMatchId: m.loserMatchId,
       loserSide: m.loserSide,
       feeds: { A: f.A || null, B: f.B || null },
+      fromA: slotFrom(m.teamAFrom),
+      fromB: slotFrom(m.teamBFrom),
     });
   }
   return { stageId, totalMatches: matches.length, rounds: [...rounds.values()] };
@@ -334,6 +357,14 @@ router.put('/:id/stages/:stageId/bracket', ...admin, async (req, res) => {
     const enrolled = await enrolledSet(ctx.stage.tournamentId);
     const checked = validateSpecs(req.body && req.body.matches, enrolled);
     if (checked.error) return res.status(400).json({ error: checked.error });
+    const fromIds = [...new Set(checked.specs.flatMap((s) => [s.a, s.b]).filter((x) => x && x.from).map((x) => x.from.stageId))];
+    if (fromIds.length) {
+      const ok = await prisma.stage.findMany({
+        where: { id: { in: fromIds }, tournamentId: ctx.stage.tournamentId, type: 'LEAGUE' },
+        select: { id: true },
+      });
+      if (ok.length !== fromIds.length) return res.status(400).json({ error: 'from apunta a una zona de liga que no es de este torneo' });
+    }
     await persist(ctx.stage, checked.specs, null);
     res.status(201).json(await view(ctx.stage.id));
   } catch (err) {

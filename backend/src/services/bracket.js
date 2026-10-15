@@ -139,6 +139,14 @@ function validateSpecs(list, enrolled) {
         used.add(val);
       }
       spec[side] = { [key]: val };
+      if (src.from !== undefined && src.from !== null) {
+        const f = src.from;
+        if (key !== 'teamId') return { error: 'from solo se usa junto a teamId (' + m.ref + ')' };
+        if (!f || typeof f.stageId !== 'string' || !Number.isInteger(f.position) || f.position < 1) {
+          return { error: 'from necesita stageId y position (entero desde 1) (' + m.ref + ')' };
+        }
+        spec[side].from = { stageId: f.stageId, position: f.position };
+      }
     }
     if (spec.a && spec.b && KEYS.some((k) => spec.a[k] && spec.a[k] === spec.b[k])) {
       return { error: 'Ambos lados de ' + m.ref + ' son iguales' };

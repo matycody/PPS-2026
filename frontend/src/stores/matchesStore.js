@@ -7,9 +7,10 @@ export const useMatchesStore = create((set) => ({
   loading: true,
   error: '',
 
-  load: async () => {
+  load: async (days) => {
     try {
-      const list = await api('GET', '/matches?status=LIVE,READY,SCHEDULED&limit=200')
+      const to = days ? '&to=' + encodeURIComponent(new Date(Date.now() + days * 864e5).toISOString()) : ''
+      const list = await api('GET', '/matches?status=LIVE,READY,SCHEDULED&limit=200' + to)
       const byId = {}
       list.forEach((m) => { byId[m.id] = normMatch(m) })
       set({ byId, loading: false, error: '' })

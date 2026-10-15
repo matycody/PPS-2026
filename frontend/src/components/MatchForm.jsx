@@ -11,7 +11,7 @@ export const toLocalInput = (iso) => {
 export default function MatchForm({ initial, tournaments, teams, onSubmit, label, busy }) {
   const [f, setF] = useState({
     tournamentId: initial?.tournament?.id ?? tournaments[0]?.id ?? '',
-    court: initial?.court ?? 1,
+    court: initial?.court ?? '',
     branch: initial?.branch ?? 'MIXED',
     modality: initial?.modality ?? 'FOAM',
     scheduledAt: toLocalInput(initial?.scheduledAt),
@@ -26,7 +26,7 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
     e.preventDefault()
     onSubmit({
       tournamentId: f.tournamentId,
-      court: Number(f.court),
+      court: f.court === '' ? null : Number(f.court),
       branch: f.branch,
       modality: f.modality,
       scheduledAt: f.scheduledAt ? new Date(f.scheduledAt).toISOString() : undefined,
@@ -43,7 +43,7 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
       </select>
       <div className="grid grid-cols-3 gap-3 [&>*]:min-w-0">
         <label className="text-xs text-muted">Cancha
-          <input type="number" min="1" required className={inputCls} value={f.court} onChange={(e) => set('court', e.target.value)} />
+          <input type="number" min="1" placeholder="Opcional" className={inputCls} value={f.court} onChange={(e) => set('court', e.target.value)} />
         </label>
         <label className="text-xs text-muted">Rama
           <select className={inputCls} value={f.branch} onChange={(e) => setF((s) => ({ ...s, branch: e.target.value, teamAId: '', teamBId: '' }))}>

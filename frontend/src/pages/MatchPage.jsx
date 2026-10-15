@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { Eye, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
-import { normMatch, MODALITY, BRANCH } from '../lib/format'
+import { normMatch, MODALITY, BRANCH, courtLabel } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import Versus from '../components/Versus'
 import MatchRoster from '../components/MatchRoster'
@@ -86,7 +86,7 @@ export default function MatchPage() {
     <div className="space-y-4">
       <div className="flex flex-col items-center gap-2 text-center">
         <StatusPill status={m.status} />
-        <p className="text-sm text-muted">Cancha {m.court} · {BRANCH[m.branch] ?? m.branch}</p>
+        <p className="text-sm text-muted">{courtLabel(m.court)} · {BRANCH[m.branch] ?? m.branch}</p>
       </div>
 
 

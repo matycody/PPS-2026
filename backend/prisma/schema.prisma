@@ -213,6 +213,10 @@ model Match {
   loserMatchId String?
   loserSide    MatchSide?
 
+  // Llaves: de que lugar de una zona sale cada equipo ({ stageId, position })
+  teamAFrom    Json?
+  teamBFrom    Json?
+
   @@index([tournamentId])
   @@index([stageId])
   @@index([matchdayId])
