@@ -5,7 +5,7 @@ import { fmtWhen, courtLabel } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../ui'
 import StatusPill from '../StatusPill'
 
-function MatchdayCard({ md, tournamentId, admin, base, onChanged, setErr }) {
+function MatchdayCard({ md, zone, tournamentId, admin, base, onChanged, setErr }) {
   const [date, setDate] = useState(md.date ? md.date.slice(0, 10) : '')
   const [courts, setCourts] = useState(1)
   const [busy, setBusy] = useState(false)
@@ -24,7 +24,7 @@ function MatchdayCard({ md, tournamentId, admin, base, onChanged, setErr }) {
   return (
     <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
       <p className="text-sm font-bold">
-        Fecha {md.number}
+        {zone ?? 'Fecha ' + md.number}
         <span className="ml-2 font-normal text-muted">{md.date ? new Date(md.date).toLocaleDateString('es-AR', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' }) : 'Sin día'}</span>
       </p>
       {admin && (
@@ -71,15 +71,33 @@ export default function FixtureView({ tournamentId, admin = false, base = '/part
     if (!g) byStage.push((g = { id: d.stage.id, name: d.stage.name, days: [] }))
     g.days.push(d)
   }
+  const card = (md, zone) => (
+    <MatchdayCard key={md.id} md={md} zone={zone} tournamentId={tournamentId} admin={admin} base={base} onChanged={load} setErr={setErr} />
+  )
+
+  // Una sola zona: la lista de fechas de siempre
+  if (byStage.length === 1) {
+    return (
+      <div className="space-y-5">
+        {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
+        <div className="space-y-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted">{byStage[0].name}</p>
+          {byStage[0].days.map((md) => card(md))}
+        </div>
+      </div>
+    )
+  }
+
+  // Varias zonas: primero la Fecha 1 de todas las zonas, después la Fecha 2, etc.
+  const order = new Map(byStage.map((g, i) => [g.id, i]))
+  const numbers = [...new Set(days.map((d) => d.number))].sort((a, b) => a - b)
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
-      {byStage.map((g) => (
-        <div key={g.id} className="space-y-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted">{g.name}</p>
-          {g.days.map((md) => (
-            <MatchdayCard key={md.id} md={md} tournamentId={tournamentId} admin={admin} base={base} onChanged={load} setErr={setErr} />
-          ))}
+      {numbers.map((n) => (
+        <div key={n} className="space-y-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted">Fecha {n}</p>
+          {days.filter((d) => d.number === n).sort((a, b) => order.get(a.stage.id) - order.get(b.stage.id)).map((md) => card(md, md.stage.name))}
         </div>
       ))}
     </div>

@@ -51,7 +51,8 @@ export default function TorneosPage() {
           startsAt: toIso(form.startsAt) ?? null, endsAt: toIso(form.endsAt) ?? null,
           pointsWin: Number(form.pointsWin), pointsDraw: Number(form.pointsDraw), pointsLoss: Number(form.pointsLoss),
           ...(tb ? { tiebreakers: tb } : {}),
-          ...(editDraft ? { year: Number(form.year), branch: form.branch, modality: form.modality, format: form.format } : {}),
+          year: Number(form.year), branch: form.branch, modality: form.modality,
+          ...(editDraft ? { format: form.format } : {}),
         }
         await api('PATCH', '/tournaments/' + editId, body)
         setForm(EMPTY); setTb(null); setEditId(null); await load()
@@ -70,7 +71,7 @@ export default function TorneosPage() {
   }
 
   async function remove(t) {
-    if (!(await ask({ title: 'Eliminar torneo', message: '¿Eliminar "' + t.name + '"?', confirmText: 'Eliminar', danger: true }))) return
+    if (!(await ask({ title: 'Eliminar torneo', message: t.status === 'DRAFT' ? '¿Eliminar "' + t.name + '"?' : '¿Eliminar "' + t.name + '"? Se borran también todos sus partidos, resultados y estadísticas. No se puede deshacer.', confirmText: 'Eliminar', danger: true }))) return
     setErr('')
     try { await api('DELETE', '/tournaments/' + t.id); await load() } catch (e) { setErr(e.message) }
   }
@@ -98,19 +99,19 @@ export default function TorneosPage() {
 
       <form onSubmit={save} className="space-y-3 rounded-3xl border border-line bg-surface p-5">
         <p className="text-sm font-bold">{editId ? 'Editar torneo' : 'Nuevo torneo'}</p>
-        {editId && !editDraft && <p className="text-xs text-muted">El torneo ya está en curso: rama, modalidad, año y formato no se pueden cambiar.</p>}
+        {editId && !editDraft && <p className="text-xs text-muted">El torneo ya está en curso: el formato no se puede cambiar.</p>}
         <input className={inputCls} placeholder="Nombre" required value={form.name} onChange={(e) => set('name', e.target.value)} />
         <>
             <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
-              <Field label="Año"><input type="number" disabled={!editDraft} className={inputCls} required value={form.year} onChange={(e) => set('year', e.target.value)} /></Field>
+              <Field label="Año"><input type="number" className={inputCls} required value={form.year} onChange={(e) => set('year', e.target.value)} /></Field>
               <Field label="Edición (opcional)"><input className={inputCls} placeholder="Apertura, 2.ª…" value={form.edition} onChange={(e) => set('edition', e.target.value)} /></Field>
               <Field label="Rama">
-                <select disabled={!editDraft} className={inputCls} value={form.branch} onChange={(e) => set('branch', e.target.value)}>
+                <select className={inputCls} value={form.branch} onChange={(e) => set('branch', e.target.value)}>
                   {Object.entries(BRANCH).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </Field>
               <Field label="Modalidad">
-                <select disabled={!editDraft} className={inputCls} value={form.modality} onChange={(e) => set('modality', e.target.value)}>
+                <select className={inputCls} value={form.modality} onChange={(e) => set('modality', e.target.value)}>
                   {Object.entries(MODALITY).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </Field>

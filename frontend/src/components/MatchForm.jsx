@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { BRANCH, MODALITY } from '../lib/format'
 import { Btn, inputCls } from './ui'
 
@@ -29,7 +29,7 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
       court: f.court === '' ? null : Number(f.court),
       branch: f.branch,
       modality: f.modality,
-      scheduledAt: f.scheduledAt ? new Date(f.scheduledAt).toISOString() : undefined,
+      scheduledAt: f.scheduledAt ? new Date(f.scheduledAt).toISOString() : null, // vacío = sin fecha (borra la anterior)
       teamAId: f.teamAId || undefined,
       teamBId: f.teamBId || undefined,
     })

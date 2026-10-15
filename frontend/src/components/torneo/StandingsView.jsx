@@ -55,9 +55,9 @@ export default function StandingsView({ tournamentId, finished }) {
                 </tr>
               </thead>
               <tbody>
-                {s.rows.map((r) => (
+                {s.rows.map((r, i) => (
                   <tr key={r.team.id} className={'border-t border-line text-center ' + (ZONE_CLS[r.zone] ?? 'border-l-4 border-l-transparent')}>
-                    <td className="px-3 py-2 text-left font-bold">{r.position}{r.tied ? '=' : ''}</td>
+                    <td className="px-3 py-2 text-left font-bold">{i + 1}</td>
                     <td className="px-2 py-2 text-left">
                       <span className="flex items-center gap-2">
                         <TeamBadge team={r.team} size="sm" />
@@ -76,7 +76,7 @@ export default function StandingsView({ tournamentId, finished }) {
             </table>
           </div>
           <p className="px-4 pb-3 pt-2 text-[11px] text-muted">
-            PJ jugados · G ganados · E empatados · P perdidos · DS diferencia de sets. “=” marca empate sin resolver.
+            PJ jugados · G ganados · E empatados · P perdidos · DS diferencia de sets. Si hay empate total, se muestra en el orden de la tabla.
           </p>
         </div>
       ))}

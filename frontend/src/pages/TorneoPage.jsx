@@ -28,7 +28,7 @@ export default function TorneoPage() {
   const st = TSTATUS[t.status]
   const tabs = [
     ...(t.stages.some((s) => s.type === 'LEAGUE') ? [['tabla', 'Tabla'], ['fixture', 'Fixture']] : []),
-    ...(t.stages.some((s) => s.type === 'KNOCKOUT') ? [['llave', 'Llave']] : []),
+    ...(t.stages.some((s) => s.type === 'KNOCKOUT') ? [['llave', 'Playoffs']] : []),
   ]
   const knockouts = t.stages.filter((s) => s.type === 'KNOCKOUT')
 

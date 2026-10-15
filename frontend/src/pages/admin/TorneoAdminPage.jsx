@@ -8,10 +8,11 @@ import { useConfirm } from '../../components/ConfirmProvider'
 import StandingsView from '../../components/torneo/StandingsView'
 import BracketView from '../../components/torneo/BracketView'
 import FixtureView from '../../components/torneo/FixtureView'
+import BracketEditor, { emptyBracket, fromView } from '../../components/torneo/BracketEditor'
 
 const TABS = [
   ['resumen', 'Resumen'], ['equipos', 'Equipos'], ['estructura', 'Estructura'],
-  ['fixture', 'Fixture'], ['llave', 'Llave'], ['tabla', 'Tabla'],
+  ['fixture', 'Fixture'], ['tabla', 'Tabla'], ['llave', 'Playoffs'],
 ]
 const letter = (i) => String.fromCharCode(65 + (i % 26)) + (i >= 26 ? Math.floor(i / 26) : '')
 
@@ -33,6 +34,8 @@ function TeamsTab({ t, reload, setErr }) {
     try { await api('PUT', '/tournaments/' + t.id + '/teams', { teamIds: [...sel] }); await reload() } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
   const shown = (eligible ?? []).filter((x) => x.name.toLowerCase().includes(q.toLowerCase()))
+  const allShown = shown.length > 0 && shown.every((x) => sel.has(x.id))
+  const toggleAll = () => setSel((s) => { const n = new Set(s); shown.forEach((x) => (allShown ? n.delete(x.id) : n.add(x.id))); return n })
 
   return (
     <div className="space-y-3">
@@ -40,6 +43,11 @@ function TeamsTab({ t, reload, setErr }) {
         Equipos habilitados para {BRANCH[t.branch]} · {MODALITY[t.modality]}. {draft ? 'Elegí los que participan.' : 'Solo se editan en borrador.'}
       </p>
       <input className={inputCls} placeholder="Buscar equipo" value={q} onChange={(e) => setQ(e.target.value)} />
+      {draft && shown.length > 0 && (
+        <button type="button" onClick={toggleAll} className="text-sm font-bold text-accent">
+          {allShown ? 'Quitar todos' : 'Seleccionar todos'}{q ? ' (los buscados)' : ''}
+        </button>
+      )}
       {eligible === null && <p className="text-muted">Cargando…</p>}
       <div className="max-h-96 space-y-1 overflow-y-auto">
         {shown.map((x) => (
@@ -310,10 +318,13 @@ function BracketBuilder({ t, stage, onDone, setErr }) {
   )
 }
 
-function BracketTab({ t, setErr }) {
+function BracketsSection({ t, setErr }) {
   const ask = useConfirm()
   const [tick, setTick] = useState(0)
   const [counts, setCounts] = useState({})
+  const [editor, setEditor] = useState(null) // { id, create, initial }
+  const [size, setSize] = useState(4)
+  const [third, setThird] = useState(false)
   const knockouts = t.stages.filter((s) => s.type === 'KNOCKOUT')
 
   useEffect(() => {
@@ -323,7 +334,7 @@ function BracketTab({ t, setErr }) {
         .catch(() => {})
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tick, t.id])
+  }, [tick, t.id, knockouts.map((s) => s.id).join()])
 
   async function drop(s) {
     if (!(await ask({ title: 'Eliminar llave', message: '¿Eliminar la llave de ' + s.name + '?', confirmText: 'Eliminar', danger: true }))) return
@@ -331,19 +342,77 @@ function BracketTab({ t, setErr }) {
     try { await api('DELETE', '/tournaments/' + t.id + '/stages/' + s.id + '/bracket'); setTick((x) => x + 1) } catch (e) { setErr(e.message) }
   }
 
-  if (!knockouts.length) return <p className="text-muted">No hay llaves. Agregá una en Estructura.</p>
+  async function startEdit(st) {
+    setErr('')
+    try {
+      const d = await api('GET', '/tournaments/' + t.id + '/stages/' + st.id + '/bracket')
+      setEditor({ id: st.id, create: false, initial: fromView(d) })
+    } catch (e) { setErr(e.message) }
+  }
+  const startCreate = (st) => setEditor({ id: st.id, create: true, initial: emptyBracket(Number(size), third) })
+  const saved = () => { setEditor(null); setTick((x) => x + 1) }
+
+  if (!knockouts.length) return null
   return (
     <div className="space-y-6">
+      <p className="text-xs text-muted">Llaves de eliminación: acá se arman los cruces. Los resultados se cargan desde Fixture y se ven en Playoffs.</p>
       {knockouts.map((s) => (
         <div key={s.id} className="space-y-3">
           <div className="flex items-center gap-2">
             <p className="flex-1 text-xs font-bold uppercase tracking-widest text-muted">{s.name}</p>
-            {counts[s.id] > 0 && <Btn tone="danger" onClick={() => drop(s)}>Eliminar llave</Btn>}
+            {counts[s.id] > 0 && t.status !== 'FINISHED' && editor?.id !== s.id && <Btn onClick={() => startEdit(s)}>Editar cruces</Btn>}
+            {counts[s.id] > 0 && editor?.id !== s.id && <Btn tone="danger" onClick={() => drop(s)}>Eliminar llave</Btn>}
           </div>
-          {counts[s.id] === 0 && t.status !== 'FINISHED' && <BracketBuilder t={t} stage={s} setErr={setErr} onDone={() => setTick((x) => x + 1)} />}
-          <BracketView tournamentId={t.id} stageId={s.id} base="/admin/partidos/" reloadKey={tick} />
+          {editor?.id === s.id ? (
+            <BracketEditor t={t} stage={s} initial={editor.initial} create={editor.create} setErr={setErr} onSaved={saved} onCancel={() => setEditor(null)} />
+          ) : (
+            <>
+              {counts[s.id] === 0 && t.status !== 'FINISHED' && (
+                <>
+                  <div className="space-y-3 rounded-3xl border border-accent/40 bg-surface p-4">
+                    <p className="text-sm font-bold">Definir los Playoffs <span className="ml-1 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold uppercase text-black">Recomendado</span></p>
+                    <p className="text-xs text-muted">Arrancás con un cuadro vacío y elegís vos cada cruce, por ejemplo 1.º vs 4.º según la tabla.</p>
+                    <label className="block text-xs text-muted">Primera ronda
+                      <select className={inputCls} value={size} onChange={(e) => setSize(e.target.value)}>
+                        <option value={1}>Final</option>
+                        <option value={2}>Semifinales</option>
+                        <option value={4}>Cuartos de final</option>
+                        <option value={8}>Octavos de final</option>
+                        <option value={16}>16avos de final</option>
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={third} onChange={(e) => setThird(e.target.checked)} /> Partido por el tercer puesto</label>
+                    <Btn tone="accent" onClick={() => startCreate(s)} className="w-full">Definir playoffs</Btn>
+                  </div>
+                  <details className="rounded-3xl border border-line bg-surface p-4">
+                    <summary className="cursor-pointer text-sm font-bold">Opciones avanzadas: armado automático</summary>
+                    <div className="mt-3">
+                      <BracketBuilder t={t} stage={s} setErr={setErr} onDone={() => setTick((x) => x + 1)} />
+                    </div>
+                  </details>
+                </>
+              )}
+              <BracketView tournamentId={t.id} stageId={s.id} base="/admin/partidos/" reloadKey={tick} />
+            </>
+          )}
         </div>
       ))}
+    </div>
+  )
+}
+
+function BracketTab({ t, goStructure }) {
+  const knockouts = t.stages.filter((s) => s.type === 'KNOCKOUT')
+  if (!knockouts.length) return <p className="text-muted">Este torneo no tiene llaves. Se agregan en Estructura.</p>
+  return (
+    <div className="space-y-6">
+      {knockouts.map((s) => (
+        <div key={s.id} className="space-y-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted">{s.name}</p>
+          <BracketView tournamentId={t.id} stageId={s.id} base="/admin/partidos/" />
+        </div>
+      ))}
+      <button onClick={goStructure} className="text-sm font-bold text-accent">Editar cruces en Estructura</button>
     </div>
   )
 }
@@ -353,6 +422,23 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
   const ask = useConfirm()
   const [champ, setChamp] = useState('')
   const [busy, setBusy] = useState(false)
+  const [warn, setWarn] = useState('')
+
+  // Avisa si el campeón no se va a poder definir solo (sin playoffs armados o con la final sin terminar)
+  useEffect(() => {
+    setWarn('')
+    if (t.status !== 'ACTIVE' || t.format === 'LEAGUE') return // en liga el campeón sale de la tabla
+    const ko = t.stages.filter((x) => x.type === 'KNOCKOUT')
+    if (!ko.length) return
+    const top = Math.max(...ko.map((x) => x.phase))
+    const last = ko.filter((x) => x.phase === top)
+    if (last.length !== 1) { setWarn('Hay más de una llave en la última fase: elegí al campeón a mano.'); return }
+    api('GET', '/tournaments/' + t.id + '/stages/' + last[0].id + '/bracket').then((d) => {
+      if (!d.totalMatches) { setWarn('Todavía no definiste los playoffs: si cerrás ahora, elegí al campeón a mano.'); return }
+      const final = d.rounds[d.rounds.length - 1].matches.find((m) => m.slot === 1)
+      if (!final || final.status !== 'FINISHED') setWarn('La final todavía no terminó: si cerrás ahora, elegí al campeón a mano.')
+    }).catch(() => {})
+  }, [t.id, t.status])
 
   async function activate() {
     setBusy(true); setErr('')
@@ -390,6 +476,7 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
         <div className="space-y-2 rounded-3xl border border-line bg-surface p-4">
           <p className="text-sm font-bold">Cerrar torneo</p>
           <p className="text-xs text-muted">Congela la tabla final (con ascensos y descensos) y registra al campeón. Si no se define solo, elegilo acá.</p>
+          {warn && <p className="text-xs font-bold text-warn">{warn}</p>}
           <select className={inputCls} value={champ} onChange={(e) => setChamp(e.target.value)}>
             <option value="">Campeón automático</option>
             {t.teams.map((x) => <option key={x.teamId} value={x.teamId}>{x.team.name}</option>)}
@@ -431,9 +518,14 @@ export default function TorneoAdminPage() {
       </div>
       {tab === 'resumen' && <SummaryTab t={t} reload={load} setErr={setErr} setMsg={setMsg} />}
       {tab === 'equipos' && <TeamsTab t={t} reload={load} setErr={setErr} />}
-      {tab === 'estructura' && <StructureTab key={t.stages.map((s) => s.id).join()} t={t} reload={load} setErr={setErr} />}
+      {tab === 'estructura' && (
+        <div className="space-y-6">
+          <StructureTab key={t.stages.map((s) => s.id).join()} t={t} reload={load} setErr={setErr} />
+          <BracketsSection t={t} setErr={setErr} />
+        </div>
+      )}
       {tab === 'fixture' && <FixtureTab t={t} setErr={setErr} />}
-      {tab === 'llave' && <BracketTab t={t} setErr={setErr} />}
+      {tab === 'llave' && <BracketTab t={t} goStructure={() => setTab('estructura')} />}
       {tab === 'tabla' && <StandingsView tournamentId={t.id} finished={t.status === 'FINISHED'} />}
     </div>
   )
