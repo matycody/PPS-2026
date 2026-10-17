@@ -5,7 +5,7 @@ const storage = require('../services/storage');
 
 const router = express.Router();
 
-const ACTIVE = ['SCHEDULED', 'READY', 'LIVE'];
+const ACTIVE = ['SCHEDULED', 'READY', 'LIVE', 'SUSPENDED'];
 const NICKNAME_MAX = 30;
 const NUMBER_MIN = 0;
 const NUMBER_MAX = 999;

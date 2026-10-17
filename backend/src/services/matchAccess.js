@@ -1,4 +1,4 @@
-﻿const prisma = require('../db');
+const prisma = require('../db');
 
 const OPEN = ['READY', 'LIVE']; // reloj habilitado
 
@@ -44,9 +44,9 @@ async function getPermissions(user, match) {
     canControlClock: (isTable || isReferee) && open,
     canReady: (isAdmin || isTable) && match.status === 'SCHEDULED',
     canUnready: (isAdmin || isTable) && match.status === 'READY',
-    canAddSets: ((isTable || isReferee) && open) || (isAdmin && match.status === 'FINISHED'),
-    canEditResult: match.status !== 'CANCELLED' && (isAdmin || (isTable && open)),
-    canFinish: isAdmin && isTable && open,
+    canAddSets: ((isTable || isReferee || isAdmin) && open) || (isAdmin && match.status === 'FINISHED'),
+    canEditResult: !['CANCELLED', 'SUSPENDED'].includes(match.status) && (isAdmin || (isTable && open)),
+    canFinish: isAdmin && open,
   };
 }
 

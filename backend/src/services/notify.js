@@ -73,6 +73,8 @@ async function notifyMatch(io, matchId) {
       scheduledAt: m.scheduledAt,
       readyAt: m.readyAt,
       finishedAt: m.finishedAt,
+      statusReason: m.statusReason ?? null,
+      originalScheduledAt: m.originalScheduledAt ?? null,
       teamA: m.teamA,
       teamB: m.teamB,
       sets: m.sets.map((s) => ({ number: s.number, winnerTeamId: s.winnerTeamId, draw: s.winnerTeamId === null })),

@@ -10,10 +10,19 @@ const admin = [authenticate, requireRole('ADMIN')];
 
 const BRANCHES = ['MIXED', 'MALE', 'FEMALE'];
 const MODALITIES = ['FOAM', 'CLOTH'];
-const STATUSES = ['SCHEDULED', 'READY', 'LIVE', 'FINISHED', 'CANCELLED'];
+const STATUSES = ['SCHEDULED', 'READY', 'LIVE', 'FINISHED', 'CANCELLED', 'SUSPENDED'];
 const MAX_REFEREES = 6;
 const BRANCH_LABEL = { MIXED: 'Mixto', MALE: 'Masculino', FEMALE: 'Femenino' };
 const MODALITY_LABEL = { FOAM: 'Foam', CLOTH: 'Cloth' };
+
+// Motivo que ve el público (suspensión o cancelación). undefined = no vino, null = borrar, false = inválido
+function parseReason(v) {
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  const s = String(v).trim();
+  if (s.length > 300) return false;
+  return s || null;
+}
 
 const teamSelect = { id: true, name: true, logo: true };
 const baseInclude = {
@@ -74,6 +83,8 @@ function serialize(match, isAdmin) {
     scheduledAt: match.scheduledAt,
     readyAt: match.readyAt,
     finishedAt: match.finishedAt,
+    statusReason: match.statusReason ?? null,
+    originalScheduledAt: match.originalScheduledAt ?? null,
     teamA: match.teamA,
     teamB: match.teamB,
     sets: match.sets.map((s) => ({ number: s.number, winnerTeamId: s.winnerTeamId, draw: s.winnerTeamId === null })),
@@ -182,22 +193,25 @@ async function loadWithPerms(req, res) {
 
 router.post('/', ...admin, async (req, res) => {
   try {
-    const { tournamentId, branch, modality } = req.body;
+    const tournamentId = req.body.tournamentId || null; // sin torneo = partido suelto
+    const { branch, modality } = req.body;
     const court = req.body.court === undefined || req.body.court === null || req.body.court === '' ? null : Number(req.body.court);
     const teamAId = req.body.teamAId || null;
     const teamBId = req.body.teamBId || null;
     const scheduledAt = parseDate(req.body.scheduledAt);
 
     const errors = [];
-    if (!tournamentId) errors.push('Torneo obligatorio');
+    // torneo opcional
     if (court !== null && (!Number.isInteger(court) || court < 1)) errors.push('Cancha inválida');
     if (!BRANCHES.includes(branch)) errors.push('Rama inválida');
     if (!MODALITIES.includes(modality)) errors.push('Modalidad inválida');
     if (scheduledAt === undefined) errors.push('Fecha inválida');
     if (errors.length) return res.status(400).json({ errors });
 
-    const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
-    if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
+    if (tournamentId) {
+      const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+      if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
+    }
 
     const teamError = await validateTeams(teamAId, teamBId, branch, modality);
     if (teamError) return res.status(409).json({ error: teamError });
@@ -380,12 +394,17 @@ router.post('/:id/cancel', ...admin, async (req, res) => {
     if (['FINISHED', 'CANCELLED'].includes(match.status)) {
       return res.status(409).json({ error: 'El partido ya está finalizado o cancelado' });
     }
-    await prisma.match.update({ where: { id: match.id }, data: { status: 'CANCELLED' } });
+    const reason = parseReason(req.body?.reason);
+    if (reason === false) return res.status(400).json({ error: 'El motivo admite hasta 300 caracteres' });
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { status: 'CANCELLED', ...(reason !== undefined ? { statusReason: reason } : {}) },
+    });
 
     const label = await loadForLabel(match.id);
     const editorLbl = await editorLabel(req.user);
     await prisma.matchResultLog.create({
-      data: buildLogData(label, req.user.id, editorLbl, 'MATCH_CANCEL', 'Canceló el partido'),
+      data: buildLogData(label, req.user.id, editorLbl, 'MATCH_CANCEL', 'Canceló el partido' + (reason ? ': ' + reason : '')),
     });
 
     await notifyMatch(req.app.get('io'), req.params.id);
@@ -439,12 +458,110 @@ router.post('/:id/unready', authenticate, async (req, res) => {
   }
 });
 
+// ───────────── Suspender y reprogramar un partido (solo admin) ─────────────
+// Suspender no toca la fecha del torneo: el partido sigue en su jornada y se juega más adelante.
+router.post('/:id/suspend', ...admin, async (req, res) => {
+  try {
+    const match = await prisma.match.findUnique({ where: { id: req.params.id } });
+    if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
+    const vis = assertVisible(match);
+    if (vis) return res.status(vis.status).json({ error: vis.error });
+    if (!['SCHEDULED', 'READY'].includes(match.status)) {
+      return res.status(409).json({ error: 'Solo se suspende un partido Programado o Habilitado (no uno en juego)' });
+    }
+    const reason = parseReason(req.body?.reason);
+    if (reason === false) return res.status(400).json({ error: 'El motivo admite hasta 300 caracteres' });
+
+    await prisma.match.update({
+      where: { id: match.id },
+      data: {
+        status: 'SUSPENDED',
+        readyAt: null,
+        readyBy: null,
+        statusReason: reason ?? null,
+        originalScheduledAt: match.originalScheduledAt ?? match.scheduledAt,
+      },
+    });
+
+    const label = await loadForLabel(match.id);
+    const editorLbl = await editorLabel(req.user);
+    await prisma.matchResultLog.create({
+      data: buildLogData(label, req.user.id, editorLbl, 'MATCH_SUSPEND', 'Suspendió el partido' + (reason ? ': ' + reason : '')),
+    });
+
+    await notifyMatch(req.app.get('io'), req.params.id);
+    res.json(serialize(await fetchMatch(match.id, true), true));
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+// Reprograma un partido suspendido: nueva fecha (obligatoria), cancha y motivo opcionales. Vuelve a Programado.
+router.post('/:id/reschedule', ...admin, async (req, res) => {
+  try {
+    const match = await prisma.match.findUnique({ where: { id: req.params.id } });
+    if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
+    const vis = assertVisible(match);
+    if (vis) return res.status(vis.status).json({ error: vis.error });
+    if (match.status !== 'SUSPENDED') {
+      return res.status(409).json({ error: 'Solo se reprograma un partido Suspendido' });
+    }
+    const b = req.body || {};
+    const when = parseDate(b.scheduledAt);
+    if (!when) return res.status(400).json({ error: 'La nueva fecha y hora es obligatoria' });
+    const data = { status: 'SCHEDULED', scheduledAt: when };
+    if (b.court !== undefined) {
+      const court = b.court === null || b.court === '' ? null : Number(b.court);
+      if (court !== null && (!Number.isInteger(court) || court < 1)) return res.status(400).json({ error: 'Cancha inválida' });
+      data.court = court;
+    }
+    const reason = parseReason(b.reason);
+    if (reason === false) return res.status(400).json({ error: 'El motivo admite hasta 300 caracteres' });
+    if (reason !== undefined) data.statusReason = reason;
+
+    await prisma.match.update({ where: { id: match.id }, data });
+
+    const label = await loadForLabel(match.id);
+    const editorLbl = await editorLabel(req.user);
+    await prisma.matchResultLog.create({
+      data: buildLogData(label, req.user.id, editorLbl, 'MATCH_RESCHEDULE', 'Reprogramó el partido: ' + fmtDate(match.originalScheduledAt ?? match.scheduledAt) + ' → ' + fmtDate(when)),
+    });
+
+    await notifyMatch(req.app.get('io'), req.params.id);
+    res.json(serialize(await fetchMatch(match.id, true), true));
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+// Edita solo el motivo visible (suspendido, cancelado o reprogramado)
+router.patch('/:id/reason', ...admin, async (req, res) => {
+  try {
+    const match = await prisma.match.findUnique({ where: { id: req.params.id } });
+    if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
+    const vis = assertVisible(match);
+    if (vis) return res.status(vis.status).json({ error: vis.error });
+    if (!['SUSPENDED', 'CANCELLED'].includes(match.status) && !match.originalScheduledAt) {
+      return res.status(409).json({ error: 'El partido no está suspendido, cancelado ni reprogramado' });
+    }
+    const reason = parseReason(req.body?.reason);
+    if (reason === undefined || reason === false) {
+      return res.status(400).json({ error: 'Motivo inválido (hasta 300 caracteres)' });
+    }
+    await prisma.match.update({ where: { id: match.id }, data: { statusReason: reason } });
+    await notifyMatch(req.app.get('io'), req.params.id);
+    res.json(serialize(await fetchMatch(match.id, true), true));
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
 router.post('/:id/finish', authenticate, async (req, res) => {
   try {
     const ctx = await loadWithPerms(req, res);
     if (!ctx) return;
-    if (!(ctx.perms.isAdmin && ctx.perms.isTable)) {
-      return res.status(403).json({ error: 'Solo un admin asignado como mesa puede finalizar' });
+    if (!ctx.perms.isAdmin) {
+      return res.status(403).json({ error: 'Solo la organización puede finalizar' });
     }
     if (!ctx.perms.canFinish) return res.status(409).json({ error: 'El partido no está Habilitado ni En vivo' });
 

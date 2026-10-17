@@ -217,6 +217,8 @@ router.get('/:id/matchdays', async (req, res) => {
               slot: true,
               court: true,
               status: true,
+              statusReason: true,
+              originalScheduledAt: true,
               scheduledAt: true,
               teamA: { select: TEAM_SELECT },
               teamB: { select: TEAM_SELECT },

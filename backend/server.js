@@ -48,6 +48,7 @@ app.use("/tournaments", require("./src/routes/standings"));
 app.use("/tournaments", require("./src/routes/bracket"));
 app.use("/tournaments", require("./src/routes/lifecycle"));
 app.use("/stats", require("./src/routes/stats"));
+app.use("/search", require("./src/routes/search"));
 app.use("/matches", require("./src/middleware/bracketAdvance"));
 app.use("/matches", require("./src/routes/matches"));
 app.use("/audit", require("./src/routes/audit"));

@@ -42,6 +42,7 @@ enum MatchStatus {
   LIVE
   FINISHED
   CANCELLED
+  SUSPENDED
 }
 
 enum ProfileStatus {
@@ -179,7 +180,7 @@ model Tournament {
 
 model Match {
   id           String      @id @default(uuid())
-  tournamentId String
+  tournamentId String? // null = partido suelto (amistoso)
   court        Int?
   branch       Branch
   modality     Modality
@@ -191,9 +192,11 @@ model Match {
   readyBy      String?
   finishedAt   DateTime?
   hiddenAt     DateTime? // oculto (reversible); null = visible
+  statusReason        String? // motivo visible de la suspension o cancelacion
+  originalScheduledAt DateTime? // fecha original si el partido se suspendio
   createdAt    DateTime    @default(now())
 
-  tournament   Tournament        @relation(fields: [tournamentId], references: [id])
+  tournament   Tournament?       @relation(fields: [tournamentId], references: [id])
   teamA        Team?             @relation("MatchTeamA", fields: [teamAId], references: [id])
   teamB        Team?             @relation("MatchTeamB", fields: [teamBId], references: [id])
   assignments  MatchAssignment[]
