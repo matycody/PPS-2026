@@ -1,4 +1,4 @@
-﻿import { Link, Outlet } from 'react-router-dom'
+import { Link, Outlet } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { Menu } from 'lucide-react'
 import Drawer from './Drawer'
@@ -31,10 +31,9 @@ export default function AppLayout() {
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted">Dodgeball</p>
+            <p className="truncate text-xl font-extrabold leading-tight">Dodgeball</p>
             <ServerClock />
           </div>
-          <p className="truncate text-lg font-extrabold leading-tight">Cronómetro Dodgeball</p>
         </div>
         {user ? (
           <Link to="/perfil" className="shrink-0"><UserAvatar /></Link>

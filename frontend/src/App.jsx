@@ -1,4 +1,4 @@
-﻿import { useEffect } from 'react'
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import OfflinePage from './pages/OfflinePage'
 import LoginPage from './pages/LoginPage'
@@ -17,6 +17,7 @@ import DashboardPage from './pages/admin/DashboardPage'
 import TorneosPage from './pages/admin/TorneosPage'
 import TorneoAdminPage from './pages/admin/TorneoAdminPage'
 import LigaPage from './pages/LigaPage'
+import BuscarPage from './pages/BuscarPage'
 import TorneoPage from './pages/TorneoPage'
 import EstadisticasPage from './pages/EstadisticasPage'
 import EquiposPage from './pages/admin/EquiposPage'
@@ -80,6 +81,7 @@ function App() {
             <Route path="/equipo/:id" element={<TeamPage />} />
             <Route path="/cronometro" element={<OfflinePage />} />
             <Route path="/liga" element={<LigaPage />} />
+            <Route path="/buscar" element={<BuscarPage />} />
             <Route path="/liga/:id" element={<TorneoPage />} />
             <Route path="/estadisticas" element={<EstadisticasPage />} />
             {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas'].includes(g.to)).map((g) => (

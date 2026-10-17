@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Camera, LogOut, Trash2 } from 'lucide-react'
 import { api, apiUploadPhoto } from '../lib/api'
@@ -182,7 +182,7 @@ export default function PerfilPage() {
         <LogOut size={18} /> Cerrar sesión
       </button>
 
-      <div className="rounded-3xl border border-danger/30 p-5">
+      <div className="rounded-3xl border border-danger/40 bg-surface p-5">
         {!confirmDelete ? (
           <button onClick={() => setConfirmDelete(true)} className="flex items-center gap-2 text-sm font-bold text-danger">
             <Trash2 size={16} /> Eliminar mi cuenta

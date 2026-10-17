@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 @import "./theme.css";
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Big+Shoulders+Display:wght@800&display=swap');
 
@@ -59,6 +59,63 @@ body::before {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+}
+
+/* Claro: fondo completo, sin capa blanca. Los textos que van sobre la imagen llevan un halo blanco para leerse */
+html:not(.dark) body::before {
+  background-image: url('/fondo.jpg');
+}
+html:not(.dark) :is(h1, h2, h3, .text-muted) {
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.95), 0 0 2px rgba(255, 255, 255, 0.95);
+}
+/* Claro: barras blancas legibles y menú desplegable blanco sólido */
+html:not(.dark) .menu-glass {
+  background: #ffffff;
+}
+html:not(.dark) header.menu-glass {
+  margin: 0.5rem 1rem 0;
+  border-radius: 1.25rem;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 6px 16px rgba(15, 23, 42, 0.07);
+}
+
+/* Títulos grises en mayúsculas que van sobre la imagen (fuera de tarjetas): recuadro para que se lean */
+.uppercase.tracking-widest.text-muted:not(.bg-surface *) {
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  text-shadow: none;
+}
+
+/* Oscuro: mismo criterio que el claro (fondo completo, header flotante, barras y menú sólidos) */
+html.dark body::before {
+  background-image: url('/fondo.jpg');
+}
+html.dark :is(h1, h2, h3, .text-muted) {
+  text-shadow: 0 0 3px #000, 0 0 6px #000, 0 1px 10px rgba(0, 0, 0, 0.95);
+}
+html.dark .bg-surface {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+html.dark .menu-glass {
+  background: var(--surface);
+}
+html.dark header.menu-glass {
+  margin: 0.5rem 1rem 0;
+  border-radius: 1.25rem;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+html.dark .menu-glass-drawer {
+  background: var(--surface);
+  box-shadow: 6px 0 24px rgba(0, 0, 0, 0.6);
+}
+html:not(.dark) .menu-glass-drawer {
+  background: #ffffff;
+  box-shadow: 6px 0 24px rgba(15, 23, 42, 0.18);
 }
 
 .menu-glass {

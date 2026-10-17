@@ -1,4 +1,4 @@
-﻿export const BRANCH = { MIXED: 'Mixto', MALE: 'Masculino', FEMALE: 'Femenino' }
+export const BRANCH = { MIXED: 'Mixto', MALE: 'Masculino', FEMALE: 'Femenino' }
 export const MODALITY = { FOAM: 'Foam', CLOTH: 'Cloth' }
 
 export const STATUS = {
@@ -7,6 +7,7 @@ export const STATUS = {
   LIVE: { label: 'En vivo', cls: 'bg-danger/15 text-danger' },
   FINISHED: { label: 'Finalizado', cls: 'bg-surface-2 text-muted' },
   CANCELLED: { label: 'Cancelado', cls: 'bg-surface-2 text-muted' },
+  SUSPENDED: { label: 'Suspendido', cls: 'bg-orange-500/15 text-orange-500' },
 }
 
 // GET /matches trae "id"; match:updated trae "matchId"

@@ -25,7 +25,7 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
   const submit = (e) => {
     e.preventDefault()
     onSubmit({
-      tournamentId: f.tournamentId,
+      tournamentId: f.tournamentId || null, // vacío = partido suelto, sin torneo
       court: f.court === '' ? null : Number(f.court),
       branch: f.branch,
       modality: f.modality,
@@ -37,8 +37,8 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      <select className={inputCls} required value={f.tournamentId} onChange={(e) => set('tournamentId', e.target.value)}>
-        <option value="" disabled>Torneo…</option>
+      <select className={inputCls} value={f.tournamentId} onChange={(e) => set('tournamentId', e.target.value)}>
+        <option value="">Amistoso</option>
         {tournaments.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
       </select>
       <div className="grid grid-cols-3 gap-3 [&>*]:min-w-0">
@@ -69,7 +69,7 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
           </label>
         ))}
       </div>
-      <Btn type="submit" tone="accent" disabled={busy || !f.tournamentId} className="w-full">{label}</Btn>
+      <Btn type="submit" tone="accent" disabled={busy} className="w-full">{label}</Btn>
     </form>
   )
 }

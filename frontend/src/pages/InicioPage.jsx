@@ -1,6 +1,8 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import MatchCard from '../components/MatchCard'
+import OrgMatches from '../components/inicio/OrgMatches'
+import Finalizados from '../components/inicio/Finalizados'
 import { useMatchesFeed } from '../hooks/useMatchesFeed'
 import { useMatchesStore } from '../stores/matchesStore'
 import { socket } from '../sockets/socket'
@@ -14,18 +16,20 @@ import { useMenuPrefs } from '../stores/menuPrefsStore'
 const FILTERS = [
   { id: 'all', label: 'Todos' },
   { id: 'live', label: 'En vivo' },
-  { id: 'sched', label: 'Programados' },
+  { id: 'fin', label: 'Finalizados' },
 ]
 const ORDER = { LIVE: 0, READY: 1, SCHEDULED: 2 }
 const WINDOW_DAYS = 7 // ventana de "próximos"
 const MAX_NEXT = 10
 const SOON_SEC = 3 * 60 // el próximo partido de la cancha se agranda con 3 min o menos
+const ORG_DAYS = 30 // la organización ve más lejos para encontrar la próxima jornada
 
 export default function InicioPage() {
-  useMatchesFeed(WINDOW_DAYS)
   const { user, menu } = useAuthStore()
-  const cardsPref = useMenuPrefs((s) => s.byUser[user?.id]?.cards)
   const role = roleLabel(user, menu) // Organizador, Árbitro, Mesa, Jugador o Registrado
+  const isOrg = true // todos los roles ven las pestañas como la organización
+  useMatchesFeed(isOrg ? ORG_DAYS : WINDOW_DAYS)
+  const cardsPref = useMenuPrefs((s) => s.byUser[user?.id]?.cards)
   const { byId, loading, error } = useMatchesStore()
   const [filter, setFilter] = useState('all')
   const [ticks, setTicks] = useState({})
@@ -90,8 +94,11 @@ export default function InicioPage() {
   const nextList = later.slice(0, MAX_NEXT)
   const hiddenCount = later.length - nextList.length
 
-  const showLive = filter !== 'sched'
-  const showUpcoming = filter !== 'live'
+  // Organización: Todos = próxima jornada completa; En vivo = por cancha (ver OrgMatches)
+  const fin = filter === 'fin'
+  const orgView = isOrg && !fin
+  const showLive = !orgView && !fin
+  const showUpcoming = !orgView && !fin && filter !== 'live'
 
   return (
     <div className="space-y-5">
@@ -127,6 +134,8 @@ export default function InicioPage() {
 
       {loading && <p className="text-muted">Cargando…</p>}
       {error && <p className="text-danger">{error}</p>}
+      {orgView && !loading && !error && <OrgMatches byId={byId} filter={filter} />}
+      {fin && <Finalizados />}
 
       {showLive && liveSections.length > 0 && (
         <div className="space-y-4">

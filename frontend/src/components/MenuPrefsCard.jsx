@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { ChevronUp, ChevronDown, SlidersHorizontal } from 'lucide-react'
 import { ThemeToggle } from './ThemeToggle'
 import ColorPicker from './ColorPicker'
@@ -47,20 +47,10 @@ function Row({ item, children }) {
   )
 }
 
-function Slider({ label, value, max, unit, onChange }) {
-  return (
-    <label className="mt-2 block text-sm">
-      <span className="flex justify-between font-semibold"><span>{label}</span><span className="text-muted">{value}{unit}</span></span>
-      <input type="range" min="0" max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="mt-1 h-7 w-full accent-accent" />
-    </label>
-  )
-}
-
 function MenuPrefsBody() {
   const { user, menu } = useAuthStore()
   const uid = user?.id
   const prefs = useMenuPrefs((s) => s.byUser[uid]) ?? {}
-  const look = useMenuPrefs((s) => s.look)
   const act = useMenuPrefs.getState
   if (!uid) return null
   const role = roleLabel(user, menu)
@@ -138,10 +128,6 @@ function MenuPrefsBody() {
         ))}
       </div>
 
-      <Head>Transparencia del menú</Head>
-      <Slider label="Header y barra inferior" value={look.a} max={95} unit="%" onChange={(v) => act().setLook({ a: v })} />
-      <Slider label="Menú lateral" value={look.da} max={95} unit="%" onChange={(v) => act().setLook({ da: v })} />
-      <Slider label="Desenfoque" value={look.b} max={30} unit="px" onChange={(v) => act().setLook({ b: v })} />
 
       <Head>Tema y color</Head>
       <div className="space-y-4">
@@ -165,7 +151,7 @@ export default function MenuPrefsCard() {
         <SlidersHorizontal size={20} className="shrink-0 text-accent" />
         <span className="min-w-0 flex-1">
           <span className="block font-extrabold">Personalización</span>
-          <span className="block text-xs text-muted">Menú, tarjetas del inicio, tema y transparencia</span>
+          <span className="block text-xs text-muted">Menú, tarjetas del inicio, tema y color</span>
         </span>
         <ChevronDown size={20} className={'shrink-0 text-muted transition-transform ' + (open ? 'rotate-180' : '')} />
       </button>

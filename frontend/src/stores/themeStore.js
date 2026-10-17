@@ -18,7 +18,7 @@ const resolve = (mode) => (mode === 'system' ? (prefersDark() ? 'dark' : 'light'
 function apply(theme) {
   document.documentElement.classList.toggle('dark', theme === 'dark')
   document.documentElement.style.colorScheme = theme
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0a0a0b' : '#f5f6f8')
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0a0a0b' : '#e9eef5')
 }
 
 const initialMode = readMode()

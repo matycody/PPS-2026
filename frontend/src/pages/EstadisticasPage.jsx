@@ -82,7 +82,7 @@ function HeadToHead({ teams, filter }) {
           </div>
           {d.matches.map((m) => (
             <Link key={m.id} to={'/partido/' + m.id} className="flex justify-between rounded-xl bg-surface-2 px-3 py-2 text-sm">
-              <span className="truncate text-muted">{m.tournament.name}</span>
+              <span className="truncate text-muted">{m.tournament?.name ?? 'Amistoso'}</span>
               <span className="font-bold">{m.setsA} - {m.setsB}</span>
             </Link>
           ))}

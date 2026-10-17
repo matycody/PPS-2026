@@ -1,10 +1,11 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Eye, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
 import { normMatch, MODALITY, BRANCH, courtLabel } from '../lib/format'
 import StatusPill from '../components/StatusPill'
+import MatchNotice from '../components/MatchNotice'
 import Versus from '../components/Versus'
 import MatchRoster from '../components/MatchRoster'
 import { useWakeLock } from '../hooks/useWakeLock'
@@ -88,6 +89,7 @@ export default function MatchPage() {
         <StatusPill status={m.status} />
         <p className="text-sm text-muted">{courtLabel(m.court)} · {BRANCH[m.branch] ?? m.branch}</p>
       </div>
+      <MatchNotice m={m} />
 
 
 

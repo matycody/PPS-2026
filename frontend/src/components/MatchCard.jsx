@@ -1,5 +1,6 @@
-﻿import { Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import StatusPill from './StatusPill'
+import MatchNotice from './MatchNotice'
 import Versus from './Versus'
 import { fmtWhen, BRANCH, MODALITY, courtLabel } from '../lib/format'
 import { useLiveTick } from '../lib/liveTicks'
@@ -35,10 +36,11 @@ export default function MatchCard({ m, featured = false, to, badge }) {
       </div>
       {['LIVE', 'READY', 'SCHEDULED'].includes(m.status) && (
         <p className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-muted">
-          {[m.tournament?.name ?? m.tournamentName, MODALITY[m.modality], BRANCH[m.branch]].filter(Boolean).join(' \u00b7 ')}
+          {[m.tournament?.name ?? m.tournamentName ?? 'Amistoso', MODALITY[m.modality], BRANCH[m.branch]].filter(Boolean).join(' \u00b7 ')}
         </p>
       )}
       <p className="mt-3 text-center text-sm text-muted">{fmtWhen(m.scheduledAt)}</p>
+      <MatchNotice m={m} compact className="mt-2 text-center" />
       {featured && (
         <div className="mt-4 rounded-2xl bg-live py-3 text-center font-extrabold text-black">
           {CTA[m.status] ?? 'Ver partido'}
