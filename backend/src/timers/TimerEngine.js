@@ -22,6 +22,7 @@ class TimerEngine {
     this.isTimeoutRunning = false;
     this.timeoutsUsed = newTimeoutsUsed();
     this._resumeAfterTimeout = { match: false, set: false };
+    this._timeoutHalf = null; // tiempo (1 o 2) en el que se pidió el tiempo muerto en curso
     this.matchTimeLeft = MATCH_DURATION_SECONDS;
     this.setTimeLeft = SET_DURATION_SECONDS;
     this.matchHalf = 1;
@@ -152,6 +153,7 @@ class TimerEngine {
     this.isMatchPaused = true;
     this.isSetPaused = true;
     this.timeoutsUsed[team][this.matchHalf] = true;
+    this._timeoutHalf = this.matchHalf;
     this.timeoutTeam = team;
     this.timeoutTimeLeft = TIMEOUT_DURATION_SECONDS;
     this.isTimeoutRunning = true;
@@ -174,11 +176,34 @@ class TimerEngine {
     return { ok: true };
   }
 
+  // Deshace un tiempo muerto pedido por error: el equipo conserva su tiempo muerto y los relojes
+  // vuelven a como estaban. Solo mientras corre; si ya terminó se usa endTimeout (Reanudar).
+  cancelTimeout() {
+    if (this.timeoutTeam === null) {
+      return { ok: false, message: "No hay un tiempo muerto en curso" };
+    }
+    if (!this.isTimeoutRunning) {
+      return { ok: false, message: "El tiempo muerto ya termin\u00f3: reanud\u00e1 el partido" };
+    }
+    const team = this.timeoutTeam;
+    const half = this._timeoutHalf ?? this.matchHalf;
+    if (this.timeoutsUsed[team]) this.timeoutsUsed[team][half] = false;
+    const resume = this._resumeAfterTimeout;
+    this._clearTimeout(false);
+    if (resume.match && this.matchTimeLeft > 0) this.isMatchPaused = false;
+    if (resume.set && this.setTimeLeft > 0) this.isSetPaused = false;
+    if (!this.isMatchPaused || !this.isSetPaused) this._ensureIntervalRunning();
+    else this._stopIntervalIfFullyPaused();
+    this._emitState();
+    return { ok: true };
+  }
+
   _clearTimeout(resetUsed) {
     this.timeoutTeam = null;
     this.isTimeoutRunning = false;
     this.timeoutTimeLeft = TIMEOUT_DURATION_SECONDS;
     this._resumeAfterTimeout = { match: false, set: false };
+    this._timeoutHalf = null;
     if (resetUsed) this.timeoutsUsed = newTimeoutsUsed();
   }
 

@@ -389,6 +389,16 @@ function registerMatchHandlers(io, socket) {
     await logAction(io, socket, match.id, 'TIMEOUT_END');
   });
 
+  // Deshacer un tiempo muerto pedido sin querer: el equipo no pierde el suyo
+  on(CLIENT_EVENTS.MATCH_TIMEOUT_CANCEL, 'canControlClock', async ({ match }) => {
+    const engine = requireEngine(match);
+    if (!engine) return;
+    const team = engine.timeoutTeam;
+    const r = engine.cancelTimeout();
+    if (!r.ok) return emitError(socket, match.id, r.message);
+    await logAction(io, socket, match.id, 'TIMEOUT_CANCEL', { team });
+  });
+
   on(CLIENT_EVENTS.MATCH_FINISH_HALF, 'canControlClock', async ({ match }) => {
     const engine = requireEngine(match);
     if (!engine) return;

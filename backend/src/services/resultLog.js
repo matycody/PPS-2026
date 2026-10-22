@@ -93,6 +93,8 @@ function describeClockAction(action, detail) {
       return 'Cambió al ' + (d.half === 2 ? '2do' : '1er') + ' tiempo';
     case 'FINISH_HALF':
       return 'Finalizó el tiempo actual';
+    case 'TIMEOUT_CANCEL':
+      return 'Deshizo un tiempo muerto pedido por error';
     default:
       return action;
   }
