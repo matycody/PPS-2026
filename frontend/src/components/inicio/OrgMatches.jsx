@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
 import MatchCard from '../MatchCard'
 import { api } from '../../lib/api'
-import { normMatch } from '../../lib/format'
+import { normMatch, courtLabel } from '../../lib/format'
 
 const ACTIVE = ['LIVE', 'READY', 'SCHEDULED']
 const CAL_BACK = 90 // días hacia atrás que se pueden elegir en el selector de fecha
@@ -27,6 +27,7 @@ export default function OrgMatches({ byId, filter }) {
   const [open, setOpen] = useState(false) // desplegable de torneos
   const [dayPick, setDayPick] = useState(null) // fecha elegida (YYYY-MM-DD); null = próxima jornada
   const [dayOpen, setDayOpen] = useState(false) // desplegable de fechas
+  const [courtPick, setCourtPick] = useState('all') // pestaña Programados: 'all' | número de cancha | 'none' (sin cancha)
   const [cal, setCal] = useState(null) // partidos de todas las fechas (pasadas y futuras)
 
   useEffect(() => {
@@ -77,7 +78,13 @@ export default function OrgMatches({ byId, filter }) {
       else tournaments.push({ id, name: m.tournament?.name ?? 'Amistoso', n: 1 })
     })
     const cur = picked.filter((id) => tournaments.some((t) => t.id === id)) // ignora torneos que ya no están en la jornada
-    const shown = cur.length === 0 ? dayList : dayList.filter((m) => cur.includes(m.tournament?.id ?? 'none'))
+    const byTour = cur.length === 0 ? dayList : dayList.filter((m) => cur.includes(m.tournament?.id ?? 'none'))
+    // Programados: subdividido por cancha, como En vivo (las canchas no son fijas; salen de los partidos de la jornada)
+    const courtKey = (m) => (m.court ? m.court : 'none')
+    const courtKeys = sched ? [...new Set(byTour.map(courtKey))].sort((a, b) => (a === 'none') - (b === 'none') || a - b) : []
+    const courtCur = courtKeys.includes(courtPick) ? courtPick : 'all'
+    const shown = sched && courtCur !== 'all' ? byTour.filter((m) => courtKey(m) === courtCur) : byTour
+    const groups = sched && courtCur === 'all' && courtKeys.length > 1 ? courtKeys.map((k) => ({ k, list: byTour.filter((m) => courtKey(m) === k) })) : null
     const toggle = (id) => setPicked(cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id])
     const summary = cur.length === 0 ? 'Todos' : cur.length === 1 ? tournaments.find((t) => t.id === cur[0])?.name : cur.length + ' torneos'
     const chip = (on) => 'rounded-full border px-3 py-1.5 text-xs font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
@@ -137,7 +144,24 @@ export default function OrgMatches({ byId, filter }) {
             )}
           </div>
         )}
-        <div className="space-y-3">{shown.map((m) => <MatchCard key={m.id} m={m} />)}</div>
+        {sched && courtKeys.length > 1 && (
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setCourtPick('all')} className={chip(courtCur === 'all')}>Todas las canchas</button>
+            {courtKeys.map((k) => (
+              <button key={k} onClick={() => setCourtPick(k)} className={chip(courtCur === k)}>{courtLabel(k === 'none' ? 0 : k)}</button>
+            ))}
+          </div>
+        )}
+        {groups ? (
+          groups.map((g) => (
+            <div key={g.k} className="space-y-3">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-muted">{courtLabel(g.k === 'none' ? 0 : g.k)} · {g.list.length} {g.list.length === 1 ? 'partido' : 'partidos'}</h2>
+              {g.list.map((m) => <MatchCard key={m.id} m={m} />)}
+            </div>
+          ))
+        ) : (
+          <div className="space-y-3">{shown.map((m) => <MatchCard key={m.id} m={m} />)}</div>
+        )}
       </div>
     )
   }
