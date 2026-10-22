@@ -174,7 +174,9 @@ function registerMatchHandlers(io, socket) {
   }
 
   function requireEngine(match) {
-    const engine = getMatch(match.id);
+    let engine = getMatch(match.id);
+    // Partido Habilitado o En vivo sin reloj en memoria (el servidor se reinició): se recrea, pausado y en 20:00 / 3:00
+    if (!engine && (match.status === 'READY' || match.status === 'LIVE')) engine = getEngine(io, match);
     if (!engine) emitError(socket, match.id, 'El reloj de este partido todavía no fue iniciado');
     return engine;
   }
