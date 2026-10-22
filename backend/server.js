@@ -17,6 +17,8 @@ app.use(cors({
   origin: "*",
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
 }));
+// Compresión gzip (si el paquete está instalado)
+try { app.use(require("compression")()); } catch (e) { console.warn("[compression] no instalado: npm i compression"); }
 app.use(express.json());
 app.use(require("./src/lib/audit").auditWrites);
 app.use(require("./src/middleware/microCache").microCache); // caché de 5 s para GET públicos

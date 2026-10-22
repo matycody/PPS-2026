@@ -234,6 +234,9 @@ model Match {
   @@index([stageId])
   @@index([matchdayId])
   @@index([status])
+  @@index([scheduledAt])
+  @@index([teamAId])
+  @@index([teamBId])
 }
 
 // REFEREE -> profileId (puede no estar vinculado aÃºn)
@@ -255,6 +258,9 @@ model MatchAssignment {
   @@unique([matchId, profileId])
   @@unique([matchId, userId])
   @@unique([matchId, teamId])
+  @@index([userId])
+  @@index([profileId])
+  @@index([teamId])
 }
 
 // Provisorio: estructura exacta del resultado a definir con Rodri
