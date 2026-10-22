@@ -18,7 +18,8 @@ function dayLabel(day) {
   return (diff === 0 ? 'Hoy · ' : diff === 1 ? 'Mañana · ' : '') + base
 }
 
-// Inicio de la organización: "Todos" = todos los partidos de la próxima jornada;
+// Inicio: "Todos" = la jornada completa (programados, en vivo y finalizados juntos, cada uno con su estado);
+// "Programados" = solo los que todavía no se jugaron;
 // "En vivo" = partidos en curso y, por cancha, el que se juega y los que le siguen en esa cancha.
 export default function OrgMatches({ byId, filter }) {
   const [sel, setSel] = useState('live') // 'live' = partidos en curso | número de cancha
@@ -26,15 +27,15 @@ export default function OrgMatches({ byId, filter }) {
   const [open, setOpen] = useState(false) // desplegable de torneos
   const [dayPick, setDayPick] = useState(null) // fecha elegida (YYYY-MM-DD); null = próxima jornada
   const [dayOpen, setDayOpen] = useState(false) // desplegable de fechas
-  const [cal, setCal] = useState(null) // partidos de todas las fechas (pasadas y futuras), se carga al abrir el selector
+  const [cal, setCal] = useState(null) // partidos de todas las fechas (pasadas y futuras)
 
   useEffect(() => {
-    if (!dayOpen || cal) return
+    if ((filter !== 'all' && filter !== 'sched') || cal) return
     const iso = (d) => encodeURIComponent(new Date(Date.now() + d * 864e5).toISOString())
     api('GET', '/matches?status=LIVE,READY,SCHEDULED,SUSPENDED,FINISHED&limit=200&from=' + iso(-CAL_BACK) + '&to=' + iso(CAL_AHEAD))
       .then((r) => setCal(r.map(normMatch)))
       .catch(() => setCal([]))
-  }, [dayOpen, cal])
+  }, [filter, cal])
 
   const { day, list, live, courts } = useMemo(() => {
     const today = dayOf(new Date())
@@ -47,17 +48,27 @@ export default function OrgMatches({ byId, filter }) {
     return { day, list, live, courts }
   }, [byId])
 
-  if (filter === 'all') {
-    // Fechas disponibles (pasadas y futuras) con su cantidad de partidos; los datos en vivo pisan a los cargados
+  if (filter === 'all' || filter === 'sched') {
+    const sched = filter === 'sched'
+    const inTab = (m) => (sched ? ['SCHEDULED', 'READY'].includes(m.status) : m.status !== 'CANCELLED')
+    // Fechas disponibles (pasadas y futuras) con sus partidos; los datos en vivo pisan a los cargados
+    const merged = new Map()
+    ;(cal ?? []).forEach((m) => merged.set(m.id, byId[m.id] ?? m))
+    Object.values(byId).forEach((m) => merged.set(m.id, m))
     const calDays = {}
-    ;[...(cal ?? []).map((m) => byId[m.id] ?? m), ...Object.values(byId)].forEach((m) => {
+    merged.forEach((m) => {
       const d = dayOf(m.scheduledAt)
-      if (!d) return
+      if (!d || !inTab(m)) return
       ;(calDays[d] ??= new Map()).set(m.id, m)
     })
     const dayKeys = Object.keys(calDays).sort()
-    const curDay = dayPick ?? day
-    const dayList = !curDay ? [] : (dayPick && dayPick !== day ? [...(calDays[curDay]?.values() ?? [])].sort(byTime) : list)
+    const today = dayOf(new Date())
+    // Por defecto: Todos = hoy si hay partidos hoy (aunque ya terminaron), si no la próxima jornada; Programados = la próxima con pendientes
+    const auto = sched
+      ? dayKeys.find((d) => d >= today) ?? null
+      : dayKeys.includes(today) ? today : dayKeys.find((d) => d >= today) ?? dayKeys[dayKeys.length - 1] ?? null
+    const curDay = dayPick && dayKeys.includes(dayPick) ? dayPick : auto
+    const dayList = !curDay ? [] : [...calDays[curDay].values()].sort(byTime)
     const tournaments = []
     dayList.forEach((m) => {
       const id = m.tournament?.id ?? 'none'
@@ -79,7 +90,7 @@ export default function OrgMatches({ byId, filter }) {
             className="flex w-full items-center justify-between gap-2 rounded-2xl border border-line bg-surface px-4 py-2.5 text-left text-xs font-bold uppercase tracking-widest text-muted"
           >
             <span className="min-w-0">
-              {curDay ? 'Jornada · ' + dayLabel(curDay) + ' · ' + shown.length + (shown.length === 1 ? ' partido' : ' partidos') : 'Sin partidos programados'}
+              {curDay ? 'Jornada · ' + dayLabel(curDay) + ' · ' + shown.length + (shown.length === 1 ? ' partido' : ' partidos') : sched ? 'Sin partidos programados' : 'Sin partidos'}
             </span>
             <ChevronDown size={18} className={'shrink-0 transition-transform ' + (dayOpen ? 'rotate-180' : '')} />
           </button>

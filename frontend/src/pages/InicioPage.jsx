@@ -16,6 +16,7 @@ import { useMenuPrefs } from '../stores/menuPrefsStore'
 const FILTERS = [
   { id: 'all', label: 'Todos' },
   { id: 'live', label: 'En vivo' },
+  { id: 'sched', label: 'Programados' },
   { id: 'fin', label: 'Finalizados' },
 ]
 const ORDER = { LIVE: 0, READY: 1, SCHEDULED: 2 }
@@ -117,13 +118,13 @@ export default function InicioPage() {
         ))}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <button
             key={f.id}
             onClick={() => setFilter(f.id)}
             className={
-              'rounded-full border px-4 py-2 text-sm font-bold ' +
+              'rounded-full border px-3.5 py-2 text-sm font-bold ' +
               (filter === f.id ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
             }
           >
