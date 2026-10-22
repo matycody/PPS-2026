@@ -1,6 +1,7 @@
 const prisma = require('../db');
 const { SERVER_EVENTS } = require('../timers/timerEvents');
 const { getPermissions } = require('./matchAccess');
+const authCache = require('./authCache');
 
 const FEED_ROOM = 'matches:all';
 const matchRoom = (id) => 'match:' + id;
@@ -37,6 +38,7 @@ async function pushPermissions(io, m) {
 async function notifyMatch(io, matchId) {
   try {
     if (!io) return;
+    authCache.clearMatch(matchId);
     const m = await prisma.match.findUnique({
       where: { id: matchId },
       include: {

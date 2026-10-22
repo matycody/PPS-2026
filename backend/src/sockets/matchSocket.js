@@ -3,6 +3,7 @@
 const prisma = require('../db');
 const { getPermissions } = require('../services/matchAccess');
 const { notifyMatch, FEED_ROOM } = require('../services/notify');
+const authCache = require('../services/authCache');
 const { CLIENT_EVENTS, SERVER_EVENTS } = require('../timers/timerEvents');
 const { getOrCreateMatch, getMatch, pauseMatch, resumeMatch } = require('../timers/matchManager');
 
@@ -77,6 +78,13 @@ async function authorize(socket, matchId, need) {
   if (typeof matchId !== 'string' || !matchId || matchId.length > 64) {
     return { error: 'matchId inválido' };
   }
+  // Vencimiento del token: siempre se revisa (es gratis)
+  if (socket.data.user && socket.data.tokenExp && Date.now() / 1000 > socket.data.tokenExp) {
+    return { error: 'Sesión vencida: reconectá con un token nuevo' };
+  }
+  const cached = socket.data.user ? authCache.get(socket.data.user.id, matchId) : null;
+  if (cached && (!need || cached.perms[need])) return cached;
+
   const auth = await authUser(socket);
   if (auth.error) return auth;
 
@@ -90,7 +98,9 @@ async function authorize(socket, matchId, need) {
   if (need && !perms[need]) {
     return { error: 'Sin permiso sobre este partido (o el partido no está Habilitado)' };
   }
-  return { user: auth.user, match, perms };
+  const result = { user: auth.user, match, perms };
+  authCache.set(auth.user.id, matchId, result);
+  return result;
 }
 
 async function runGuarded(socket, need, payload, handler) {
