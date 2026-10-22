@@ -3,10 +3,12 @@
     "dev": "node server.js",
     "start": "node server.js",
     "seed": "node prisma/seed.js",
-    "smoke": "node scripts/smoke.js"
+    "smoke": "node scripts/smoke.js",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
