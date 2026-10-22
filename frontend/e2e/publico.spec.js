@@ -21,15 +21,18 @@ test.describe('Visitante', () => {
 
   test('liga: lista los torneos', async ({ page }) => {
     await page.goto('/liga')
-    await expect(page.getByText('Liga o copas')).toBeVisible()
+    // "Liga o copas" también está en el menú: se apunta al título de la página
+    await expect(page.getByRole('heading', { name: 'Liga o copas' })).toBeVisible()
+    await expect(page.getByText(/Cargando|No hay torneos|Año/).first()).toBeVisible()
   })
 
   test('equipos: se puede buscar un equipo', async ({ page }) => {
     await page.goto('/equipos')
-    const buscador = page.getByPlaceholder('Buscar equipo')
+    const buscador = page.locator('input[placeholder="Buscar equipo"]')
     await expect(buscador).toBeVisible()
+    await expect(page.getByText('Cargando…')).toHaveCount(0, { timeout: 30_000 }) // espera a que cargue la lista
     await buscador.fill('zzzz-no-existe')
-    await expect(page.getByText(/Equipos · 0|sin resultados|no hay/i).first()).toBeVisible()
+    await expect(page.getByText('No hay equipos que coincidan.')).toBeVisible()
   })
 
   test('buscar: el buscador general responde', async ({ page }) => {
