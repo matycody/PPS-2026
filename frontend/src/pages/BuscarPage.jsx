@@ -119,7 +119,7 @@ export default function BuscarPage() {
             ))}
           </Section>
 
-          <Section title="Jugadores" count={res.players.length}>{res.players.map((p) => <Person key={p.id} p={p} to={admin ? '/admin/personas' : '/jugador/' + p.id} />)}</Section>
+          <Section title="Jugadores" count={res.players.length}>{res.players.map((p) => <Person key={p.id} p={p} to={'/jugador/' + p.id} />)}</Section>
           <Section title="Árbitros" count={res.referees.length}>{res.referees.map((p) => <Person key={p.id} p={p} to={admin ? '/admin/personas' : null} />)}</Section>
 
           <Section title="Usuarios y roles" count={res.users.length}>
