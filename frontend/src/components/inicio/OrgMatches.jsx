@@ -1,9 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
 import MatchCard from '../MatchCard'
+import { api } from '../../lib/api'
+import { normMatch } from '../../lib/format'
 
 const ACTIVE = ['LIVE', 'READY', 'SCHEDULED']
+const CAL_BACK = 90 // días hacia atrás que se pueden elegir en el selector de fecha
+const CAL_AHEAD = 180 // y hacia adelante
 const dayOf = (iso) => (iso ? new Date(iso).toLocaleDateString('en-CA') : null)
 const byTime = (a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || (a.court || 999) - (b.court || 999)
 
@@ -20,6 +24,17 @@ export default function OrgMatches({ byId, filter }) {
   const [sel, setSel] = useState('live') // 'live' = partidos en curso | número de cancha
   const [picked, setPicked] = useState([]) // ids de torneos elegidos; vacío = todos (pestaña Todos)
   const [open, setOpen] = useState(false) // desplegable de torneos
+  const [dayPick, setDayPick] = useState(null) // fecha elegida (YYYY-MM-DD); null = próxima jornada
+  const [dayOpen, setDayOpen] = useState(false) // desplegable de fechas
+  const [cal, setCal] = useState(null) // partidos de todas las fechas (pasadas y futuras), se carga al abrir el selector
+
+  useEffect(() => {
+    if (!dayOpen || cal) return
+    const iso = (d) => encodeURIComponent(new Date(Date.now() + d * 864e5).toISOString())
+    api('GET', '/matches?status=LIVE,READY,SCHEDULED,SUSPENDED,FINISHED&limit=200&from=' + iso(-CAL_BACK) + '&to=' + iso(CAL_AHEAD))
+      .then((r) => setCal(r.map(normMatch)))
+      .catch(() => setCal([]))
+  }, [dayOpen, cal])
 
   const { day, list, live, courts } = useMemo(() => {
     const today = dayOf(new Date())
@@ -33,27 +48,62 @@ export default function OrgMatches({ byId, filter }) {
   }, [byId])
 
   if (filter === 'all') {
-    if (!day) return <p className="text-muted">No hay partidos programados.</p>
+    // Fechas disponibles (pasadas y futuras) con su cantidad de partidos; los datos en vivo pisan a los cargados
+    const calDays = {}
+    ;[...(cal ?? []).map((m) => byId[m.id] ?? m), ...Object.values(byId)].forEach((m) => {
+      const d = dayOf(m.scheduledAt)
+      if (!d) return
+      ;(calDays[d] ??= new Map()).set(m.id, m)
+    })
+    const dayKeys = Object.keys(calDays).sort()
+    const curDay = dayPick ?? day
+    const dayList = !curDay ? [] : (dayPick && dayPick !== day ? [...(calDays[curDay]?.values() ?? [])].sort(byTime) : list)
     const tournaments = []
-    list.forEach((m) => {
+    dayList.forEach((m) => {
       const id = m.tournament?.id ?? 'none'
       const t = tournaments.find((x) => x.id === id)
       if (t) t.n++
       else tournaments.push({ id, name: m.tournament?.name ?? 'Amistoso', n: 1 })
     })
     const cur = picked.filter((id) => tournaments.some((t) => t.id === id)) // ignora torneos que ya no están en la jornada
-    const shown = cur.length === 0 ? list : list.filter((m) => cur.includes(m.tournament?.id ?? 'none'))
+    const shown = cur.length === 0 ? dayList : dayList.filter((m) => cur.includes(m.tournament?.id ?? 'none'))
     const toggle = (id) => setPicked(cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id])
     const summary = cur.length === 0 ? 'Todos' : cur.length === 1 ? tournaments.find((t) => t.id === cur[0])?.name : cur.length + ' torneos'
     const chip = (on) => 'rounded-full border px-3 py-1.5 text-xs font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
     return (
       <div className="space-y-3">
-        <Link to="/liga" className="block rounded-2xl border border-line bg-surface py-3 text-center text-sm font-bold text-accent">
-          Ver calendario completo
-        </Link>
-        <h2 className="text-xs font-bold uppercase tracking-widest text-muted">
-          Jornada · {dayLabel(day)} · {shown.length} {shown.length === 1 ? 'partido' : 'partidos'}
-        </h2>
+        <div className="space-y-2">
+          <button
+            onClick={() => setDayOpen((v) => !v)}
+            aria-expanded={dayOpen}
+            className="flex w-full items-center justify-between gap-2 rounded-2xl border border-line bg-surface px-4 py-2.5 text-left text-xs font-bold uppercase tracking-widest text-muted"
+          >
+            <span className="min-w-0">
+              {curDay ? 'Jornada · ' + dayLabel(curDay) + ' · ' + shown.length + (shown.length === 1 ? ' partido' : ' partidos') : 'Sin partidos programados'}
+            </span>
+            <ChevronDown size={18} className={'shrink-0 transition-transform ' + (dayOpen ? 'rotate-180' : '')} />
+          </button>
+          {dayOpen && (
+            <div className="space-y-3 rounded-2xl border border-line bg-surface p-3">
+              <Link to="/liga" className="block rounded-xl border border-line bg-surface-2 py-2.5 text-center text-sm font-bold text-accent">
+                Ver calendario completo
+              </Link>
+              {cal === null && <p className="text-sm text-muted">Cargando fechas…</p>}
+              <div className="flex max-h-56 flex-wrap gap-2 overflow-y-auto">
+                {dayKeys.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => { setDayPick(d); setPicked([]); setDayOpen(false) }}
+                    aria-pressed={d === curDay}
+                    className={'rounded-full border px-3 py-1.5 text-xs font-bold ' + (d === curDay ? 'border-accent bg-accent text-black' : 'border-line bg-surface')}
+                  >
+                    {new Date(d + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: '2-digit' })} · {calDays[d].size}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
         {tournaments.length > 1 && (
           <div className="space-y-2">
             <button
@@ -66,7 +116,7 @@ export default function OrgMatches({ byId, filter }) {
             </button>
             {open && (
               <div className="flex flex-wrap gap-2 rounded-2xl border border-line bg-surface p-3">
-                <button onClick={() => setPicked([])} className={chip(cur.length === 0)}>Todos ({list.length})</button>
+                <button onClick={() => setPicked([])} className={chip(cur.length === 0)}>Todos ({dayList.length})</button>
                 {tournaments.map((t) => (
                   <button key={t.id} onClick={() => toggle(t.id)} aria-pressed={cur.includes(t.id)} className={chip(cur.includes(t.id))}>
                     {t.name} ({t.n})
