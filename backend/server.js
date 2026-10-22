@@ -39,6 +39,14 @@ app.get("/time", (req, res) => {
   res.json({ now: Date.now(), iso: new Date().toISOString() });
 });
 
+// Prueba de Sentry: solo existe si definís SENTRY_TEST_KEY en el entorno. Uso: /debug-sentry?key=<valor>
+app.get("/debug-sentry", (req, res) => {
+  if (!process.env.SENTRY_TEST_KEY || req.query.key !== process.env.SENTRY_TEST_KEY) {
+    return res.status(404).json({ error: "No encontrado" });
+  }
+  throw new Error("Prueba de Sentry (backend)");
+});
+
 app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Servidor backend PPS Dodgeball corriendo" });
 });
