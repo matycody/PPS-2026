@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { fmtWhen, courtLabel } from '../../lib/format'
 import TeamBadge from '../TeamBadge'
+import GoTo from '../GoTo'
 import StatusPill from '../StatusPill'
 import BracketCanvas from './BracketCanvas'
 
@@ -10,10 +11,15 @@ function Side({ team, from, sets, won, placeholder }) {
   // Hasta que termina la zona se muestra el lugar ("2° Zona A") y no el equipo
   const pending = !!from && !from.done
   const shown = pending ? null : team
-  return (
-    <div className={'flex flex-1 items-center gap-2 px-3 ' + (won ? 'font-extrabold' : '')}>
+  const who = (
+    <>
       {shown ? <TeamBadge team={shown} size="sm" /> : <span className="h-8 w-8 shrink-0 rounded-full border border-dashed border-line" />}
       <span className={'min-w-0 flex-1 truncate ' + (shown ? '' : pending ? 'text-sm font-bold' : 'text-sm italic text-muted')}>{shown ? shown.name : pending ? from.label : placeholder}</span>
+    </>
+  )
+  return (
+    <div className={'flex flex-1 items-center gap-2 px-3 ' + (won ? 'font-extrabold' : '')}>
+      {shown?.id ? <GoTo to={'/equipo/' + shown.id} className="flex min-w-0 flex-1 items-center gap-2">{who}</GoTo> : <div className="flex min-w-0 flex-1 items-center gap-2">{who}</div>}
       <span className="font-mono text-lg">{sets}</span>
     </div>
   )

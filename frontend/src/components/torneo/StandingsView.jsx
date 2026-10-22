@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
+import { Link } from 'react-router-dom'
 import TeamBadge from '../TeamBadge'
 
 const ZONE_CLS = {
@@ -59,10 +60,10 @@ export default function StandingsView({ tournamentId, finished }) {
                   <tr key={r.team.id} className={'border-t border-line text-center ' + (ZONE_CLS[r.zone] ?? 'border-l-4 border-l-transparent')}>
                     <td className="px-3 py-2 text-left font-bold">{i + 1}</td>
                     <td className="px-2 py-2 text-left">
-                      <span className="flex items-center gap-2">
+                      <Link to={'/equipo/' + r.team.id} className="flex items-center gap-2">
                         <TeamBadge team={r.team} size="sm" />
                         <span className="truncate font-semibold">{r.team.name}</span>
-                      </span>
+                      </Link>
                     </td>
                     <td className="px-2 py-2">{r.played}</td>
                     <td className="px-2 py-2">{r.won}</td>
