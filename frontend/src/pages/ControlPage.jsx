@@ -1,4 +1,5 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useLeaveGuard } from '../hooks/useLeaveGuard'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ChevronLeft, Play, Pause, RotateCcw, Minus, Plus, X } from 'lucide-react'
 import { api } from '../lib/api'
@@ -198,6 +199,10 @@ export default function ControlPage() {
   const soundAllowed = !!(perms?.isTable || perms?.isReferee)
   useMatchSound(id, soundAllowed) // solo mesa y arbitro
   useWakeLock(!!tick && (!tick.isMatchPaused || !tick.isSetPaused || !!tick.isTimeoutRunning))
+  // Quien opera el partido (árbitro, mesa u organizador) confirma antes de irse a otra pantalla
+  const operating = !!(perms && (perms.isTable || perms.isReferee || perms.canControlClock)) && !['FINISHED', 'CANCELLED'].includes(m?.status)
+  const roleText = perms?.isReferee && perms?.isTable ? 'árbitro y mesa' : perms?.isReferee ? 'árbitro' : perms?.isTable ? 'mesa' : 'organizador'
+  const { modal: leaveModal, ask: askLeave } = useLeaveGuard(operating, roleText)
 
   const send = (event, extra = {}) => socket.emit(event, { matchId: id, ...extra })
   const pushNotice = (t) => setNotices((n) => [...n, { k: Date.now() + Math.random(), t }])
@@ -278,7 +283,8 @@ export default function ControlPage() {
 
   return (
     <div className="space-y-4">
-      <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
+      {leaveModal}
+      <button onClick={() => askLeave(() => navigate(-1))} className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
         <ChevronLeft size={16} /> Volver
       </button>
 
