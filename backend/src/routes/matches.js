@@ -3,6 +3,7 @@ const prisma = require('../db');
 const { authenticate, optionalAuth, requireRole } = require('../middleware/auth');
 const { getPermissions } = require('../services/matchAccess');
 const { notifyMatch } = require('../services/notify');
+const { getMatch } = require('../timers/matchManager');
 const { editorLabel, setResultLabel, buildLogData, logEntry, describeClockAction } = require('../services/resultLog');
 
 const router = express.Router();
@@ -779,6 +780,10 @@ router.post('/:id/sets', authenticate, async (req, res) => {
       prisma.matchSet.create({ data: { matchId: match.id, number, winnerTeamId } }),
       logCreate,
     ]);
+    // Al cargar el ganador del set, el reloj de set vuelve a 3:00 y queda en pausa
+    // hasta que el árbitro o la mesa inicie el set siguiente (no toca el reloj del partido)
+    const engine = getMatch(match.id);
+    if (engine) engine.reset('set');
     await notifyMatch(req.app.get('io'), req.params.id);
     res.status(201).json(set);
   } catch (err) {
