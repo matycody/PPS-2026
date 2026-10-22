@@ -218,6 +218,18 @@ function registerMatchHandlers(io, socket) {
         return emitError(socket, matchId, 'Demasiadas suscripciones');
       }
 
+      // Mesa por buena fe: no se bloquea a nadie, pero se avisa si ya hay otra persona operando como mesa
+      let otherTables = [];
+      if (perms.isTable && !perms.isReferee && !perms.isAdmin) {
+        const peers = await io.in(controlRoom(match.id)).fetchSockets();
+        otherTables = peers
+          .filter((x) => x.id !== socket.id && x.data.user && x.data.user.id !== ctx.user.id && x.data.tableIn && x.data.tableIn.has(match.id))
+          .map((x) => x.data.displayName || 'otra persona');
+        socket.data.tableIn = socket.data.tableIn || new Set();
+        socket.data.tableIn.add(match.id);
+      }
+      socket.emit('match:tableOthers', { matchId: match.id, names: [...new Set(otherTables)] });
+
       socket.join(publicRoom(match.id));
       socket.join(controlRoom(match.id));
 
@@ -245,6 +257,7 @@ function registerMatchHandlers(io, socket) {
   socket.on(CLIENT_EVENTS.MATCH_CONTROL_LEAVE, (payload) => {
     const matchId = payload && payload.matchId;
     if (typeof matchId === 'string') socket.leave(controlRoom(matchId));
+    if (typeof matchId === 'string' && socket.data.tableIn) socket.data.tableIn.delete(matchId);
   });
 
   // ── Comandos del reloj: árbitros asignados y mesa, con el partido Habilitado o En vivo ──
