@@ -30,10 +30,8 @@ export default function AppLayout() {
           <Menu size={20} />
         </button>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-xl font-extrabold leading-tight">Dodgeball</p>
-            <ServerClock />
-          </div>
+          <p className="text-xl font-extrabold leading-tight">Dodgeball</p>
+          <div className="leading-none"><ServerClock /></div>
         </div>
         {user ? (
           <Link to="/perfil" className="shrink-0"><UserAvatar /></Link>
