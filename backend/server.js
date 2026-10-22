@@ -19,11 +19,13 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(require("./src/lib/audit").auditWrites);
+app.use(require("./src/middleware/microCache").microCache); // caché de 5 s para GET públicos
 
 // Anti-abuso: límite de requests por IP
 app.use(rateLimit({
   windowMs: 60 * 1000,
-  limit: 300,
+  limit: 1000, // varias personas comparten WiFi/datos en la cancha
+  skip: (req) => req.path === '/health' || req.path === '/time',
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Demasiadas solicitudes, probá en un minuto" },
