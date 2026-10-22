@@ -18,6 +18,9 @@ if (import.meta.env.VITE_SENTRY_DSN) {
   })
 }
 
+// Prueba: en la consola del navegador ejecutar  __sentryTest()
+window.__sentryTest = () => Sentry.captureException(new Error('Prueba de Sentry (frontend)'))
+
 useThemeStore.getState().initTheme()
 
 createRoot(document.getElementById('root')).render(
