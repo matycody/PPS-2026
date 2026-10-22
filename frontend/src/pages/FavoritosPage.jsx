@@ -40,7 +40,7 @@ export default function FavoritosPage() {
             {f.targetType === 'TEAM' ? (
               <Link to={'/equipo/' + f.targetId} className="flex-1 truncate font-bold">{f.name}</Link>
             ) : (
-              <PersonName p={f} className="flex-1 truncate font-bold" />
+              <Link to={'/jugador/' + f.targetId} className="flex-1 truncate font-bold"><PersonName p={f} /></Link>
             )}
             <span className="text-[11px] font-bold uppercase text-muted">{f.targetType === 'TEAM' ? 'Equipo' : 'Jugador'}</span>
             <button
