@@ -305,6 +305,7 @@ export default function ControlPage() {
           a={a}
           b={b}
           size="lg"
+          noLink
           center={
             <span className="font-mono text-4xl font-extrabold tabular-nums text-live">
               {m.score?.teamA ?? 0} <span className="text-lg text-muted">-</span> {m.score?.teamB ?? 0}
