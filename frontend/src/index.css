@@ -86,8 +86,24 @@ html:not(.dark) header.menu-glass {
   padding: 0.3rem 0.8rem;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: var(--surface);
   text-shadow: none;
+}
+
+/* Pestañas, filtros, checkboxes y textos sueltos sobre la imagen: recuadro sólido, nada transparente */
+button.rounded-full.border:not([class*="bg-"]):not(.bg-surface *):not(.menu-glass *):not(.menu-glass-drawer *),
+label:has(> input[type="checkbox"]):not(.bg-surface *),
+p.text-muted:not(.bg-surface *) {
+  background: var(--surface);
+  text-shadow: none !important;
+}
+label:has(> input[type="checkbox"]):not(.bg-surface *),
+p.text-muted:not(.bg-surface *) {
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
 }
 
 /* Oscuro: mismo criterio que el claro (fondo completo, header flotante, barras y menú sólidos) */
