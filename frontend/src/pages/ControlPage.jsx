@@ -16,7 +16,7 @@ const ACTIONS = {
   START: 'Iniciado', PAUSE: 'Pausado', RESUME: 'Reanudado', RESET: 'Reiniciado',
   ADJUST: 'Tiempo ajustado', SET_TIME: 'Tiempo fijado', SET_MODALITY: 'Modalidad cambiada',
   SET_HALF: 'Tiempo cambiado', FINISH_HALF: 'Tiempo finalizado',
-  TIMEOUT_START: 'Tiempo muerto pedido', TIMEOUT_END: 'Tiempo muerto terminado',
+  TIMEOUT_START: 'Tiempo muerto pedido', TIMEOUT_END: 'Tiempo muerto terminado', TIMEOUT_CANCEL: 'Tiempo muerto deshecho',
 }
 
 // El backend manda "1:48"; se muestra "01:48"
@@ -179,6 +179,11 @@ function TimeoutCard({ tick, can, half, send, nameA, nameB }) {
           <Btn tone={expired ? 'live' : 'base'} disabled={!can} onClick={() => send('match:timeout:end')} className="w-full">
             {expired ? 'Reanudar' : 'Terminar tiempo y reanudar'}
           </Btn>
+          {!expired && (
+            <Btn disabled={!can} onClick={() => send('match:timeout:cancel')} className="w-full">
+              Deshacer (lo pedí sin querer)
+            </Btn>
+          )}
         </>
       )}
     </div>
