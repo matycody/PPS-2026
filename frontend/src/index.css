@@ -63,7 +63,7 @@ body::before {
 
 /* Claro: fondo completo, sin capa blanca. Los textos que van sobre la imagen llevan un halo blanco para leerse */
 html:not(.dark) body::before {
-  background-image: url('/fondo.jpg');
+  background-image: url('/fondo-claro.svg');
 }
 html:not(.dark) :is(h1, h2, h3, .text-muted) {
   text-shadow: 0 0 6px rgba(255, 255, 255, 0.95), 0 0 2px rgba(255, 255, 255, 0.95);
@@ -108,7 +108,7 @@ p.text-muted:not(.bg-surface *) {
 
 /* Oscuro: mismo criterio que el claro (fondo completo, header flotante, barras y menú sólidos) */
 html.dark body::before {
-  background-image: url('/fondo.jpg');
+  background-image: url('/fondo-oscuro.svg');
 }
 html.dark :is(h1, h2, h3, .text-muted) {
   text-shadow: 0 0 3px #000, 0 0 6px #000, 0 1px 10px rgba(0, 0, 0, 0.95);
