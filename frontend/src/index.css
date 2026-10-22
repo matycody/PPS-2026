@@ -144,3 +144,16 @@ html:not(.dark) .menu-glass-drawer {
   -webkit-backdrop-filter: blur(var(--menu-blur, 12px));
   backdrop-filter: blur(var(--menu-blur, 12px));
 }
+
+/* Autocompletado del navegador (mail/contraseña): mantiene el color del tema en vez del azul claro */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--bg) inset;
+  box-shadow: 0 0 0 1000px var(--bg) inset;
+  -webkit-text-fill-color: var(--fg);
+  caret-color: var(--fg);
+  transition: background-color 9999s ease-in-out 0s;
+}
