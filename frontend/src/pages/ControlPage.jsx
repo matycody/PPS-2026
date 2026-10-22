@@ -284,7 +284,7 @@ export default function ControlPage() {
   return (
     <div className="space-y-4">
       {leaveModal}
-      <button onClick={() => askLeave(() => navigate(-1))} className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
+      <button onClick={() => askLeave({ back: true })} className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
         <ChevronLeft size={16} /> Volver
       </button>
 
