@@ -2,7 +2,7 @@
 export const STATUS_BORDER = {
   SCHEDULED: 'border-yellow-500/40',
   FINISHED: 'border-emerald-500/60',
-  READY: 'border-live/40',
+  READY: 'border-sky-500/50',
   CANCELLED: 'border-danger/40',
   SUSPENDED: 'border-orange-500/40',
 }
