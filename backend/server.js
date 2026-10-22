@@ -1,5 +1,6 @@
 // backend/server.js
 
+require("./instrument"); // Sentry (opcional)
 require("dotenv").config();
 const express = require("express");
 const http = require("http");
@@ -62,6 +63,11 @@ app.use('/player-requests', require('./src/routes/playerRequests'))
 app.use("/favorites", require("./src/routes/favorites"));
 app.use("/me", require("./src/routes/account"));
 app.use("/photos", require("./src/routes/photos"));
+
+// Errores no controlados de Express -> Sentry (si está activo)
+if (process.env.SENTRY_DSN) {
+  try { require("@sentry/node").setupExpressErrorHandler(app); } catch (e) { /* sin sdk */ }
+}
 
 const server = http.createServer(app);
 

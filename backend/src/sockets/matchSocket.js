@@ -111,6 +111,7 @@ async function runGuarded(socket, need, payload, handler) {
     await handler(ctx);
   } catch (err) {
     console.error('[socket]', err);
+    try { if (process.env.SENTRY_DSN) require('@sentry/node').captureException(err); } catch (e) { /* sin sdk */ }
     emitError(socket, matchId, 'Error interno');
   }
 }
