@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Trophy } from 'lucide-react'
 import { api } from '../../lib/api'
-import { BRANCH, MODALITY, FORMAT, TSTATUS } from '../../lib/format'
+import { BRANCH, MODALITY, FORMAT, TSTATUS, normMatch } from '../../lib/format'
 import MatchCard from '../MatchCard'
 
 const fecha = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' }) : 'Sin día')
@@ -56,10 +56,60 @@ function Torneo({ t, onBack }) {
   )
 }
 
+const HIST_DAYS = 365 // cuánto hacia atrás se buscan partidos terminados por jornada
+const dayKey = (iso) => (iso ? new Date(iso).toLocaleDateString('en-CA') : 'none')
+const dayTitle = (k) =>
+  k === 'none' ? 'Sin fecha' : new Date(k + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
+// Partidos terminados agrupados por jornada (día), de todos los torneos y modalidades juntos
+function PorJornada() {
+  const [list, setList] = useState(null)
+  const [err, setErr] = useState('')
+  const [open, setOpen] = useState(null) // días abiertos; por defecto el más reciente
+
+  useEffect(() => {
+    const from = encodeURIComponent(new Date(Date.now() - HIST_DAYS * 864e5).toISOString())
+    api('GET', '/matches?status=FINISHED&limit=200&from=' + from)
+      .then((r) => setList(r.map(normMatch)))
+      .catch((e) => setErr(e.message))
+  }, [])
+
+  const days = {}
+  ;(list ?? []).forEach((m) => { (days[dayKey(m.scheduledAt)] ??= []).push(m) })
+  const keys = Object.keys(days).sort((a, b) => (a === 'none') - (b === 'none') || b.localeCompare(a))
+  const isOpen = (k) => (open ? open.includes(k) : k === keys[0])
+  const toggle = (k) => setOpen((o) => { const cur = o ?? [keys[0]]; return cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k] })
+
+  return (
+    <div className="space-y-3">
+      {err && <p className="text-danger">{err}</p>}
+      {list === null && !err && <p className="text-muted">Cargando…</p>}
+      {list && keys.length === 0 && <p className="text-muted">Todavía no hay partidos terminados.</p>}
+      {keys.map((k) => {
+        const ms = days[k].sort((a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || (a.court || 999) - (b.court || 999))
+        return (
+          <div key={k} className="space-y-3">
+            <button
+              onClick={() => toggle(k)}
+              aria-expanded={isOpen(k)}
+              className="flex w-full items-center justify-between gap-2 rounded-2xl border border-line bg-surface px-4 py-2.5 text-left text-xs font-bold uppercase tracking-widest text-muted"
+            >
+              <span className="min-w-0">{dayTitle(k)} · {ms.length} {ms.length === 1 ? 'partido' : 'partidos'}</span>
+              <ChevronDown size={18} className={'shrink-0 transition-transform ' + (isOpen(k) ? 'rotate-180' : '')} />
+            </button>
+            {isOpen(k) && ms.map((m) => <MatchCard key={m.id} m={m} />)}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // Pestaña "Finalizados": torneos del semestre y, adentro, sus jornadas con resultados
 export default function Finalizados() {
   const [list, setList] = useState(null)
   const [sel, setSel] = useState(null)
+  const [view, setView] = useState('torneo') // 'torneo' | 'jornada'
   const [err, setErr] = useState('')
 
   useEffect(() => {
@@ -70,8 +120,16 @@ export default function Finalizados() {
   const visible = (list ?? []).filter((t) => t.status !== 'DRAFT').sort((a, b) => b.year - a.year)
   const years = [...new Set(visible.map((t) => t.year))]
 
+  const chip = (on) => 'rounded-full border px-3 py-1.5 text-xs font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
+
   return (
     <div className="space-y-4">
+      <div className="flex gap-2">
+        <button onClick={() => setView('torneo')} className={chip(view === 'torneo')}>Por torneo</button>
+        <button onClick={() => setView('jornada')} className={chip(view === 'jornada')}>Por jornada</button>
+      </div>
+      {view === 'jornada' && <PorJornada />}
+      {view === 'torneo' && <>
       {err && <p className="text-danger">{err}</p>}
       {list === null && !err && <p className="text-muted">Cargando…</p>}
       {list && visible.length === 0 && <p className="text-muted">No hay torneos para mostrar.</p>}
@@ -90,6 +148,7 @@ export default function Finalizados() {
           ))}
         </div>
       ))}
+      </>}
     </div>
   )
 }
