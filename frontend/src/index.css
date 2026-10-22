@@ -157,3 +157,17 @@ select:-webkit-autofill {
   caret-color: var(--fg);
   transition: background-color 9999s ease-in-out 0s;
 }
+
+/* Avisos (tiempo muerto, errores, advertencias): fondo sólido con el tono del aviso, sin transparencia sobre la imagen de fondo */
+.box-warn {
+  background: color-mix(in srgb, var(--surface) 84%, var(--color-warn));
+  border-color: color-mix(in srgb, var(--color-warn) 60%, transparent);
+}
+.box-danger {
+  background: color-mix(in srgb, var(--surface) 84%, var(--color-danger));
+  border-color: color-mix(in srgb, var(--color-danger) 60%, transparent);
+}
+.box-live {
+  background: color-mix(in srgb, var(--surface) 84%, var(--color-live));
+  border-color: color-mix(in srgb, var(--color-live) 60%, transparent);
+}

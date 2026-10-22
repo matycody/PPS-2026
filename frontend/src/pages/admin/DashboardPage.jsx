@@ -75,7 +75,7 @@ function CourtMatch({ m, tick, full, run, busy }) {
 
       {open && !confirm && <Btn tone="danger" className="w-full" disabled={busy} onClick={() => setConfirm(true)}>Finalizar partido</Btn>}
       {open && confirm && (
-        <div className="space-y-2 rounded-2xl border border-danger/40 bg-danger/10 p-3">
+        <div className="space-y-2 rounded-2xl border box-danger p-3">
           <p className="text-sm font-bold text-danger">¿Finalizar el partido? Cierra el resultado.</p>
           <div className="grid grid-cols-2 gap-2">
             <Btn onClick={() => setConfirm(false)}>Volver</Btn>

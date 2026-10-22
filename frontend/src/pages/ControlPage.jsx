@@ -290,12 +290,12 @@ export default function ControlPage() {
       <MiniBoard a={a} b={b} score={m.score} tick={tick} can={can} send={send} live={live} />
       {soundAllowed && <SoundToggle />}
       {err && (
-        <button onClick={() => setErr('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-left text-sm font-bold text-danger">
+        <button onClick={() => setErr('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border box-danger px-4 py-3 text-left text-sm font-bold text-danger">
           {err} <X size={16} className="shrink-0" />
         </button>
       )}
       {notices.map((n) => (
-        <button key={n.k} onClick={() => setNotices((l) => l.filter((x) => x.k !== n.k))} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-warn/40 bg-warn/10 px-4 py-3 text-left text-sm font-bold text-warn">
+        <button key={n.k} onClick={() => setNotices((l) => l.filter((x) => x.k !== n.k))} className="flex w-full items-center justify-between gap-3 rounded-2xl border box-warn px-4 py-3 text-left text-sm font-bold text-warn">
           {n.t} <X size={16} className="shrink-0" />
         </button>
       ))}
@@ -417,7 +417,7 @@ export default function ControlPage() {
             <Btn tone="danger" className="w-full" onClick={() => setConfirmFinish(true)}>Finalizar partido</Btn>
           )}
           {perms.canFinish && confirmFinish && (
-            <div className="space-y-2 rounded-2xl border border-danger/40 bg-danger/10 p-3">
+            <div className="space-y-2 rounded-2xl border box-danger p-3">
               <p className="text-sm font-bold text-danger">¿Finalizar el partido? Esta acción cierra el resultado.</p>
               <div className="grid grid-cols-2 gap-2">
                 <Btn onClick={() => setConfirmFinish(false)}>Cancelar</Btn>

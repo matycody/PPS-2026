@@ -20,7 +20,7 @@ export function noticeOf(m) {
 }
 
 const TEXT = { warn: 'text-warn', danger: 'text-danger' }
-const BOX = { warn: 'border-warn/40 bg-warn/10', danger: 'border-danger/40 bg-danger/10' }
+const BOX = { warn: 'box-warn', danger: 'box-danger' }
 
 export default function MatchNotice({ m, compact = false, className = '' }) {
   const n = noticeOf(m)

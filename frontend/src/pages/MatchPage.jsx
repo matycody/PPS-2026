@@ -29,7 +29,7 @@ function TimeoutBanner({ tick, nameA, nameB }) {
   if (!team) return null
   const expired = !tick.isTimeoutRunning
   return (
-    <div className="rounded-3xl border border-warn/40 bg-warn/10 p-5 text-center">
+    <div className="rounded-3xl border box-warn p-5 text-center">
       <p className="text-xs font-bold uppercase tracking-widest text-warn">Tiempo muerto - {team === 'A' ? nameA : nameB}</p>
       <p className={'my-3 font-mono text-[clamp(2rem,10vw,3.5rem)] font-extrabold tabular-nums ' + (expired ? 'text-danger' : 'text-warn')}>
         {showTime(tick.timeoutTime)}
@@ -94,7 +94,7 @@ export default function MatchPage() {
 
 
       {notice && (
-        <button onClick={() => setNotice('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-warn/40 bg-warn/10 px-4 py-3 text-left text-sm font-bold text-warn">
+        <button onClick={() => setNotice('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border box-warn px-4 py-3 text-left text-sm font-bold text-warn">
           {notice} <X size={16} className="shrink-0" />
         </button>
       )}

@@ -256,7 +256,7 @@ export default function OfflinePage() {
       </button>
 
       {notices.map((n) => (
-        <button key={n.k} onClick={() => setNotices((l) => l.filter((x) => x.k !== n.k))} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-warn/40 bg-warn/10 px-4 py-3 text-left text-sm font-bold text-warn">
+        <button key={n.k} onClick={() => setNotices((l) => l.filter((x) => x.k !== n.k))} className="flex w-full items-center justify-between gap-3 rounded-2xl border box-warn px-4 py-3 text-left text-sm font-bold text-warn">
           {n.t} <X size={16} className="shrink-0" />
         </button>
       ))}
