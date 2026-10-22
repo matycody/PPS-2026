@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ChevronDown } from 'lucide-react'
 import MatchCard from '../MatchCard'
 
 const ACTIVE = ['LIVE', 'READY', 'SCHEDULED']
@@ -17,7 +18,8 @@ function dayLabel(day) {
 // "En vivo" = partidos en curso y, por cancha, el que se juega y los que le siguen en esa cancha.
 export default function OrgMatches({ byId, filter }) {
   const [sel, setSel] = useState('live') // 'live' = partidos en curso | número de cancha
-  const [torneo, setTorneo] = useState('all') // 'all' | id de torneo (pestaña Todos)
+  const [picked, setPicked] = useState([]) // ids de torneos elegidos; vacío = todos (pestaña Todos)
+  const [open, setOpen] = useState(false) // desplegable de torneos
 
   const { day, list, live, courts } = useMemo(() => {
     const today = dayOf(new Date())
@@ -39,8 +41,11 @@ export default function OrgMatches({ byId, filter }) {
       if (t) t.n++
       else tournaments.push({ id, name: m.tournament?.name ?? 'Amistoso', n: 1 })
     })
-    const cur = tournaments.some((t) => t.id === torneo) ? torneo : 'all'
-    const shown = cur === 'all' ? list : list.filter((m) => (m.tournament?.id ?? 'none') === cur)
+    const cur = picked.filter((id) => tournaments.some((t) => t.id === id)) // ignora torneos que ya no están en la jornada
+    const shown = cur.length === 0 ? list : list.filter((m) => cur.includes(m.tournament?.id ?? 'none'))
+    const toggle = (id) => setPicked(cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id])
+    const summary = cur.length === 0 ? 'Todos' : cur.length === 1 ? tournaments.find((t) => t.id === cur[0])?.name : cur.length + ' torneos'
+    const chip = (on) => 'rounded-full border px-3 py-1.5 text-xs font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
     return (
       <div className="space-y-3">
         <Link to="/liga" className="block rounded-2xl border border-line bg-surface py-3 text-center text-sm font-bold text-accent">
@@ -50,16 +55,25 @@ export default function OrgMatches({ byId, filter }) {
           Jornada · {dayLabel(day)} · {shown.length} {shown.length === 1 ? 'partido' : 'partidos'}
         </h2>
         {tournaments.length > 1 && (
-          <div className="flex flex-wrap gap-2">
-            {[{ id: 'all', name: 'Todos', n: list.length }, ...tournaments].map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTorneo(t.id)}
-                className={'rounded-full border px-3 py-1.5 text-xs font-bold ' + (cur === t.id ? 'border-accent bg-accent text-black' : 'border-line bg-surface')}
-              >
-                {t.name} ({t.n})
-              </button>
-            ))}
+          <div className="space-y-2">
+            <button
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+              className="flex w-full items-center justify-between gap-2 rounded-2xl border border-line bg-surface px-4 py-2.5 text-sm font-bold"
+            >
+              <span className="min-w-0 truncate">Torneos: <span className="text-accent">{summary}</span></span>
+              <ChevronDown size={18} className={'shrink-0 text-muted transition-transform ' + (open ? 'rotate-180' : '')} />
+            </button>
+            {open && (
+              <div className="flex flex-wrap gap-2 rounded-2xl border border-line bg-surface p-3">
+                <button onClick={() => setPicked([])} className={chip(cur.length === 0)}>Todos ({list.length})</button>
+                {tournaments.map((t) => (
+                  <button key={t.id} onClick={() => toggle(t.id)} aria-pressed={cur.includes(t.id)} className={chip(cur.includes(t.id))}>
+                    {t.name} ({t.n})
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
         <div className="space-y-3">{shown.map((m) => <MatchCard key={m.id} m={m} />)}</div>
