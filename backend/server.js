@@ -42,6 +42,7 @@ app.get("/health", (req, res) => {
 app.use("/me", require("./src/routes/me"));
 app.use("/profiles", require("./src/routes/profiles"));
 app.use("/teams", require("./src/routes/teams"));
+app.use("/players", require("./src/routes/players"));
 app.use("/tournaments", require("./src/routes/tournaments"));
 app.use("/tournaments", require("./src/routes/fixture"));
 app.use("/tournaments", require("./src/routes/standings"));

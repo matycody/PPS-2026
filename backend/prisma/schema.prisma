@@ -79,6 +79,12 @@ model Profile {
   nickname  String?       @db.VarChar(30) // apodo, opcional (máx. 30 caracteres)
   number    Int? // número de camiseta, opcional (0 a 999; CHECK en la migración)
   photo     String?
+  birthDate DateTime?     @db.Date // solo se muestra la edad y solo si showAge
+  // Qué datos son públicos en el banner del jugador
+  showNickname Boolean   @default(true)
+  showNumber   Boolean   @default(true)
+  showAge      Boolean   @default(false)
+  showPhoto    Boolean   @default(false)
   isPlayer  Boolean       @default(false)
   isReferee Boolean       @default(false)
   active    Boolean       @default(true)
@@ -96,6 +102,10 @@ model Team {
   id   String  @id @default(uuid())
   name String
   logo String?
+
+  nickname    String? @db.VarChar(40) // apodo del equipo (banner público)
+  city        String? @db.VarChar(60)
+  foundedYear Int?
 
   branches           TeamBranch[]
   modalities         TeamModality[]

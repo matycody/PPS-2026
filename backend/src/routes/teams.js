@@ -88,7 +88,7 @@ router.get('/:id', async (req, res) => {
         modalities: true,
         players: {
           where: { to: null, profile: { active: true } },
-          include: { profile: { select: { id: true, name: true, nickname: true, number: true } } },
+          include: { profile: { select: { id: true, name: true, nickname: true, number: true, showNickname: true, showNumber: true } } },
         },
       },
     });
@@ -98,13 +98,16 @@ router.get('/:id', async (req, res) => {
       id: team.id,
       name: team.name,
       logo: team.logo,
+      nickname: team.nickname,
+      city: team.city,
+      foundedYear: team.foundedYear,
       branches: team.branches.map((b) => b.branch),
       modalities: team.modalities.map((m) => m.modality),
       roster: team.players.map((p) => ({
         profileId: p.profile.id,
         name: p.profile.name,
-        nickname: p.profile.nickname,
-        number: p.profile.number,
+        nickname: p.profile.showNickname ? p.profile.nickname : null,
+        number: p.profile.showNumber ? p.profile.number : null,
         branch: p.branch,
         coach: p.isCoach,
       })),
@@ -129,6 +132,21 @@ router.patch('/:id', ...admin, async (req, res) => {
       data.name = String(req.body.name).trim();
     }
     if (req.body.logo !== undefined) data.logo = req.body.logo || null;
+
+    // Datos del banner público del equipo
+    for (const [key, max] of [['nickname', 40], ['city', 60]]) {
+      if (req.body[key] === undefined) continue;
+      const v = req.body[key] === null ? '' : String(req.body[key]).trim();
+      if (Array.from(v).length > max) return res.status(400).json({ error: key + ' no puede tener más de ' + max + ' caracteres' });
+      data[key] = v === '' ? null : v;
+    }
+    if (req.body.foundedYear !== undefined) {
+      const y = req.body.foundedYear;
+      if (y === null || y === '') data.foundedYear = null;
+      else if (!Number.isInteger(Number(y)) || Number(y) < 1900 || Number(y) > new Date().getFullYear()) {
+        return res.status(400).json({ error: 'Año de fundación inválido' });
+      } else data.foundedYear = Number(y);
+    }
 
     const ops = [];
     if (req.body.branches !== undefined) {

@@ -57,6 +57,11 @@ async function loadProfile(profileId) {
       name: p.name,
       nickname: p.nickname,
       number: p.number,
+      birthDate: p.birthDate ? p.birthDate.toISOString().slice(0, 10) : null,
+      showNickname: p.showNickname,
+      showNumber: p.showNumber,
+      showAge: p.showAge,
+      showPhoto: p.showPhoto,
       sex: p.sex,
       isPlayer: p.isPlayer,
       isReferee: p.isReferee,
@@ -175,7 +180,7 @@ router.get('/profile', authenticate, async (req, res) => {
   }
 });
 
-// Edita SOLO el apodo y el número de camiseta. Todo opcional; null borra el valor.
+// Edita apodo, número, fecha de nacimiento y qué datos son públicos. Todo opcional; null borra el valor.
 router.patch('/profile', authenticate, async (req, res) => {
   try {
     const profileId = req.user.profileId;
@@ -215,6 +220,27 @@ router.patch('/profile', authenticate, async (req, res) => {
         errors.push('El número de camiseta debe ser un entero de ' + NUMBER_MIN + ' a ' + NUMBER_MAX);
       } else {
         data.number = body.number;
+      }
+    }
+
+    // Qué datos son públicos en mi banner de jugador
+    for (const key of ['showNickname', 'showNumber', 'showAge', 'showPhoto']) {
+      if (!has(key)) continue;
+      if (typeof body[key] !== 'boolean') errors.push(key + ' debe ser true o false');
+      else data[key] = body[key];
+    }
+
+    // Fecha de nacimiento (YYYY-MM-DD); solo se muestra la edad y solo si showAge
+    if (has('birthDate')) {
+      if (body.birthDate === null || body.birthDate === '') {
+        data.birthDate = null;
+      } else if (typeof body.birthDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.birthDate)) {
+        errors.push('La fecha de nacimiento debe tener formato AAAA-MM-DD');
+      } else {
+        const d = new Date(body.birthDate + 'T00:00:00Z');
+        const year = d.getUTCFullYear();
+        if (Number.isNaN(d.getTime()) || d > new Date() || year < 1920) errors.push('Fecha de nacimiento inválida');
+        else data.birthDate = d;
       }
     }
 
