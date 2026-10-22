@@ -3,7 +3,7 @@ import { ChevronUp, ChevronDown, SlidersHorizontal } from 'lucide-react'
 import { ThemeToggle } from './ThemeToggle'
 import ColorPicker from './ColorPicker'
 import { useAuthStore } from '../stores/authStore'
-import { ITEMS, SECTIONS, GENERAL, BOTTOM_PRIORITY, roleLabel } from '../lib/navConfig'
+import { ITEMS, SECTIONS, GENERAL, generalFor, BOTTOM_PRIORITY, roleLabel } from '../lib/navConfig'
 import { useMenuPrefs, sortKeys, availableCards } from '../stores/menuPrefsStore'
 
 const meta = (k) => ITEMS[k] ?? GENERAL.find((g) => g.to === k)
@@ -67,7 +67,7 @@ function MenuPrefsBody() {
   // Menú lateral: se reordena solo dentro de cada sección, nunca se oculta
   const sections = [
     ...SECTIONS.map((s) => ({ title: s.title, keys: s.keys.filter((k) => menu.includes(k)) })),
-    { title: 'General', keys: GENERAL.map((g) => g.to) },
+    { title: 'General', keys: generalFor(menu).map((g) => g.to) },
   ]
     .map((s) => ({ ...s, keys: sortKeys(s.keys, prefs.order?.[s.title]) }))
     .filter((s) => s.keys.length > 1)

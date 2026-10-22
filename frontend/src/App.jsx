@@ -12,6 +12,7 @@ import PerfilPage from './pages/PerfilPage'
 import FavoritosPage from './pages/FavoritosPage'
 import TeamPage from './pages/TeamPage'
 import PlayerPage from './pages/PlayerPage'
+import EquiposListPage from './pages/EquiposListPage'
 import MiEquipoPage from './pages/MiEquipoPage'
 import MisPartidosPage from './pages/MisPartidosPage'
 import DashboardPage from './pages/admin/DashboardPage'
@@ -86,7 +87,8 @@ function App() {
             <Route path="/buscar" element={<BuscarPage />} />
             <Route path="/liga/:id" element={<TorneoPage />} />
             <Route path="/estadisticas" element={<EstadisticasPage />} />
-            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas'].includes(g.to)).map((g) => (
+            <Route path="/equipos" element={<EquiposListPage />} />
+            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos'].includes(g.to)).map((g) => (
               <Route key={g.to} path={g.to} element={<Placeholder title={g.label} />} />
             ))}
 

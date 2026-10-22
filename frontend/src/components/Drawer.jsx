@@ -4,7 +4,7 @@ import { X, LogOut, LogIn, Search } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import UserAvatar from './UserAvatar'
 import PersonName from './PersonName'
-import { ITEMS, SECTIONS, GENERAL, roleLabel } from '../lib/navConfig'
+import { ITEMS, SECTIONS, generalFor, roleLabel } from '../lib/navConfig'
 import { useMenuPrefs, sortKeys } from '../stores/menuPrefsStore'
 
 function Item({ to, label, Icon, soon, onClose }) {
@@ -103,7 +103,7 @@ export default function Drawer({ open, onClose }) {
           })}
 
           <Title>General</Title>
-          {sortKeys(GENERAL.map((g) => g.to), order?.General).map((to) => <Item key={to} {...GENERAL.find((g) => g.to === to)} onClose={onClose} />)}
+          {sortKeys(generalFor(menu).map((g) => g.to), order?.General).map((to) => <Item key={to} {...generalFor(menu).find((g) => g.to === to)} onClose={onClose} />)}
           {menu.includes('perfil') && <Item {...ITEMS.perfil} onClose={onClose} />}
         </nav>
 

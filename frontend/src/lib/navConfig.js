@@ -35,6 +35,8 @@ export const GENERAL = [
   { to: '/cronometro', label: 'Cronómetro offline', Icon: Timer },
   { to: '/liga', label: 'Liga o copas', Icon: Trophy },
   { to: '/estadisticas', label: 'Estadísticas', Icon: BarChart3 },
+  // El organizador ya tiene 'Equipos' en Administración
+  { to: '/equipos', label: 'Equipos', Icon: Users, hideIf: 'equipos' },
   { to: '/reglas', label: 'Reglas del juego', Icon: BookOpen, soon: true },
   { to: '/acerca', label: 'Acerca de / Contacto', Icon: Info, soon: true },
 ]
@@ -44,6 +46,9 @@ export const BOTTOM_PRIORITY = [
   'home', 'dashboard_canchas', 'partidos', 'mis_partidos_asignados',
   'control_mesa', 'mis_partidos', 'favoritos',
 ]
+
+// Entradas de GENERAL que corresponden al menú de esta persona
+export const generalFor = (menu = []) => GENERAL.filter((g) => !g.hideIf || !menu.includes(g.hideIf))
 
 export function roleLabel(user, menu = []) {
   const r = user?.roles ?? []
