@@ -34,7 +34,7 @@ function personLabel(profile, branch, fallback) {
   if (!profile) return fallback
   const num = personNumber(profile)
   const team = primaryTeam(profile, branch)
-  return (num != null ? '#' + num + ' ' : '') + profile.name + (team ? ' (' + team.name + ')' : '')
+  return (num != null ? '#' + num + ' ' : '') + profile.name + (team ? ' (' + (team.team?.name ?? team.name) + ')' : '')
 }
 function roleTag(profile) {
   const r = []
