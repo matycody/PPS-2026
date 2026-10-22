@@ -2,7 +2,28 @@
 
 const BASE = import.meta.env.VITE_BACKEND_URL
 
-export async function api(method, path, body) {
+// GET repetidos: los que están en vuelo se comparten y el resultado vive 3 s.
+// Cualquier escritura (POST/PATCH/PUT/DELETE) vacía el caché, así cada persona ve sus cambios al instante.
+const GET_TTL_MS = 3000
+const getCache = new Map() // clave -> { at, promise }
+
+export const clearApiCache = () => getCache.clear()
+
+export function api(method, path, body) {
+  if (method !== 'GET') {
+    getCache.clear()
+    return apiFetch(method, path, body)
+  }
+  const hit = getCache.get(path)
+  if (hit && Date.now() - hit.at < GET_TTL_MS) return hit.promise
+  const promise = apiFetch(method, path, body)
+  getCache.set(path, { at: Date.now(), promise })
+  promise.catch(() => getCache.delete(path)) // los errores no se guardan
+  if (getCache.size > 200) getCache.clear()
+  return promise
+}
+
+async function apiFetch(method, path, body) {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
   const res = await fetch(BASE + path, {
