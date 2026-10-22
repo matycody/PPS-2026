@@ -11,6 +11,7 @@ import ControlPage from './pages/ControlPage'
 import PerfilPage from './pages/PerfilPage'
 import FavoritosPage from './pages/FavoritosPage'
 import TeamPage from './pages/TeamPage'
+import PlayerPage from './pages/PlayerPage'
 import MiEquipoPage from './pages/MiEquipoPage'
 import MisPartidosPage from './pages/MisPartidosPage'
 import DashboardPage from './pages/admin/DashboardPage'
@@ -79,6 +80,7 @@ function App() {
             <Route path="/" element={<InicioPage />} />
             <Route path="/partido/:id" element={<MatchPage />} />
             <Route path="/equipo/:id" element={<TeamPage />} />
+            <Route path="/jugador/:id" element={<PlayerPage />} />
             <Route path="/cronometro" element={<OfflinePage />} />
             <Route path="/liga" element={<LigaPage />} />
             <Route path="/buscar" element={<BuscarPage />} />

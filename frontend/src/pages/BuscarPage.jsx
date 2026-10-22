@@ -25,9 +25,9 @@ const Row = ({ to, children }) => {
   return to ? <Link to={to} className={cls}>{children}</Link> : <div className={cls}>{children}</div>
 }
 
-function Person({ p, admin }) {
+function Person({ p, to }) {
   return (
-    <Row to={admin ? '/admin/personas' : null}>
+    <Row to={to}>
       <div className="min-w-0 flex-1">
         <p className="truncate font-bold">
           {p.number != null ? '#' + p.number + ' ' : ''}{p.name}{p.nickname ? ' "' + p.nickname + '"' : ''}
@@ -119,8 +119,8 @@ export default function BuscarPage() {
             ))}
           </Section>
 
-          <Section title="Jugadores" count={res.players.length}>{res.players.map((p) => <Person key={p.id} p={p} admin={admin} />)}</Section>
-          <Section title="Árbitros" count={res.referees.length}>{res.referees.map((p) => <Person key={p.id} p={p} admin={admin} />)}</Section>
+          <Section title="Jugadores" count={res.players.length}>{res.players.map((p) => <Person key={p.id} p={p} to={admin ? '/admin/personas' : '/jugador/' + p.id} />)}</Section>
+          <Section title="Árbitros" count={res.referees.length}>{res.referees.map((p) => <Person key={p.id} p={p} to={admin ? '/admin/personas' : null} />)}</Section>
 
           <Section title="Usuarios y roles" count={res.users.length}>
             {res.users.map((u) => (

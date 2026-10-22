@@ -1,22 +1,50 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Heart } from 'lucide-react'
+import { Heart, MapPin, CalendarDays } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
-import { BRANCH } from '../lib/format'
+import { BRANCH, MODALITY, normMatch } from '../lib/format'
 import TeamBadge from '../components/TeamBadge'
 import Roster from '../components/Roster'
+import MatchCard from '../components/MatchCard'
+import ResultRow, { outcome } from '../components/ResultRow'
 
+const ACTIVE = ['LIVE', 'READY', 'SCHEDULED', 'SUSPENDED']
+const byDate = (dir) => (a, b) => {
+  const x = a.scheduledAt ? new Date(a.scheduledAt).getTime() : Infinity * dir
+  const y = b.scheduledAt ? new Date(b.scheduledAt).getTime() : Infinity * dir
+  return dir * (x - y) || 0
+}
+
+const Chip = ({ on, onClick, children }) => (
+  <button
+    onClick={onClick}
+    className={'rounded-full border px-3 py-1 text-sm font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')}
+  >
+    {children}
+  </button>
+)
+
+const Title = ({ children, n }) => (
+  <h2 className="text-xs font-bold uppercase tracking-widest text-muted">{children}{n != null ? ' · ' + n : ''}</h2>
+)
+
+// Banner del equipo: datos, récord, próximos partidos, resultados y plantel
 export default function TeamPage() {
   const { id } = useParams()
   const user = useAuthStore((s) => s.user)
   const [team, setTeam] = useState(null)
+  const [matches, setMatches] = useState(null)
   const [favs, setFavs] = useState([])
   const [err, setErr] = useState('')
+  const [mod, setMod] = useState('all')
+  const [br, setBr] = useState('all')
+  const [more, setMore] = useState({ next: false, done: false })
 
   const loadFavs = () => (user ? api('GET', '/favorites').then(setFavs).catch(() => {}) : null)
   useEffect(() => {
     api('GET', '/teams/' + id).then(setTeam).catch((e) => setErr(e.message))
+    api('GET', '/matches?teamId=' + id + '&limit=200').then((r) => setMatches(r.map(normMatch))).catch(() => setMatches([]))
     loadFavs()
   }, [id, user])
 
@@ -30,6 +58,18 @@ export default function TeamPage() {
     } catch (e) { setErr(e.message) }
   }
 
+  const shown = useMemo(
+    () => (matches ?? []).filter((m) => (mod === 'all' || m.modality === mod) && (br === 'all' || m.branch === br)),
+    [matches, mod, br]
+  )
+  const next = useMemo(() => shown.filter((m) => ACTIVE.includes(m.status)).sort(byDate(1)), [shown])
+  const done = useMemo(() => shown.filter((m) => m.status === 'FINISHED').sort(byDate(-1)), [shown])
+  const rec = useMemo(() => {
+    const r = { G: 0, E: 0, P: 0 }
+    for (const m of done) r[outcome(m, [id]).res] += 1
+    return r
+  }, [done, id])
+
   if (err && !team) return <p className="mt-10 text-center text-danger">{err}</p>
   if (!team) return <p className="mt-10 text-center text-muted">Cargando…</p>
 
@@ -40,19 +80,84 @@ export default function TeamPage() {
       </button>
     )
 
-  return (
-    <div className="space-y-4">
-      {err && <p className="text-sm text-danger">{err}</p>}
-      <div className="flex items-center gap-4 rounded-3xl border border-line bg-surface p-5">
-        <TeamBadge team={team} size="lg" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xl font-extrabold">{team.name}</p>
-          <p className="text-sm text-muted">{(team.branches ?? []).map((b) => BRANCH[b] ?? b).join(' · ')}</p>
-        </div>
-        {heart('TEAM', team.id)}
-      </div>
+  const mods = team.modalities ?? []
+  const brs = team.branches ?? []
 
-      <Roster roster={team.roster} meProfileId={user?.profileId} extra={(r) => heart('PLAYER', r.profileId)} />
+  return (
+    <div className="space-y-5">
+      {err && <p className="text-sm text-danger">{err}</p>}
+
+      <section className="rounded-3xl border border-line bg-surface p-5">
+        <div className="flex justify-end">{heart('TEAM', team.id)}</div>
+        <div className="-mt-3 flex flex-col items-center gap-2 text-center">
+          <TeamBadge team={team} size="xl" />
+          <h1 className="text-2xl font-extrabold leading-tight">{team.name}</h1>
+          {team.nickname && <p className="text-sm font-semibold text-accent">"{team.nickname}"</p>}
+          {(team.city || team.foundedYear) && (
+            <p className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-muted">
+              {team.city && <span className="inline-flex items-center gap-1"><MapPin size={14} />{team.city}</span>}
+              {team.foundedYear && <span className="inline-flex items-center gap-1"><CalendarDays size={14} />Fundado en {team.foundedYear}</span>}
+            </p>
+          )}
+          <div className="flex flex-wrap justify-center gap-1.5 pt-1">
+            {brs.map((b) => <span key={b} className="rounded-full bg-surface-2 px-3 py-1 text-xs font-bold uppercase">{BRANCH[b] ?? b}</span>)}
+            {mods.map((m) => <span key={m} className="rounded-full bg-accent-soft px-3 py-1 text-xs font-bold uppercase text-accent">{MODALITY[m] ?? m}</span>)}
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-4 gap-2 text-center">
+          {[['PJ', done.length], ['G', rec.G], ['E', rec.E], ['P', rec.P]].map(([k, v]) => (
+            <div key={k} className="rounded-2xl bg-surface-2 py-2">
+              <p className="font-mono text-xl font-extrabold tabular-nums">{v}</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest text-muted">{k}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {(mods.length > 1 || brs.length > 1) && (
+        <div className="space-y-2">
+          {mods.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              <Chip on={mod === 'all'} onClick={() => setMod('all')}>Todas las modalidades</Chip>
+              {mods.map((m) => <Chip key={m} on={mod === m} onClick={() => setMod(m)}>{MODALITY[m] ?? m}</Chip>)}
+            </div>
+          )}
+          {brs.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              <Chip on={br === 'all'} onClick={() => setBr('all')}>Todas las ramas</Chip>
+              {brs.map((b) => <Chip key={b} on={br === b} onClick={() => setBr(b)}>{BRANCH[b] ?? b}</Chip>)}
+            </div>
+          )}
+        </div>
+      )}
+
+      <section className="space-y-2">
+        <Title n={next.length}>Próximos partidos</Title>
+        {matches === null && <p className="text-muted">Cargando…</p>}
+        {matches && next.length === 0 && <p className="text-muted">No hay partidos programados.</p>}
+        {(more.next ? next : next.slice(0, 3)).map((m) => <MatchCard key={m.id} m={m} />)}
+        {next.length > 3 && (
+          <button onClick={() => setMore((s) => ({ ...s, next: !s.next }))} className="w-full rounded-2xl border border-line bg-surface py-2 text-sm font-bold">
+            {more.next ? 'Ver menos' : 'Ver todos (' + next.length + ')'}
+          </button>
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <Title n={done.length}>Resultados</Title>
+        {matches && done.length === 0 && <p className="text-muted">Todavía no jugó partidos.</p>}
+        {(more.done ? done : done.slice(0, 5)).map((m) => <ResultRow key={m.id} m={m} teamIds={[id]} />)}
+        {done.length > 5 && (
+          <button onClick={() => setMore((s) => ({ ...s, done: !s.done }))} className="w-full rounded-2xl border border-line bg-surface py-2 text-sm font-bold">
+            {more.done ? 'Ver menos' : 'Ver todos (' + done.length + ')'}
+          </button>
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <Title>Plantel</Title>
+        <Roster roster={team.roster} meProfileId={user?.profileId} extra={(r) => heart('PLAYER', r.profileId)} />
+      </section>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Camera, LogOut, Trash2 } from 'lucide-react'
 import { api, apiUploadPhoto } from '../lib/api'
 import { supabase } from '../lib/supabase'
@@ -30,6 +30,8 @@ export default function PerfilPage() {
   const [email, setEmail] = useState('')
   const [nick, setNick] = useState('')
   const [num, setNum] = useState('')
+  const [birth, setBirth] = useState('')
+  const [pub, setPub] = useState({ showNickname: true, showNumber: true, showAge: false, showPhoto: false })
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const load = () => api('GET', '/me/profile').then(setData).catch((e) => setErr(e.message))
@@ -40,7 +42,9 @@ export default function PerfilPage() {
     if (!p) return
     setNick(p.nickname ?? '')
     setNum(p.number == null ? '' : String(p.number))
-  }, [p?.nickname, p?.number])
+    setBirth(p.birthDate ?? '')
+    setPub({ showNickname: p.showNickname, showNumber: p.showNumber, showAge: p.showAge, showPhoto: p.showPhoto })
+  }, [p?.nickname, p?.number, p?.birthDate, p?.showNickname, p?.showNumber, p?.showAge, p?.showPhoto])
 
   async function run(fn, ok) {
     setBusy(true); setErr(''); setMsg('')
@@ -63,6 +67,14 @@ export default function PerfilPage() {
       await load()
       await refreshProfile()
     }, 'Datos guardados')
+  }
+
+  const savePublic = () => {
+    if (pub.showAge && !birth) return setErr('Para mostrar tu edad cargá tu fecha de nacimiento')
+    run(async () => {
+      await api('PATCH', '/me/profile', { birthDate: birth || null, ...pub })
+      await load()
+    }, 'Banner actualizado')
   }
 
   const initials = (user?.email ?? '?').slice(0, 2).toUpperCase()
@@ -134,6 +146,32 @@ export default function PerfilPage() {
               Guardar
             </button>
             <p className="text-[11px] text-muted">Dejalos vacíos para volver a mostrar tu nombre y ocultar el número.</p>
+          </div>
+        </Card>
+      )}
+
+      {p?.isPlayer && (
+        <Card title="Mi banner público (opcional)">
+          <div className="space-y-3">
+            <p className="text-xs text-muted">Cualquier persona puede ver tu banner de jugador. Elegí qué datos mostrar; tu DNI y tu mail nunca se muestran.</p>
+            <label className="block text-xs text-muted">Fecha de nacimiento
+              <input type="date" className={field + ' mt-1'} value={birth} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setBirth(e.target.value)} />
+            </label>
+            {[
+              ['showNickname', 'Mostrar mi apodo'],
+              ['showNumber', 'Mostrar mi número'],
+              ['showAge', 'Mostrar mi edad (no la fecha)'],
+              ['showPhoto', 'Mostrar mi foto'],
+            ].map(([k, label]) => (
+              <label key={k} className="flex items-center gap-3 text-sm font-semibold">
+                <input type="checkbox" className="h-5 w-5 accent-accent" checked={pub[k]} onChange={(e) => setPub((s) => ({ ...s, [k]: e.target.checked }))} />
+                {label}
+              </label>
+            ))}
+            <button disabled={busy} onClick={savePublic} className="w-full rounded-2xl bg-accent py-3 font-extrabold text-black disabled:opacity-40">
+              Guardar
+            </button>
+            {user?.profileId && <Link to={'/jugador/' + user.profileId} className="block text-center text-sm font-bold text-accent">Ver mi banner</Link>}
           </div>
         </Card>
       )}
