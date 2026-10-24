@@ -26,10 +26,6 @@ const Chip = ({ on, onClick, children }) => (
   </button>
 )
 
-const Title = ({ children, n }) => (
-  <h2 className="text-xs font-bold uppercase tracking-widest text-muted">{children}{n != null ? ' · ' + n : ''}</h2>
-)
-
 // Banner del equipo: datos, récord, próximos partidos, resultados y plantel
 export default function TeamPage() {
   const { id } = useParams()
@@ -41,6 +37,7 @@ export default function TeamPage() {
   const [mod, setMod] = useState('all')
   const [br, setBr] = useState('all')
   const [more, setMore] = useState({ next: false, done: false })
+  const [tab, setTab] = useState('posiciones') // posiciones | proximos | resultados | plantel
 
   const loadFavs = () => (user ? api('GET', '/favorites').then(setFavs).catch(() => {}) : null)
   useEffect(() => {
@@ -135,38 +132,50 @@ export default function TeamPage() {
         </div>
       </section>
 
-      <section className="space-y-2">
-        <Title>Posiciones</Title>
-        <Posiciones teamId={id} mod={mod} br={br} />
-      </section>
-
-      <section className="space-y-2">
-        <Title n={next.length}>Próximos partidos</Title>
-        {matches === null && <p className="text-muted">Cargando…</p>}
-        {matches && next.length === 0 && <p className="text-muted">No hay partidos programados.</p>}
-        {(more.next ? next : next.slice(0, 3)).map((m) => <MatchCard key={m.id} m={m} />)}
-        {next.length > 3 && (
-          <button onClick={() => setMore((s) => ({ ...s, next: !s.next }))} className="w-full rounded-2xl border border-line bg-surface py-2 text-sm font-bold">
-            {more.next ? 'Ver menos' : 'Ver todos (' + next.length + ')'}
+      <div className="flex flex-wrap gap-2">
+        {[['posiciones', 'Posiciones'], ['proximos', 'Próximos' + (matches ? ' · ' + next.length : '')], ['resultados', 'Resultados' + (matches ? ' · ' + done.length : '')], ['plantel', 'Plantel']].map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setTab(k)}
+            className={'rounded-full border px-4 py-2 text-sm font-bold ' + (tab === k ? 'border-accent bg-accent text-black' : 'border-line bg-surface')}
+          >
+            {label}
           </button>
-        )}
-      </section>
+        ))}
+      </div>
 
-      <section className="space-y-2">
-        <Title n={done.length}>Resultados</Title>
-        {matches && done.length === 0 && <p className="text-muted">Todavía no jugó partidos.</p>}
-        {(more.done ? done : done.slice(0, 5)).map((m) => <ResultRow key={m.id} m={m} teamIds={[id]} />)}
-        {done.length > 5 && (
-          <button onClick={() => setMore((s) => ({ ...s, done: !s.done }))} className="w-full rounded-2xl border border-line bg-surface py-2 text-sm font-bold">
-            {more.done ? 'Ver menos' : 'Ver todos (' + done.length + ')'}
-          </button>
-        )}
-      </section>
+      {tab === 'posiciones' && <Posiciones teamId={id} mod={mod} br={br} />}
 
-      <section className="space-y-2">
-        <Title>Plantel</Title>
-        <Roster roster={team.roster} meProfileId={user?.profileId} extra={(r) => heart('PLAYER', r.profileId)} />
-      </section>
+      {tab === 'proximos' && (
+        <section className="space-y-2">
+          {matches === null && <p className="text-muted">Cargando…</p>}
+          {matches && next.length === 0 && <p className="text-muted">No hay partidos programados.</p>}
+          {(more.next ? next : next.slice(0, 3)).map((m) => <MatchCard key={m.id} m={m} />)}
+          {next.length > 3 && (
+            <button onClick={() => setMore((s) => ({ ...s, next: !s.next }))} className="w-full rounded-2xl border border-line bg-surface py-2 text-sm font-bold">
+              {more.next ? 'Ver menos' : 'Ver todos (' + next.length + ')'}
+            </button>
+          )}
+        </section>
+      )}
+
+      {tab === 'resultados' && (
+        <section className="space-y-2">
+          {matches && done.length === 0 && <p className="text-muted">Todavía no jugó partidos.</p>}
+          {(more.done ? done : done.slice(0, 5)).map((m) => <ResultRow key={m.id} m={m} teamIds={[id]} />)}
+          {done.length > 5 && (
+            <button onClick={() => setMore((s) => ({ ...s, done: !s.done }))} className="w-full rounded-2xl border border-line bg-surface py-2 text-sm font-bold">
+              {more.done ? 'Ver menos' : 'Ver todos (' + done.length + ')'}
+            </button>
+          )}
+        </section>
+      )}
+
+      {tab === 'plantel' && (
+        <section className="space-y-2">
+          <Roster roster={team.roster} meProfileId={user?.profileId} extra={(r) => heart('PLAYER', r.profileId)} />
+        </section>
+      )}
     </div>
   )
 }
