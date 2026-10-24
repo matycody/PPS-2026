@@ -15,6 +15,14 @@ const RANK = { LIVE: 0, READY: 1, SCHEDULED: 2, SUSPENDED: 3, FINISHED: 4 }
 const byStatus = (a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9) || byTime(a, b)
 const byTime = (a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b) || (a.court || 999) - (b.court || 999)
 
+const dayShort = (day) => {
+  const diff = Math.round((new Date(day + 'T00:00:00').getTime() - new Date().setHours(0, 0, 0, 0)) / 864e5)
+  const d = new Date(day + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: '2-digit' })
+  return (diff === 0 ? 'Hoy · ' : diff === 1 ? 'Mañana · ' : '') + d
+}
+const phaseText = (m) => (m.phase ? (m.phase.kind === 'LEAGUE' && m.phase.zone ? m.phase.zone + ' · ' : '') + m.phase.label : 'Sin fase')
+const hourText = (m) => (m.scheduledAt ? new Date(m.scheduledAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'Sin hora')
+
 function dayLabel(day) {
   const d = new Date(day + 'T12:00:00')
   const diff = Math.round((new Date(day + 'T00:00:00').getTime() - new Date().setHours(0, 0, 0, 0)) / 864e5)
@@ -32,6 +40,8 @@ export default function OrgMatches({ byId, filter }) {
   const [dayPick, setDayPick] = useState(null) // fecha elegida (YYYY-MM-DD); null = próxima jornada
   const [dayOpen, setDayOpen] = useState(false) // desplegable de fechas
   const [courtPick, setCourtPick] = useState('all') // pestaña Programados: 'all' | número de cancha | 'none' (sin cancha)
+  const [view, setView] = useState('all') // Todos: 'all' | 'court:N' | 'fecha' | 'hora'
+  const [viewOpen, setViewOpen] = useState(false)
   const [cal, setCal] = useState(null) // partidos de todas las fechas (pasadas y futuras)
 
   // Jornadas pasadas y futuras (incluye finalizados). Si el pedido falla se reintenta, y se vuelve a pedir al reconectar el socket
@@ -98,22 +108,60 @@ export default function OrgMatches({ byId, filter }) {
     const courtCur = courtKeys.includes(courtPick) ? courtPick : 'all'
     const shown = sched && courtCur !== 'all' ? byTour.filter((m) => courtKey(m) === courtCur) : byTour
     const groups = sched && courtCur === 'all' && courtKeys.length > 1 ? courtKeys.map((k) => ({ k, list: byTour.filter((m) => courtKey(m) === k) })) : null
+    // Todos: cuatro formas de ver la jornada (todos, por cancha, por fecha del fixture o por horario)
+    const courtNums = [...new Set(byTour.map((m) => m.court).filter((c) => c != null))].sort((x, y) => x - y)
+    const viewOptions = [['all', 'Todos'], ...courtNums.map((c) => ['court:' + c, 'Cancha ' + c]), ['fecha', 'Por fecha'], ['hora', 'Por horario']]
+    const viewCur = !sched && viewOptions.some(([k]) => k === view) ? view : 'all'
+    const viewLabel = viewOptions.find(([k]) => k === viewCur)?.[1] ?? 'Todos'
+    let listed = shown
+    let sections = null
+    if (!sched && viewCur.startsWith('court:')) listed = byTour.filter((m) => m.court === Number(viewCur.slice(6)))
+    if (!sched && (viewCur === 'fecha' || viewCur === 'hora')) {
+      const text = viewCur === 'fecha' ? phaseText : hourText
+      const sorted = [...byTour].sort(viewCur === 'fecha' ? (x, y) => phaseCmp(x, y) || byStatus(x, y) : (x, y) => String(x.scheduledAt ?? '').localeCompare(String(y.scheduledAt ?? '')) || byStatus(x, y))
+      sections = []
+      sorted.forEach((m) => {
+        const k = text(m)
+        const g = sections.find((x) => x.k === k)
+        if (g) g.list.push(m)
+        else sections.push({ k, list: [m] })
+      })
+    }
     const toggle = (id) => setPicked(cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id])
     const summary = cur.length === 0 ? 'Todos' : cur.length === 1 ? tournaments.find((t) => t.id === cur[0])?.name : cur.length + ' torneos'
     const chip = (on) => 'rounded-full border px-3 py-1.5 text-xs font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
     return (
       <div className="space-y-3">
         <div className="space-y-2">
-          <button
-            onClick={() => setDayOpen((v) => !v)}
-            aria-expanded={dayOpen}
-            className="flex w-full items-center justify-between gap-2 rounded-2xl border border-line bg-surface px-4 py-2.5 text-left text-xs font-bold uppercase tracking-widest text-muted"
-          >
-            <span className="min-w-0">
-              {curDay ? 'Jornada · ' + dayLabel(curDay) + ' · ' + shown.length + (shown.length === 1 ? ' partido' : ' partidos') : sched ? 'Sin partidos programados' : 'Sin partidos'}
-            </span>
-            <ChevronDown size={18} className={'shrink-0 transition-transform ' + (dayOpen ? 'rotate-180' : '')} />
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setDayOpen((v) => !v)}
+              aria-expanded={dayOpen}
+              className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-line bg-surface px-4 py-2.5 text-left text-xs font-bold uppercase tracking-widest text-muted"
+            >
+              <span className="min-w-0 truncate">
+                {curDay ? dayShort(curDay) + ' · ' + listed.length + (listed.length === 1 ? ' partido' : ' partidos') : sched ? 'Sin partidos programados' : 'Sin partidos'}
+              </span>
+              <ChevronDown size={18} className={'shrink-0 transition-transform ' + (dayOpen ? 'rotate-180' : '')} />
+            </button>
+            {!sched && (
+              <button
+                onClick={() => setViewOpen((v) => !v)}
+                aria-expanded={viewOpen}
+                className="flex shrink-0 items-center gap-1.5 rounded-2xl border border-line bg-surface px-3 py-2.5 text-xs font-bold uppercase tracking-widest"
+              >
+                <span className="text-muted">Ver</span> <span className="text-accent">{viewLabel}</span>
+                <ChevronDown size={16} className={'shrink-0 text-muted transition-transform ' + (viewOpen ? 'rotate-180' : '')} />
+              </button>
+            )}
+          </div>
+          {!sched && viewOpen && (
+            <div className="flex flex-wrap gap-2 rounded-2xl border border-line bg-surface p-3">
+              {viewOptions.map(([k, label]) => (
+                <button key={k} onClick={() => { setView(k); setViewOpen(false) }} aria-pressed={viewCur === k} className={chip(viewCur === k)}>{label}</button>
+              ))}
+            </div>
+          )}
           {dayOpen && (
             <div className="space-y-3 rounded-2xl border border-line bg-surface p-3">
               <Link to="/liga" className="block rounded-xl border border-line bg-surface-2 py-2.5 text-center text-sm font-bold text-accent">
@@ -165,7 +213,14 @@ export default function OrgMatches({ byId, filter }) {
             ))}
           </div>
         )}
-        {groups ? (
+        {sections ? (
+          sections.map((g) => (
+            <div key={g.k} className="space-y-3">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-muted">{g.k} · {g.list.length} {g.list.length === 1 ? 'partido' : 'partidos'}</h2>
+              {g.list.map((m) => <MatchCard key={m.id} m={m} />)}
+            </div>
+          ))
+        ) : groups ? (
           groups.map((g) => (
             <div key={g.k} className="space-y-3">
               <h2 className="text-xs font-bold uppercase tracking-widest text-muted">{courtLabel(g.k === 'none' ? 0 : g.k)} · {g.list.length} {g.list.length === 1 ? 'partido' : 'partidos'}</h2>
@@ -173,7 +228,7 @@ export default function OrgMatches({ byId, filter }) {
             </div>
           ))
         ) : (
-          <div className="space-y-3">{shown.map((m) => <MatchCard key={m.id} m={m} />)}</div>
+          <div className="space-y-3">{(sched ? shown : listed).map((m) => <MatchCard key={m.id} m={m} />)}</div>
         )}
       </div>
     )
