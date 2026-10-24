@@ -1,5 +1,6 @@
 const express = require('express');
 const prisma = require('../db');
+const { phasesFor } = require('../services/matchPhase');
 const { authenticate, optionalAuth, requireRole } = require('../middleware/auth');
 const { getPermissions } = require('../services/matchAccess');
 const { notifyMatch } = require('../services/notify');
@@ -267,7 +268,8 @@ router.get('/', optionalAuth, async (req, res) => {
       take: limit,
       skip: offset,
     });
-    res.json(matches.map((m) => serialize(m, false)));
+    const phases = await phasesFor(matches.map((m) => m.id)).catch((e) => { console.error('[phase]', e.message); return new Map(); });
+    res.json(matches.map((m) => ({ ...serialize(m, false), phase: phases.get(m.id) ?? null })));
   } catch (err) {
     handleError(err, res);
   }
@@ -279,7 +281,8 @@ router.get('/:id', optionalAuth, async (req, res) => {
     const match = await fetchMatch(req.params.id, isAdmin);
     if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
     if (match.hiddenAt && !isAdmin) return res.status(404).json({ error: 'Partido no encontrado' });
-    res.json(serialize(match, isAdmin));
+    const phases = await phasesFor([match.id]).catch((e) => { console.error('[phase]', e.message); return new Map(); });
+    res.json({ ...serialize(match, isAdmin), phase: phases.get(match.id) ?? null });
   } catch (err) {
     handleError(err, res);
   }
