@@ -63,6 +63,20 @@ function findStage(tournamentId, stageId) {
   });
 }
 
+// Marcador por sets (Foam: gana 1; Cloth: gana 2 y el empate suma 1 a cada uno)
+function setScore({ sets, modality, teamAId, teamBId }) {
+  const win = modality === 'CLOTH' ? 2 : 1;
+  let a = 0;
+  let b = 0;
+  for (const st of sets) {
+    if (!st.winnerTeamId) {
+      if (modality === 'CLOTH') { a += 1; b += 1; }
+    } else if (st.winnerTeamId === teamAId) a += win;
+    else if (st.winnerTeamId === teamBId) b += win;
+  }
+  return { teamA: a, teamB: b };
+}
+
 function findMatchday(tournamentId, matchdayId) {
   return prisma.matchday.findFirst({
     where: { id: matchdayId, stage: { tournamentId } },
@@ -222,12 +236,19 @@ router.get('/:id/matchdays', async (req, res) => {
               statusReason: true,
               originalScheduledAt: true,
               scheduledAt: true,
+              modality: true,
+              teamAId: true,
+              teamBId: true,
+              sets: { select: { winnerTeamId: true } },
               teamA: { select: TEAM_SELECT },
               teamB: { select: TEAM_SELECT },
             },
           },
         },
-      }),
+      }).then((list) => list.map((md) => ({
+        ...md,
+        matches: md.matches.map(({ sets, modality, teamAId, teamBId, ...m }) => ({ ...m, score: setScore({ sets, modality, teamAId, teamBId }) })),
+      }))),
     );
   } catch (err) {
     handleDbError(err, res);
