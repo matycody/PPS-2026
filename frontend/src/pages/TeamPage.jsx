@@ -8,6 +8,7 @@ import TeamBadge from '../components/TeamBadge'
 import Roster from '../components/Roster'
 import MatchCard from '../components/MatchCard'
 import ResultRow, { outcome } from '../components/ResultRow'
+import Posiciones from '../components/team/Posiciones'
 
 const ACTIVE = ['LIVE', 'READY', 'SCHEDULED', 'SUSPENDED']
 const byDate = (dir) => (a, b) => {
@@ -132,6 +133,11 @@ export default function TeamPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="space-y-2">
+        <Title>Posiciones</Title>
+        <Posiciones teamId={id} mod={mod} br={br} />
       </section>
 
       <section className="space-y-2">
