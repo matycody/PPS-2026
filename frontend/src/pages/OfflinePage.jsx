@@ -207,6 +207,13 @@ export default function OfflinePage() {
     if (resume.current.match) matchClock.start()
     if (resume.current.set) setClock.start()
   }
+  // Deshacer un tiempo muerto pedido sin querer: devuelve el tiempo al equipo y reanuda los relojes
+  const cancelTimeout = () => {
+    const team = tmTeam
+    if (!team) return
+    setUsed((u) => ({ ...u, [team]: { ...u[team], [half]: false } }))
+    endTimeout()
+  }
   const anyRunning = matchClock.running || setClock.running
   useWakeLock(anyRunning || !!tmTeam)
   // Si al recargar hay relojes corriendo, el navegador pide un toque para habilitar el sonido
@@ -292,6 +299,11 @@ export default function OfflinePage() {
             <Btn tone={timeoutClock.left === 0 ? 'live' : 'base'} onClick={endTimeout} className="w-full">
               {timeoutClock.left === 0 ? 'Reanudar' : 'Terminar tiempo y reanudar'}
             </Btn>
+            {timeoutClock.left > 0 && (
+              <Btn onClick={cancelTimeout} className="w-full">
+                Deshacer (lo pedí sin querer)
+              </Btn>
+            )}
           </>
         )}
       </div>
