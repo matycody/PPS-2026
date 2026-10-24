@@ -435,6 +435,21 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
   const [champ, setChamp] = useState('')
   const [busy, setBusy] = useState(false)
   const [warn, setWarn] = useState('')
+  const [pausing, setPausing] = useState(false)
+
+  async function togglePause() {
+    const willPause = !t.pausedAt
+    const ok = await ask(willPause
+      ? { title: 'Pausar torneo', message: 'El torneo y todos sus partidos (programados, habilitados, en vivo y finalizados) van a desaparecer para todos los usuarios, menos la organización. No se borra nada y podés reanudarlo cuando quieras.', confirmText: 'Pausar torneo', danger: true }
+      : { title: 'Reanudar torneo', message: 'El torneo y sus partidos vuelven a verse para todos, tal cual estaban.', confirmText: 'Reanudar torneo' })
+    if (!ok) return
+    setPausing(true); setErr('')
+    try {
+      const r = await api('POST', '/tournaments/' + t.id + (willPause ? '/pause' : '/resume'))
+      setMsg(willPause ? 'Torneo pausado: ' + r.hiddenMatches + ' partidos ocultos' : 'Torneo reanudado: ' + r.restoredMatches + ' partidos visibles de nuevo')
+      await reload()
+    } catch (e) { setErr(e.message) } finally { setPausing(false) }
+  }
 
   // Avisa si el campeón no se va a poder definir solo (sin playoffs armados o con la final sin terminar)
   useEffect(() => {
@@ -484,6 +499,13 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
           <Btn tone="accent" disabled={busy} onClick={activate} className="w-full">Activar torneo</Btn>
         </div>
       )}
+      <button
+        disabled={pausing}
+        onClick={togglePause}
+        className="w-full rounded-2xl bg-warn px-4 py-3 text-sm font-extrabold text-black disabled:opacity-50"
+      >
+        {pausing ? '...' : t.pausedAt ? 'Reanudar torneo' : 'Pausar torneo'}
+      </button>
       {t.status === 'ACTIVE' && (
         <div className="space-y-2 rounded-3xl border border-line bg-surface p-4">
           <p className="text-sm font-bold">Cerrar torneo</p>
@@ -507,25 +529,9 @@ export default function TorneoAdminPage() {
   const [tab, setTab] = useState('resumen')
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
-  const [pausing, setPausing] = useState(false)
-  const askPause = useConfirm()
 
   const load = useCallback(() => api('GET', '/tournaments/' + id).then(setT).catch((e) => setErr(e.message)), [id])
   useEffect(() => { load() }, [load])
-
-  async function togglePause() {
-    const willPause = !t.pausedAt
-    const ok = await askPause(willPause
-      ? { title: 'Pausar torneo', message: 'El torneo y todos sus partidos (programados, habilitados, en vivo y finalizados) van a desaparecer para todos los usuarios, menos la organización. No se borra nada y podés reanudarlo cuando quieras.', confirmText: 'Pausar torneo', danger: true }
-      : { title: 'Reanudar torneo', message: 'El torneo y sus partidos vuelven a verse para todos, tal cual estaban.', confirmText: 'Reanudar torneo' })
-    if (!ok) return
-    setPausing(true); setErr('')
-    try {
-      const r = await api('POST', '/tournaments/' + id + (willPause ? '/pause' : '/resume'))
-      setMsg(willPause ? 'Torneo pausado: ' + r.hiddenMatches + ' partidos ocultos' : 'Torneo reanudado: ' + r.restoredMatches + ' partidos visibles de nuevo')
-      await load()
-    } catch (e) { setErr(e.message) } finally { setPausing(false) }
-  }
 
   if (!t) return err ? <Alert onClose={() => setErr('')}>{err}</Alert> : <p className="text-muted">Cargando…</p>
   const st = TSTATUS[t.status]
@@ -542,13 +548,6 @@ export default function TorneoAdminPage() {
           Torneo pausado: nadie lo ve salvo la organización. Mientras está pausado sus partidos no se muestran en la app; reanudalo para editarlos.
         </div>
       )}
-      <button
-        disabled={pausing}
-        onClick={togglePause}
-        className={'w-full rounded-2xl border px-4 py-3 text-sm font-extrabold disabled:opacity-50 ' + (t.pausedAt ? 'border-transparent bg-accent text-black' : 'border-line bg-surface')}
-      >
-        {pausing ? '...' : t.pausedAt ? 'Reanudar torneo' : 'Pausar torneo'}
-      </button>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
       {msg && <Alert tone="ok" onClose={() => setMsg('')}>{msg}</Alert>}
       <div className="flex gap-2 overflow-x-auto pb-1">
