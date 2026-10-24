@@ -244,7 +244,11 @@ router.get('/', optionalAuth, async (req, res) => {
 
     const fromD = parseDate(from);
     const toD = parseDate(to);
-    if (fromD || toD) where.scheduledAt = { ...(fromD ? { gte: fromD } : {}), ...(toD ? { lte: toD } : {}) };
+    if (fromD || toD) {
+      const range = { scheduledAt: { ...(fromD ? { gte: fromD } : {}), ...(toD ? { lte: toD } : {}) } };
+      // includeUndated=true: los partidos sin fecha (scheduledAt null) también entran (ej. torneos de un solo día)
+      where.AND = [req.query.includeUndated === 'true' ? { OR: [range, { scheduledAt: null }] } : range];
+    }
 
     if (isAdmin && req.query.hidden === 'true') {
       where.hiddenAt = { not: null };
