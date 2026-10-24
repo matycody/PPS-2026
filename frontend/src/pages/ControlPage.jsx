@@ -181,7 +181,7 @@ function TimeoutCard({ tick, can, half, send, nameA, nameB }) {
           </Btn>
           {!expired && (
             <Btn disabled={!can} onClick={() => send('match:timeout:cancel')} className="w-full">
-              Deshacer (lo pedí sin querer)
+              Deshacer tiempo muerto
             </Btn>
           )}
         </>

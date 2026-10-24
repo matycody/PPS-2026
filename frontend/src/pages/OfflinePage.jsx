@@ -301,7 +301,7 @@ export default function OfflinePage() {
             </Btn>
             {timeoutClock.left > 0 && (
               <Btn onClick={cancelTimeout} className="w-full">
-                Deshacer (lo pedí sin querer)
+                Deshacer tiempo muerto
               </Btn>
             )}
           </>
