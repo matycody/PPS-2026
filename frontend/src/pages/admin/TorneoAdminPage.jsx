@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { ArrowLeft, Trophy, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
+import BackLink from '../../components/BackLink'
 import { api } from '../../lib/api'
 import { BRANCH, MODALITY, FORMAT, TSTATUS, CRITERIA } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
@@ -504,7 +505,7 @@ export default function TorneoAdminPage() {
 
   return (
     <div className="space-y-4">
-      <Link to="/admin/torneos" className="flex items-center gap-1 text-sm text-muted"><ArrowLeft size={16} /> Torneos</Link>
+      <BackLink to="/admin/torneos" className="flex items-center gap-1 text-sm text-muted"><ArrowLeft size={16} /> Torneos</BackLink>
       <div>
         <h1 className="text-xl font-extrabold">{t.name}{t.edition ? ' · ' + t.edition : ''}</h1>
         <p className="flex items-center gap-2 text-sm text-muted">{t.year} <span className={'rounded-full px-2 py-0.5 text-xs font-bold uppercase ' + st.cls}>{st.label}</span></p>

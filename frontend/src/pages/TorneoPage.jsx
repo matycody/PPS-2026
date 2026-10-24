@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { ArrowLeft, Trophy } from 'lucide-react'
+import BackLink from '../components/BackLink'
 import { api } from '../lib/api'
 import { BRANCH, MODALITY, FORMAT, TSTATUS } from '../lib/format'
 import StandingsView from '../components/torneo/StandingsView'
@@ -34,7 +35,7 @@ export default function TorneoPage() {
 
   return (
     <div className="space-y-4">
-      <Link to="/liga" className="flex items-center gap-1 text-sm text-muted"><ArrowLeft size={16} /> Liga o copas</Link>
+      <BackLink to="/liga" className="flex items-center gap-1 text-sm text-muted"><ArrowLeft size={16} /> Liga o copas</BackLink>
       <div>
         <h1 className="text-xl font-extrabold">{t.name}{t.edition ? ' · ' + t.edition : ''}</h1>
         <p className="text-sm text-muted">{t.year} · {FORMAT[t.format]} · {BRANCH[t.branch]} · {MODALITY[t.modality]}</p>

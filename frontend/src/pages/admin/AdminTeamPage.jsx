@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { ChevronLeft, X, Search } from 'lucide-react'
+import BackLink from '../../components/BackLink'
 import { api, apiUpload } from '../../lib/api'
 import LogoPicker from '../../components/LogoPicker'
 import { BRANCH, MODALITY } from '../../lib/format'
@@ -80,9 +81,9 @@ export default function AdminTeamPage() {
 
   return (
     <div className="space-y-4">
-      <Link to="/admin/equipos" className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
+      <BackLink to="/admin/equipos" className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
         <ChevronLeft size={16} /> Equipos
-      </Link>
+      </BackLink>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
       {ok && <Alert tone="ok" onClose={() => setOk('')}>{ok}</Alert>}
 

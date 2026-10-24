@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import BackLink from '../../components/BackLink'
 import { ChevronLeft, X } from 'lucide-react'
 import { api } from '../../lib/api'
 import { Btn, Alert, inputCls } from '../../components/ui'
@@ -163,9 +164,9 @@ export default function AdminMatchPage() {
 
   return (
     <div className="space-y-4">
-      <Link to="/admin/partidos" className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
+      <BackLink to="/admin/partidos" className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
         <ChevronLeft size={16} /> Partidos
-      </Link>
+      </BackLink>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
       {ok && <Alert tone="ok" onClose={() => setOk('')}>{ok}</Alert>}
 
