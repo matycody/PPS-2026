@@ -17,7 +17,7 @@ function SlotSide({ slot }) {
 
 export default function Versus({ a, b, center, size = 'lg', noLink = false, slotA = null, slotB = null }) {
   const side = (t, slot) => {
-    if (!t && slot) return <SlotSide slot={slot} />
+    if (slot) return <SlotSide slot={slot} /> // el backend manda el lugar solo si todavía no está definido
     const body = (
       <>
         <TeamBadge team={t} size={size} />
