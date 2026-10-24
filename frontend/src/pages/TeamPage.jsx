@@ -82,6 +82,8 @@ export default function TeamPage() {
 
   const mods = team.modalities ?? []
   const brs = team.branches ?? []
+  // Qué categoría muestran los números y las listas
+  const scope = mod === 'all' && br === 'all' ? 'Total: todas las ramas y modalidades' : [br === 'all' ? 'Todas las ramas' : BRANCH[br], mod === 'all' ? 'Todas las modalidades' : MODALITY[mod]].join(' · ')
 
   return (
     <div className="space-y-5">
@@ -104,7 +106,25 @@ export default function TeamPage() {
             {mods.map((m) => <span key={m} className="rounded-full bg-accent-soft px-3 py-1 text-xs font-bold uppercase text-accent">{MODALITY[m] ?? m}</span>)}
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-4 gap-2 text-center">
+        {(mods.length > 1 || brs.length > 1) && (
+          <div className="mt-4 space-y-2 border-t border-line pt-4">
+            <p className="text-center text-xs font-bold uppercase tracking-widest text-muted">Ver historial de</p>
+            {mods.length > 1 && (
+              <div className="flex flex-wrap justify-center gap-2">
+                <Chip on={mod === 'all'} onClick={() => setMod('all')}>Todas las modalidades</Chip>
+                {mods.map((m) => <Chip key={m} on={mod === m} onClick={() => setMod(m)}>{MODALITY[m] ?? m}</Chip>)}
+              </div>
+            )}
+            {brs.length > 1 && (
+              <div className="flex flex-wrap justify-center gap-2">
+                <Chip on={br === 'all'} onClick={() => setBr('all')}>Todas las ramas</Chip>
+                {brs.map((b) => <Chip key={b} on={br === b} onClick={() => setBr(b)}>{BRANCH[b] ?? b}</Chip>)}
+              </div>
+            )}
+          </div>
+        )}
+        <p className="mt-4 text-center text-xs font-bold uppercase tracking-widest text-accent">{scope}</p>
+        <div className="mt-2 grid grid-cols-4 gap-2 text-center">
           {[['PJ', done.length], ['G', rec.G], ['E', rec.E], ['P', rec.P]].map(([k, v]) => (
             <div key={k} className="rounded-2xl bg-surface-2 py-2">
               <p className="font-mono text-xl font-extrabold tabular-nums">{v}</p>
@@ -113,23 +133,6 @@ export default function TeamPage() {
           ))}
         </div>
       </section>
-
-      {(mods.length > 1 || brs.length > 1) && (
-        <div className="space-y-2">
-          {mods.length > 1 && (
-            <div className="flex flex-wrap gap-2">
-              <Chip on={mod === 'all'} onClick={() => setMod('all')}>Todas las modalidades</Chip>
-              {mods.map((m) => <Chip key={m} on={mod === m} onClick={() => setMod(m)}>{MODALITY[m] ?? m}</Chip>)}
-            </div>
-          )}
-          {brs.length > 1 && (
-            <div className="flex flex-wrap gap-2">
-              <Chip on={br === 'all'} onClick={() => setBr('all')}>Todas las ramas</Chip>
-              {brs.map((b) => <Chip key={b} on={br === b} onClick={() => setBr(b)}>{BRANCH[b] ?? b}</Chip>)}
-            </div>
-          )}
-        </div>
-      )}
 
       <section className="space-y-2">
         <Title n={next.length}>Próximos partidos</Title>
