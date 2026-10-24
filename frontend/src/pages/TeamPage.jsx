@@ -61,7 +61,16 @@ export default function TeamPage() {
     [matches, mod, br]
   )
   const next = useMemo(() => shown.filter((m) => ACTIVE.includes(m.status)).sort(byDate(1)), [shown])
-  const done = useMemo(() => shown.filter((m) => m.status === 'FINISHED').sort(byDate(-1)), [shown])
+  // Resultados de adelante para atrás: dentro de cada torneo primero la instancia más avanzada (final, tercer puesto, semis… Fecha 3, 2, 1)
+  const done = useMemo(() => {
+    const fin = shown.filter((m) => m.status === 'FINISHED').sort(byDate(-1))
+    const key = (m) => m.tournament?.id ?? 'none'
+    const latest = new Map()
+    fin.forEach((m) => { if (!latest.has(key(m))) latest.set(key(m), m.scheduledAt ? new Date(m.scheduledAt).getTime() : 0) }) // fin ya viene de la más reciente
+    return [...fin].sort((a, b) =>
+      (latest.get(key(b)) - latest.get(key(a))) || key(a).localeCompare(key(b)) ||
+      (b.phase?.order ?? -1) - (a.phase?.order ?? -1) || byDate(-1)(a, b))
+  }, [shown])
   const rec = useMemo(() => {
     const r = { G: 0, E: 0, P: 0 }
     for (const m of done) r[outcome(m, [id]).res] += 1

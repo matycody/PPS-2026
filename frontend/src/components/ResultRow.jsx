@@ -18,6 +18,11 @@ export default function ResultRow({ m, teamIds }) {
     <Link to={'/partido/' + m.id} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
       <span className={'grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-extrabold ' + CLS[o.res]}>{o.res}</span>
       <div className="min-w-0 flex-1">
+        {m.phase?.label && (
+          <p className="truncate text-[11px] font-bold uppercase tracking-wider text-accent">
+            {m.phase.kind === 'LEAGUE' && m.phase.zone ? m.phase.zone + ' · ' : ''}{m.phase.label}
+          </p>
+        )}
         <p className="truncate font-bold">vs {o.rival?.name ?? 'Por definir'}</p>
         <p className="truncate text-xs text-muted">{matchInfo(m)} · {day(m.scheduledAt)}</p>
       </div>
