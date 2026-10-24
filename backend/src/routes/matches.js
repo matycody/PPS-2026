@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../db');
 const { phasesFor } = require('../services/matchPhase');
+const { formsFor } = require('../services/teamForm');
 const { authenticate, optionalAuth, requireRole } = require('../middleware/auth');
 const { getPermissions } = require('../services/matchAccess');
 const { notifyMatch } = require('../services/notify');
@@ -269,7 +270,9 @@ router.get('/', optionalAuth, async (req, res) => {
       skip: offset,
     });
     const phases = await phasesFor(matches.map((m) => m.id)).catch((e) => { console.error('[phase]', e.message); return new Map(); });
-    res.json(matches.map((m) => ({ ...serialize(m, false), phase: phases.get(m.id) ?? null })));
+    const rows = matches.map((m) => ({ ...serialize(m, false), phase: phases.get(m.id) ?? null }));
+    const forms = await formsFor(rows).catch((e) => { console.error('[form]', e.message); return new Map(); });
+    res.json(rows.map((m) => ({ ...m, form: forms.get(m.id) ?? null })));
   } catch (err) {
     handleError(err, res);
   }
@@ -282,7 +285,9 @@ router.get('/:id', optionalAuth, async (req, res) => {
     if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
     if (match.hiddenAt && !isAdmin) return res.status(404).json({ error: 'Partido no encontrado' });
     const phases = await phasesFor([match.id]).catch((e) => { console.error('[phase]', e.message); return new Map(); });
-    res.json({ ...serialize(match, isAdmin), phase: phases.get(match.id) ?? null });
+    const one = { ...serialize(match, isAdmin), phase: phases.get(match.id) ?? null };
+    const forms = await formsFor([one]).catch((e) => { console.error('[form]', e.message); return new Map(); });
+    res.json({ ...one, form: forms.get(one.id) ?? null });
   } catch (err) {
     handleError(err, res);
   }
