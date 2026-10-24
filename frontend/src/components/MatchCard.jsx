@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import GoTo from './GoTo'
 import StatusPill from './StatusPill'
 import MatchNotice from './MatchNotice'
 import Versus from './Versus'
@@ -44,7 +45,10 @@ export default function MatchCard({ m, featured = false, to, badge }) {
       </div>
       {['LIVE', 'READY', 'SCHEDULED'].includes(m.status) && (
         <p className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-muted">
-          {[m.tournament?.name ?? m.tournamentName ?? 'Amistoso', MODALITY[m.modality], BRANCH[m.branch]].filter(Boolean).join(' \u00b7 ')}
+          {m.tournament?.id
+            ? <GoTo to={'/liga/' + m.tournament.id} className="inline text-accent underline underline-offset-2">{m.tournament.name}</GoTo>
+            : (m.tournament?.name ?? m.tournamentName ?? 'Amistoso')}
+          {[MODALITY[m.modality], BRANCH[m.branch]].filter(Boolean).map((x) => ' \u00b7 ' + x).join('')}
         </p>
       )}
       <p className="mt-3 text-center text-sm text-muted">{fmtWhen(m.scheduledAt)}</p>

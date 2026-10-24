@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { Eye, X } from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
+import { Eye, Trophy, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
 import { normMatch, MODALITY, BRANCH, courtLabel } from '../lib/format'
@@ -88,6 +88,11 @@ export default function MatchPage() {
       <div className="flex flex-col items-center gap-2 text-center">
         <StatusPill status={m.status} />
         <p className="text-sm text-muted">{courtLabel(m.court)} · {BRANCH[m.branch] ?? m.branch}</p>
+        {m.tournament?.id && (
+          <Link to={'/liga/' + m.tournament.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-bold text-accent">
+            <Trophy size={14} /> {m.tournament.name} <span aria-hidden>›</span>
+          </Link>
+        )}
       </div>
       <MatchNotice m={m} />
 
