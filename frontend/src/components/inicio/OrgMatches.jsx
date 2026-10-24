@@ -90,9 +90,10 @@ export default function OrgMatches({ byId, filter }) {
       ? dayKeys.find((d) => d >= today) ?? null
       : dayKeys.includes(today) ? today : dayKeys.find((d) => d >= today) ?? dayKeys[dayKeys.length - 1] ?? null
     const curDay = dayPick && dayKeys.includes(dayPick) ? dayPick : auto
-    // Los en vivo / habilitados sin fecha también se muestran (arriba), en la jornada elegida
-    const undated = !curDay || sched ? [] : [...merged.values()].filter((m) => !m.scheduledAt && ['LIVE', 'READY'].includes(m.status))
-    const dayList = !curDay ? [] : [...calDays[curDay].values(), ...undated.filter((u) => !calDays[curDay].has(u.id))].sort(byStatus)
+    // Los partidos sin fecha (torneo recién creado, sin día ni cancha) se muestran igual junto a la jornada por defecto
+    const undated = dayPick ? [] : [...merged.values()].filter((m) => !m.scheduledAt && (sched ? ['SCHEDULED', 'READY'] : ['LIVE', 'READY', 'SCHEDULED']).includes(m.status))
+    const base = curDay ? [...calDays[curDay].values()] : []
+    const dayList = [...base, ...undated.filter((u) => !base.some((b) => b.id === u.id))].sort(byStatus)
     const tournaments = []
     dayList.forEach((m) => {
       const id = m.tournament?.id ?? 'none'
@@ -140,7 +141,7 @@ export default function OrgMatches({ byId, filter }) {
               className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-line bg-surface px-4 py-2.5 text-left text-xs font-bold uppercase tracking-widest text-muted"
             >
               <span className="min-w-0 truncate">
-                {curDay ? dayShort(curDay) + ' · ' + listed.length + (listed.length === 1 ? ' partido' : ' partidos') : sched ? 'Sin partidos programados' : 'Sin partidos'}
+                {curDay || listed.length ? (curDay ? dayShort(curDay) : 'Sin fecha') + ' · ' + listed.length + (listed.length === 1 ? ' partido' : ' partidos') : sched ? 'Sin partidos programados' : 'Sin partidos'}
               </span>
               <ChevronDown size={18} className={'shrink-0 transition-transform ' + (dayOpen ? 'rotate-180' : '')} />
             </button>
