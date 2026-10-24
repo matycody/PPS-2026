@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
+import { socket } from '../../sockets/socket'
 import { fmtWhen, courtLabel } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../ui'
 import StatusPill from '../StatusPill'
@@ -45,7 +46,13 @@ export function MatchdayCard({ md, zone, tournamentId, admin, base, onChanged, s
         {md.matches.map((m) => (
           <div key={m.id} className="rounded-2xl bg-surface-2 px-3 py-2 text-sm">
             <Link to={base + m.id} className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate font-semibold">{m.teamA?.name ?? m.fromA?.label ?? '—'} vs {m.teamB?.name ?? m.fromB?.label ?? '—'}</span>
+              <span className="min-w-0 flex-1 truncate font-semibold">
+                {m.teamA?.name ?? m.fromA?.label ?? '—'}
+                {m.score && (m.status === 'FINISHED' || m.status === 'LIVE')
+                  ? <b className="mx-1.5 rounded-lg bg-surface px-2 py-0.5 font-mono tabular-nums">{m.score.teamA} - {m.score.teamB}</b>
+                  : ' vs '}
+                {m.teamB?.name ?? m.fromB?.label ?? '—'}
+              </span>
               <span className="shrink-0 text-xs text-muted">{m.scheduledAt ? fmtWhen(m.scheduledAt) : 'Sin hora'} · {courtLabel(m.court)}</span>
               <StatusPill status={m.status} />
             </Link>
@@ -66,6 +73,16 @@ export default function FixtureView({ tournamentId, admin = false, base = '/part
     .catch((e) => setErr(e.message))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [tournamentId, reloadKey])
+
+  // Los marcadores se actualizan solos cuando cambia un partido (se espera un instante para agrupar cambios seguidos)
+  useEffect(() => {
+    let t
+    const onUpdated = () => { clearTimeout(t); t = setTimeout(load, 1200) }
+    socket.emit('matches:subscribe')
+    socket.on('match:updated', onUpdated)
+    return () => { clearTimeout(t); socket.off('match:updated', onUpdated); socket.emit('matches:unsubscribe') }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournamentId])
 
   if (!days) return err ? <p className="text-danger">{err}</p> : <p className="text-muted">Cargando…</p>
   if (!days.length) return <p className="text-muted">Todavía no hay fixture.</p>
