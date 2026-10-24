@@ -61,13 +61,14 @@ function buildTable(stage, t, matches, criteria) {
   const rows = new Map(
     stage.teams.map((x) => [
       x.teamId,
-      { teamId: x.teamId, team: x.team, played: 0, won: 0, drawn: 0, lost: 0, points: 0, setsFor: 0, setsAgainst: 0, setDiff: 0 },
+      { teamId: x.teamId, team: x.team, played: 0, won: 0, drawn: 0, lost: 0, points: 0, setsFor: 0, setsAgainst: 0, setDiff: 0, form: [] },
     ]),
   );
   const results = [];
   let matchesWithoutSets = 0;
 
-  for (const m of matches) {
+  const when = (m) => (m.finishedAt ?? m.scheduledAt ? new Date(m.finishedAt ?? m.scheduledAt).getTime() : 0)
+  for (const m of [...matches].sort((x, y) => when(x) - when(y))) {
     const r = matchResult(m);
     if (!r) {
       matchesWithoutSets++;
@@ -78,6 +79,7 @@ function buildTable(stage, t, matches, criteria) {
     if (!a || !b) continue;
     results.push({ a: a.teamId, b: b.teamId, setsA: r.setsA, setsB: r.setsB });
     for (const [row, mine, theirs] of [[a, r.setsA, r.setsB], [b, r.setsB, r.setsA]]) {
+      row.form.push(mine > theirs ? 'V' : mine === theirs ? 'E' : 'D'); // últimos resultados, del más viejo al más nuevo
       row.played++;
       row.setsFor += mine;
       row.setsAgainst += theirs;
@@ -88,6 +90,8 @@ function buildTable(stage, t, matches, criteria) {
       else row.lost++;
     }
   }
+
+  for (const r of rows.values()) r.form = r.form.slice(-5);
 
   // Primero por puntos; los empatados se desempatan con los criterios del torneo, en orden
   const byPoints = new Map();
@@ -139,7 +143,7 @@ async function computeStandings(tournamentId, stageId = null) {
   const matches = stages.length
     ? await prisma.match.findMany({
         where: { stageId: { in: stages.map((s) => s.id) }, status: 'FINISHED', hiddenAt: null },
-        select: { stageId: true, teamAId: true, teamBId: true, sets: { select: { winnerTeamId: true } } },
+        select: { stageId: true, teamAId: true, teamBId: true, finishedAt: true, scheduledAt: true, sets: { select: { winnerTeamId: true } } },
       })
     : [];
   const criteria = t.tiebreakers.map((x) => x.criterion);
