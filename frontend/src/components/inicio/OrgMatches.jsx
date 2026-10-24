@@ -9,6 +9,9 @@ const ACTIVE = ['LIVE', 'READY', 'SCHEDULED']
 const CAL_BACK = 90 // días hacia atrás que se pueden elegir en el selector de fecha
 const CAL_AHEAD = 180 // y hacia adelante
 const dayOf = (iso) => (iso ? new Date(iso).toLocaleDateString('en-CA') : null)
+const RANK = { LIVE: 0, READY: 1, SCHEDULED: 2, SUSPENDED: 3, FINISHED: 4 }
+// Orden en todas las listas: en vivo, habilitados, programados (y al final suspendidos/finalizados); dentro de cada grupo, por hora
+const byStatus = (a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9) || byTime(a, b)
 const byTime = (a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || (a.court || 999) - (b.court || 999)
 
 function dayLabel(day) {
@@ -69,7 +72,9 @@ export default function OrgMatches({ byId, filter }) {
       ? dayKeys.find((d) => d >= today) ?? null
       : dayKeys.includes(today) ? today : dayKeys.find((d) => d >= today) ?? dayKeys[dayKeys.length - 1] ?? null
     const curDay = dayPick && dayKeys.includes(dayPick) ? dayPick : auto
-    const dayList = !curDay ? [] : [...calDays[curDay].values()].sort(byTime)
+    // Los en vivo / habilitados sin fecha también se muestran (arriba), en la jornada elegida
+    const undated = !curDay || sched ? [] : [...merged.values()].filter((m) => !m.scheduledAt && ['LIVE', 'READY'].includes(m.status))
+    const dayList = !curDay ? [] : [...calDays[curDay].values(), ...undated.filter((u) => !calDays[curDay].has(u.id))].sort(byStatus)
     const tournaments = []
     dayList.forEach((m) => {
       const id = m.tournament?.id ?? 'none'
