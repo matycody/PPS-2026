@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react'
 import MatchCard from '../MatchCard'
 import { api } from '../../lib/api'
 import { normMatch, courtLabel } from '../../lib/format'
+import { socket } from '../../sockets/socket'
 
 const ACTIVE = ['LIVE', 'READY', 'SCHEDULED']
 const CAL_BACK = 90 // días hacia atrás que se pueden elegir en el selector de fecha
@@ -33,13 +34,20 @@ export default function OrgMatches({ byId, filter }) {
   const [courtPick, setCourtPick] = useState('all') // pestaña Programados: 'all' | número de cancha | 'none' (sin cancha)
   const [cal, setCal] = useState(null) // partidos de todas las fechas (pasadas y futuras)
 
+  // Jornadas pasadas y futuras (incluye finalizados). Si el pedido falla se reintenta, y se vuelve a pedir al reconectar el socket
+  const [calTry, setCalTry] = useState(0)
   useEffect(() => {
-    if ((filter !== 'all' && filter !== 'sched') || cal) return
+    if (filter !== 'all' && filter !== 'sched') return
+    let alive = true
     const iso = (d) => encodeURIComponent(new Date(Date.now() + d * 864e5).toISOString())
-    api('GET', '/matches?status=LIVE,READY,SCHEDULED,SUSPENDED,FINISHED&limit=200&from=' + iso(-CAL_BACK) + '&to=' + iso(CAL_AHEAD))
-      .then((r) => setCal(r.map(normMatch)))
-      .catch(() => setCal([]))
-  }, [filter, cal])
+    const load = () =>
+      api('GET', '/matches?status=LIVE,READY,SCHEDULED,SUSPENDED,FINISHED&includeUndated=true&limit=200&from=' + iso(-CAL_BACK) + '&to=' + iso(CAL_AHEAD))
+        .then((r) => { if (alive) setCal(r.map(normMatch)) })
+        .catch(() => { if (alive && calTry < 3) setTimeout(() => alive && setCalTry((n) => n + 1), 2000) })
+    load()
+    socket.on('connect', load)
+    return () => { alive = false; socket.off('connect', load) }
+  }, [filter, calTry])
 
   const { day, list, live, courts } = useMemo(() => {
     const today = dayOf(new Date())
