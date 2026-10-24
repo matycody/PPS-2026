@@ -182,7 +182,13 @@ function FixtureTab({ t, setErr }) {
   const ask = useConfirm()
   const [days, setDays] = useState(null)
   const [tick, setTick] = useState(0)
-  const [opt, setOpt] = useState({ startDate: '', schedule: 'interval', intervalDays: 7, doubleRound: false, shuffle: true })
+  // Las opciones del sorteo se recuerdan por torneo en este dispositivo
+  const optKey = 'fixtureOpt:' + t.id
+  const [opt, setOpt] = useState(() => {
+    const base = { startDate: '', schedule: 'interval', intervalDays: 7, doubleRound: false, shuffle: true }
+    try { return { ...base, ...JSON.parse(localStorage.getItem(optKey) || '{}') } } catch { return base }
+  })
+  useEffect(() => { try { localStorage.setItem(optKey, JSON.stringify(opt)) } catch { /* sin localStorage */ } }, [optKey, opt])
   const [busy, setBusy] = useState(false)
   const leagues = t.stages.filter((s) => s.type === 'LEAGUE')
   const hasFixture = (id) => (days ?? []).some((d) => d.stage.id === id)
