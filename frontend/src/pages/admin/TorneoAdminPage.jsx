@@ -182,7 +182,7 @@ function FixtureTab({ t, setErr }) {
   const ask = useConfirm()
   const [days, setDays] = useState(null)
   const [tick, setTick] = useState(0)
-  const [opt, setOpt] = useState({ startDate: '', intervalDays: 7, doubleRound: false, shuffle: true })
+  const [opt, setOpt] = useState({ startDate: '', schedule: 'interval', intervalDays: 7, doubleRound: false, shuffle: true })
   const [busy, setBusy] = useState(false)
   const leagues = t.stages.filter((s) => s.type === 'LEAGUE')
   const hasFixture = (id) => (days ?? []).some((d) => d.stage.id === id)
@@ -191,7 +191,7 @@ function FixtureTab({ t, setErr }) {
     setBusy(true); setErr('')
     try {
       await api('POST', '/tournaments/' + t.id + '/stages/' + stage.id + '/fixture', {
-        shuffle: opt.shuffle, doubleRound: opt.doubleRound, intervalDays: Number(opt.intervalDays),
+        shuffle: opt.shuffle, doubleRound: opt.doubleRound, intervalDays: Number(opt.intervalDays) || 7, schedule: opt.schedule,
         startDate: opt.startDate ? opt.startDate + 'T15:00:00.000Z' : undefined,
       })
       setTick((x) => x + 1)
@@ -210,9 +210,20 @@ function FixtureTab({ t, setErr }) {
         <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
           <p className="text-sm font-bold">Sorteo todos contra todos</p>
           <div className="grid grid-cols-2 gap-3 text-xs text-muted [&>*]:min-w-0">
-            <label>Primera fecha<input type="date" className={inputCls} value={opt.startDate} onChange={(e) => setOpt({ ...opt, startDate: e.target.value })} /></label>
-            <label>Días entre fechas<input type="number" min="1" className={inputCls} value={opt.intervalDays} onChange={(e) => setOpt({ ...opt, intervalDays: e.target.value })} /></label>
+            <label>{opt.schedule === 'interval' ? 'Primera fecha' : opt.schedule === 'weekend' ? 'Sábado (primer día)' : 'Día de juego'}<input type="date" className={inputCls} value={opt.startDate} onChange={(e) => setOpt({ ...opt, startDate: e.target.value })} /></label>
+            <label>Cuándo se juega
+              <select className={inputCls} value={opt.schedule} onChange={(e) => setOpt({ ...opt, schedule: e.target.value })}>
+                <option value="interval">Cada tantos días</option>
+                <option value="sameDay">Todo el mismo día</option>
+                <option value="weekend">Fin de semana (sáb y dom)</option>
+              </select>
+            </label>
+            {opt.schedule === 'interval' && (
+              <label>Días entre fechas<input type="number" min="1" className={inputCls} value={opt.intervalDays} onChange={(e) => setOpt({ ...opt, intervalDays: e.target.value })} /></label>
+            )}
           </div>
+          {opt.schedule === 'sameDay' && <p className="text-xs text-muted">Todas las fechas quedan en el mismo día; la hora y la cancha se asignan después.</p>}
+          {opt.schedule === 'weekend' && <p className="text-xs text-muted">La primera mitad de las fechas va el sábado y el resto el domingo.</p>}
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={opt.doubleRound} onChange={(e) => setOpt({ ...opt, doubleRound: e.target.checked })} /> Ida y vuelta</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={opt.shuffle} onChange={(e) => setOpt({ ...opt, shuffle: e.target.checked })} /> Sortear el orden</label>
           {leagues.map((s) => (
