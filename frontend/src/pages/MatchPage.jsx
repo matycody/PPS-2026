@@ -116,6 +116,8 @@ export default function MatchPage() {
           b={m.teamB}
           slotA={m.phase?.slotA}
           slotB={m.phase?.slotB}
+          formA={m.form?.A}
+          formB={m.form?.B}
           size="xl"
           center={
             <span className="font-mono text-4xl font-extrabold tabular-nums text-live">

@@ -1,5 +1,6 @@
 ﻿import TeamBadge from './TeamBadge'
 import GoTo from './GoTo'
+import Forma from './torneo/Forma'
 
 // Equipo A | centro (VS, marcador o reloj) | Equipo B. Todo centrado, con escudos.
 // Lugar todavía sin equipo: "1°" en grande, la zona o la ronda de origen y quién lo ocupa en este momento
@@ -15,13 +16,14 @@ function SlotSide({ slot }) {
   )
 }
 
-export default function Versus({ a, b, center, size = 'lg', noLink = false, slotA = null, slotB = null }) {
-  const side = (t, slot) => {
+export default function Versus({ a, b, center, size = 'lg', noLink = false, slotA = null, slotB = null, formA = null, formB = null }) {
+  const side = (t, slot, form) => {
     if (slot) return <SlotSide slot={slot} /> // el backend manda el lugar solo si todavía no está definido
     const body = (
       <>
         <TeamBadge team={t} size={size} />
         <span className="w-full break-words text-sm font-bold leading-tight">{t?.name ?? 'Por definir'}</span>
+        {t && form?.length > 0 && <Forma form={form} size="sm" />}
       </>
     )
     const cls = 'flex min-w-0 flex-col items-center gap-2 text-center'
@@ -31,11 +33,11 @@ export default function Versus({ a, b, center, size = 'lg', noLink = false, slot
   }
   return (
     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-      {side(a, slotA)}
+      {side(a, slotA, formA)}
       <div className="flex flex-col items-center text-center">
         {center ?? <span className="text-sm font-extrabold tracking-widest text-muted">VS</span>}
       </div>
-      {side(b, slotB)}
+      {side(b, slotB, formB)}
     </div>
   )
 }

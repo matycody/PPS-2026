@@ -39,7 +39,7 @@ function CourtMatch({ m, tick, full, run, busy }) {
         <span className="text-xs font-bold uppercase tracking-widest text-muted">{fmtWhen(m.scheduledAt)}</span>
         {paused ? <span className="rounded-full bg-warn/15 px-3 py-1 text-xs font-bold uppercase text-warn">Pausado</span> : <StatusPill status={m.status} />}
       </div>
-      <Versus a={m.teamA} b={m.teamB} size={full ? 'lg' : 'md'} center={center} />
+      <Versus a={m.teamA} b={m.teamB} formA={m.form?.A} formB={m.form?.B} size={full ? 'lg' : 'md'} center={center} />
       <p className="text-center text-xs font-bold uppercase tracking-wider text-muted">{matchInfo(m)}</p>
       <MatchNotice m={m} compact className="text-center" />
 
