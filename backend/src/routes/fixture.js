@@ -7,6 +7,7 @@ const router = express.Router();
 const admin = [authenticate, requireRole('ADMIN')];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const { parseSchedule, scheduleDate } = require('../lib/scheduleDates');
 const OPEN = ['SCHEDULED', 'READY'];
 const TEAM_SELECT = { id: true, name: true, logo: true };
 
@@ -102,10 +103,11 @@ router.post('/:id/stages/:stageId/fixture', ...admin, async (req, res) => {
     if (!Number.isInteger(intervalDays) || intervalDays < 1 || intervalDays > 60) {
       return res.status(400).json({ error: 'intervalDays inválido (entero de 1 a 60)' });
     }
+    const schedule = parseSchedule(b.schedule);
+    if (schedule === undefined) return res.status(400).json({ error: 'schedule inválido (interval, sameDay o weekend)' });
     const dateFor = (i) => {
       if (dates && i < dates.length) return dates[i];
-      if (startDate) return new Date(startDate.getTime() + i * intervalDays * DAY_MS);
-      return null;
+      return scheduleDate({ schedule, startDate, intervalDays, i, total: rounds.length });
     };
 
     const ids = stage.teams
