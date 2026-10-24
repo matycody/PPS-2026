@@ -178,6 +178,7 @@ export default function TorneosPage() {
               </p>
               <p className="flex items-center gap-2 text-xs text-muted">
                 <span className={'rounded-full px-2 py-0.5 font-bold uppercase ' + TSTATUS[t.status].cls}>{TSTATUS[t.status].label}</span>
+                {t.pausedAt && <span className="rounded-full bg-warn/20 px-2 py-0.5 font-bold uppercase text-warn">Pausado</span>}
                 {t.champion && <span className="flex items-center gap-1"><Trophy size={12} /> {t.champion.name}</span>}
                 <span>{fmtDate(t.startsAt)} → {fmtDate(t.endsAt)}</span>
               </p>

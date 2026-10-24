@@ -507,9 +507,25 @@ export default function TorneoAdminPage() {
   const [tab, setTab] = useState('resumen')
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
+  const [pausing, setPausing] = useState(false)
+  const askPause = useConfirm()
 
   const load = useCallback(() => api('GET', '/tournaments/' + id).then(setT).catch((e) => setErr(e.message)), [id])
   useEffect(() => { load() }, [load])
+
+  async function togglePause() {
+    const willPause = !t.pausedAt
+    const ok = await askPause(willPause
+      ? { title: 'Pausar torneo', message: 'El torneo y todos sus partidos (programados, habilitados, en vivo y finalizados) van a desaparecer para todos los usuarios, menos la organización. No se borra nada y podés reanudarlo cuando quieras.', confirmText: 'Pausar torneo', danger: true }
+      : { title: 'Reanudar torneo', message: 'El torneo y sus partidos vuelven a verse para todos, tal cual estaban.', confirmText: 'Reanudar torneo' })
+    if (!ok) return
+    setPausing(true); setErr('')
+    try {
+      const r = await api('POST', '/tournaments/' + id + (willPause ? '/pause' : '/resume'))
+      setMsg(willPause ? 'Torneo pausado: ' + r.hiddenMatches + ' partidos ocultos' : 'Torneo reanudado: ' + r.restoredMatches + ' partidos visibles de nuevo')
+      await load()
+    } catch (e) { setErr(e.message) } finally { setPausing(false) }
+  }
 
   if (!t) return err ? <Alert onClose={() => setErr('')}>{err}</Alert> : <p className="text-muted">Cargando…</p>
   const st = TSTATUS[t.status]
@@ -521,6 +537,18 @@ export default function TorneoAdminPage() {
         <h1 className="text-xl font-extrabold">{t.name}{t.edition ? ' · ' + t.edition : ''}</h1>
         <p className="flex items-center gap-2 text-sm text-muted">{t.year} <span className={'rounded-full px-2 py-0.5 text-xs font-bold uppercase ' + st.cls}>{st.label}</span></p>
       </div>
+      {t.pausedAt && (
+        <div className="rounded-2xl border box-warn px-4 py-3 text-sm font-bold text-warn">
+          Torneo pausado: nadie lo ve salvo la organización. Mientras está pausado sus partidos no se muestran en la app; reanudalo para editarlos.
+        </div>
+      )}
+      <button
+        disabled={pausing}
+        onClick={togglePause}
+        className={'w-full rounded-2xl border px-4 py-3 text-sm font-extrabold disabled:opacity-50 ' + (t.pausedAt ? 'border-transparent bg-accent text-black' : 'border-line bg-surface')}
+      >
+        {pausing ? '...' : t.pausedAt ? 'Reanudar torneo' : 'Pausar torneo'}
+      </button>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
       {msg && <Alert tone="ok" onClose={() => setMsg('')}>{msg}</Alert>}
       <div className="flex gap-2 overflow-x-auto pb-1">
