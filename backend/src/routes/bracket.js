@@ -408,4 +408,66 @@ router.get('/:id/stages/:stageId/bracket', async (req, res) => {
   }
 });
 
+// Día y canchas por ronda de playoffs (Octavos, Cuartos, Semifinales, Final + tercer puesto), igual que las jornadas del fixture.
+// Solo se tocan partidos Programados o Habilitados.
+const OPEN = ['SCHEDULED', 'READY'];
+
+async function roundContext(req, res) {
+  const stage = await findStage(req.params.id, req.params.stageId);
+  if (!stage) { res.status(404).json({ error: 'Etapa no encontrada' }); return null; }
+  if (stage.tournament.status === 'FINISHED') { res.status(409).json({ error: 'El torneo finalizó' }); return null; }
+  if (stage.type !== 'KNOCKOUT') { res.status(409).json({ error: 'Solo para etapas de eliminación directa (KNOCKOUT)' }); return null; }
+  const round = Number(req.params.round);
+  if (!Number.isInteger(round) || round < 1) { res.status(400).json({ error: 'Ronda inválida' }); return null; }
+  return { stage, round };
+}
+
+router.patch('/:id/stages/:stageId/bracket/rounds/:round', ...admin, async (req, res) => {
+  try {
+    const ctx = await roundContext(req, res);
+    if (!ctx) return;
+    if (req.body?.date === undefined) return res.status(400).json({ error: 'date obligatoria (o null para quitarla)' });
+    const date = parseDate(req.body.date);
+    if (date === undefined) return res.status(400).json({ error: 'Fecha inválida' });
+    const r = await prisma.match.updateMany({
+      where: { stageId: ctx.stage.id, round: ctx.round, hiddenAt: null, status: { in: OPEN } },
+      data: { scheduledAt: date },
+    });
+    res.json({ round: ctx.round, date, movedMatches: r.count });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+router.post('/:id/stages/:stageId/bracket/rounds/:round/assign-courts', ...admin, async (req, res) => {
+  try {
+    const ctx = await roundContext(req, res);
+    if (!ctx) return;
+    const courts = Number(req.body?.courts);
+    if (!Number.isInteger(courts) || courts < 1 || courts > 50) {
+      return res.status(400).json({ error: 'courts inválido (entero de 1 a 50)' });
+    }
+    const matches = await prisma.match.findMany({
+      where: { stageId: ctx.stage.id, round: ctx.round, hiddenAt: null, status: { in: OPEN } },
+      select: { id: true, court: true, slot: true, scheduledAt: true },
+    });
+    matches.sort(
+      (a, b) =>
+        (a.scheduledAt ? a.scheduledAt.getTime() : Infinity) - (b.scheduledAt ? b.scheduledAt.getTime() : Infinity) ||
+        (a.slot ?? Infinity) - (b.slot ?? Infinity) ||
+        a.id.localeCompare(b.id),
+    );
+    const updates = [];
+    const assigned = matches.map((m, i) => {
+      const court = (i % courts) + 1;
+      if (m.court !== court) updates.push(prisma.match.update({ where: { id: m.id }, data: { court } }));
+      return { matchId: m.id, court };
+    });
+    if (updates.length) await prisma.$transaction(updates);
+    res.json({ round: ctx.round, courts, assigned });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
 module.exports = router;
