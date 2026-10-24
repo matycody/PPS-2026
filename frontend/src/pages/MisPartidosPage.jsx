@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
-import { normMatch, fmtWhen, courtLabel } from '../lib/format'
+import { normMatch, fmtWhen, courtLabel, phaseCmp } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import Versus from '../components/Versus'
 
@@ -48,7 +48,7 @@ export default function MisPartidosPage() {
 
   const upcoming = matches
     .filter((m) => !isPast(m.status))
-    .sort((a, b) => ORDER[a.status] - ORDER[b.status] || String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')))
+    .sort((a, b) => ORDER[a.status] - ORDER[b.status] || String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b))
   const past = matches
     .filter((m) => isPast(m.status))
     .sort((a, b) => String(b.finishedAt ?? b.scheduledAt ?? '').localeCompare(String(a.finishedAt ?? a.scheduledAt ?? '')))

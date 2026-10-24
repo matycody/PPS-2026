@@ -5,7 +5,7 @@ import { socket } from '../../sockets/socket'
 import { api } from '../../lib/api'
 import { useMatchesFeed } from '../../hooks/useMatchesFeed'
 import { useMatchesStore } from '../../stores/matchesStore'
-import { fmtWhen, courtLabel } from '../../lib/format'
+import { fmtWhen, courtLabel, phaseCmp } from '../../lib/format'
 import StatusPill from '../../components/StatusPill'
 import Versus from '../../components/Versus'
 import MatchNotice from '../../components/MatchNotice'
@@ -107,7 +107,7 @@ export default function DashboardPage() {
       .forEach((m) => { (groups[m.court ?? 0] ??= []).push(m) })
     return Object.entries(groups)
       .map(([court, list]) => {
-        list.sort((a, b) => ORDER[a.status] - ORDER[b.status] || String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')))
+        list.sort((a, b) => ORDER[a.status] - ORDER[b.status] || String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b))
         return { court: Number(court), list }
       })
       .sort((a, b) => (a.court || 999) - (b.court || 999))

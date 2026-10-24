@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
 import MatchCard from '../MatchCard'
 import { api } from '../../lib/api'
-import { normMatch, courtLabel } from '../../lib/format'
+import { normMatch, courtLabel, phaseCmp } from '../../lib/format'
 import { socket } from '../../sockets/socket'
 
 const ACTIVE = ['LIVE', 'READY', 'SCHEDULED']
@@ -13,7 +13,7 @@ const dayOf = (iso) => (iso ? new Date(iso).toLocaleDateString('en-CA') : null)
 const RANK = { LIVE: 0, READY: 1, SCHEDULED: 2, SUSPENDED: 3, FINISHED: 4 }
 // Orden en todas las listas: en vivo, habilitados, programados (y al final suspendidos/finalizados); dentro de cada grupo, por hora
 const byStatus = (a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9) || byTime(a, b)
-const byTime = (a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || (a.court || 999) - (b.court || 999)
+const byTime = (a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b) || (a.court || 999) - (b.court || 999)
 
 function dayLabel(day) {
   const d = new Date(day + 'T12:00:00')

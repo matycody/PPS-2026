@@ -6,7 +6,7 @@ import Finalizados from '../components/inicio/Finalizados'
 import { useMatchesFeed } from '../hooks/useMatchesFeed'
 import { useMatchesStore } from '../stores/matchesStore'
 import { socket } from '../sockets/socket'
-import { toSeconds } from '../lib/format'
+import { toSeconds, phaseCmp } from '../lib/format'
 import { GENERAL, ITEMS } from '../lib/navConfig'
 import { useAuthStore } from '../stores/authStore'
 import PlayerRequestBanner from '../components/PlayerRequestBanner'
@@ -44,7 +44,7 @@ export default function InicioPage() {
     return Object.entries(groups)
       .map(([court, list]) => {
         list.sort((a, b) =>
-          ORDER[a.status] - ORDER[b.status] || String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? ''))
+          ORDER[a.status] - ORDER[b.status] || String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b)
         )
         return { court: Number(court), list }
       })
@@ -89,7 +89,7 @@ export default function InicioPage() {
     .flatMap((c) => c.list)
     .filter((m) => m.status !== 'LIVE' && !promotedIds.has(m.id))
     .filter((m) => !m.scheduledAt || new Date(m.scheduledAt).getTime() <= limit)
-    .sort((a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || (a.court || 999) - (b.court || 999))
+    .sort((a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b) || (a.court || 999) - (b.court || 999))
   const today = rest.filter((m) => sameDay(m.scheduledAt))
   const later = rest.filter((m) => !sameDay(m.scheduledAt))
   const nextList = later.slice(0, MAX_NEXT)

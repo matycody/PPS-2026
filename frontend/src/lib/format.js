@@ -11,6 +11,10 @@ export const STATUS = {
 }
 
 // GET /matches trae "id"; match:updated trae "matchId"
+// Desempate entre partidos a la misma hora: primero la Fecha 1, 2, 3…, después los playoffs (cuartos, semis, tercer puesto, final)
+export const phaseCmp = (a, b) =>
+  (a.phase?.order ?? 9999) - (b.phase?.order ?? 9999) || (a.phase?.slot ?? 0) - (b.phase?.slot ?? 0)
+
 export const normMatch = (m) => ({ ...m, id: m.id ?? m.matchId })
 
 export function fmtWhen(iso) {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight, Trophy } from 'lucide-react'
 import { api } from '../../lib/api'
-import { BRANCH, MODALITY, FORMAT, TSTATUS, normMatch } from '../../lib/format'
+import { BRANCH, MODALITY, FORMAT, TSTATUS, normMatch, phaseCmp } from '../../lib/format'
 import MatchCard from '../MatchCard'
 
 const fecha = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' }) : 'Sin día')
@@ -86,7 +86,7 @@ function PorJornada() {
       {list === null && !err && <p className="text-muted">Cargando…</p>}
       {list && keys.length === 0 && <p className="text-muted">Todavía no hay partidos terminados.</p>}
       {keys.map((k) => {
-        const ms = days[k].sort((a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || (a.court || 999) - (b.court || 999))
+        const ms = days[k].sort((a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b) || (a.court || 999) - (b.court || 999))
         return (
           <div key={k} className="space-y-3">
             <button
