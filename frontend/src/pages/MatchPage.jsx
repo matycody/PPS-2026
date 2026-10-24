@@ -101,9 +101,16 @@ export default function MatchPage() {
 
       <div className="rounded-3xl border border-line bg-surface p-5">
         <p className="mb-4 text-center text-xs font-bold uppercase tracking-widest text-muted">Marcador</p>
+        {m.phase?.label && (
+          <p className="-mt-2 mb-3 text-center text-xs font-bold uppercase tracking-widest text-accent">
+            {m.phase.kind === 'LEAGUE' && m.phase.zone ? m.phase.zone + ' · ' : ''}{m.phase.label}
+          </p>
+        )}
         <Versus
           a={m.teamA}
           b={m.teamB}
+          slotA={m.phase?.slotA}
+          slotB={m.phase?.slotB}
           size="xl"
           center={
             <span className="font-mono text-4xl font-extrabold tabular-nums text-live">

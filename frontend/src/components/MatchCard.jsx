@@ -30,9 +30,14 @@ export default function MatchCard({ m, featured = false, to, badge }) {
         <StatusPill status={m.status} />
         <span className="text-sm text-muted">{courtLabel(m.court)}</span>
       </div>
+      {m.phase?.label && (
+        <p className="mt-2 text-center text-xs font-bold uppercase tracking-widest text-accent">
+          {m.phase.kind === 'LEAGUE' && m.phase.zone ? m.phase.zone + ' · ' : ''}{m.phase.label}
+        </p>
+      )}
       {badge && <p className="mt-2 text-center text-xs font-bold uppercase tracking-widest text-warn">{badge}</p>}
       <div className="mt-4">
-        <Versus a={m.teamA} b={m.teamB} size={featured ? 'xl' : 'lg'} center={center} />
+        <Versus a={m.teamA} b={m.teamB} slotA={m.phase?.slotA} slotB={m.phase?.slotB} size={featured ? 'xl' : 'lg'} center={center} />
       </div>
       {['LIVE', 'READY', 'SCHEDULED'].includes(m.status) && (
         <p className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-muted">
