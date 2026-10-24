@@ -18,6 +18,9 @@ export default function MatchCard({ m, featured = false, to, badge }) {
     <div className="flex flex-col items-center gap-1">
       <span className="font-mono text-3xl font-extrabold tabular-nums">{m.score?.teamA ?? 0} - {m.score?.teamB ?? 0}</span>
       {m.status === 'LIVE' && <span className="font-mono text-lg font-extrabold tabular-nums text-live">{clock(tick?.matchTime)}</span>}
+      {m.status === 'LIVE' && tick?.matchHalf && (
+        <span className="text-[11px] font-bold uppercase tracking-wider text-muted">{Number(tick.matchHalf) === 2 ? '2do tiempo' : '1er tiempo'}</span>
+      )}
     </div>
   ) : undefined
 
