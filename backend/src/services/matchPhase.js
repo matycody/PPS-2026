@@ -63,8 +63,12 @@ async function phasesFor(ids) {
     if (!tId) return;
     const data = await computeStandings(tId, zoneId);
     const z = data && data.stages[0];
-    if (z) zoneRows.set(zoneId, { name: z.name, rows: z.rows });
+    if (!z) return;
+    const own = await prisma.match.findMany({ where: { stageId: zoneId, hiddenAt: null }, select: { status: true } });
+    const done = own.length > 0 && own.every((x) => x.status === 'FINISHED' || x.status === 'CANCELLED');
+    zoneRows.set(zoneId, { name: z.name, rows: z.rows, done });
   }));
+  const zoneDone = (f) => !!(f && zoneRows.get(f.stageId) && zoneRows.get(f.stageId).done);
   const zoneTeam = (f) => {
     const z = f && zoneRows.get(f.stageId);
     const row = z && z.rows[f.position - 1];
@@ -77,8 +81,9 @@ async function phasesFor(ids) {
 
   // Equipos que hoy ocupan un partido de la llave (reales o, si faltan, los de la tabla)
   const nowTeams = (m) => {
-    const a = m.teamA ?? zoneTeam(m.teamAFrom);
-    const b = m.teamB ?? zoneTeam(m.teamBFrom);
+    const pick = (team, from) => (from && !zoneDone(from) ? zoneTeam(from) : team ?? zoneTeam(from));
+    const a = pick(m.teamA, m.teamAFrom);
+    const b = pick(m.teamB, m.teamBFrom);
     return [a, b].filter(Boolean);
   };
   const feederName = (id) => {
@@ -102,8 +107,9 @@ async function phasesFor(ids) {
     const third = isThird(m.id);
     const f = feeds.get(m.id) || {};
     const slot = (side, teamId, from) => {
+      // Mientras la zona no termine el lugar sigue abierto, aunque ya tenga un equipo asignado de forma provisoria
+      if (from && (!teamId || !zoneDone(from))) return zoneSlot(from);
       if (teamId) return null;
-      if (from) return zoneSlot(from);
       const fd = f[side];
       if (!fd) return null;
       const cands = nowTeams(byId.get(fd.from));
