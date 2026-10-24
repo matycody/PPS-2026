@@ -2,6 +2,7 @@ const prisma = require('../db');
 const { SERVER_EVENTS } = require('../timers/timerEvents');
 const { getPermissions } = require('./matchAccess');
 const authCache = require('./authCache');
+const { getMatch } = require('../timers/matchManager');
 
 const FEED_ROOM = 'matches:all';
 const matchRoom = (id) => 'match:' + id;
@@ -49,6 +50,16 @@ async function notifyMatch(io, matchId) {
       },
     });
     if (!m) return;
+
+    // Si el partido ya no está Habilitado ni En vivo (finalizado, cancelado, suspendido, reprogramado o deshabilitado),
+    // el reloj no puede seguir corriendo: se frena y se avisa el estado a quienes lo miran
+    if (m.status !== 'READY' && m.status !== 'LIVE') {
+      const engine = getMatch(matchId);
+      if (engine) {
+        if (engine.timeoutTeam !== null) engine.endTimeout();
+        engine.pause('both');
+      }
+    }
 
     let a = 0;
     let b = 0;
