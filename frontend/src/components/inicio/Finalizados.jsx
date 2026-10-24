@@ -105,11 +105,36 @@ function PorJornada() {
   )
 }
 
+// Partidos terminados hoy, de cualquier torneo y modalidad (el más reciente primero)
+function Hoy() {
+  const [list, setList] = useState(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    const from = encodeURIComponent(new Date(Date.now() - 2 * 864e5).toISOString())
+    api('GET', '/matches?status=FINISHED&limit=200&includeUndated=true&from=' + from)
+      .then((r) => setList(r.map(normMatch)))
+      .catch((e) => setErr(e.message))
+  }, [])
+  const today = new Date().toLocaleDateString('en-CA')
+  const ms = (list ?? [])
+    .filter((m) => dayKey(m.finishedAt ?? m.scheduledAt) === today)
+    .sort((a, b) => String(b.finishedAt ?? b.scheduledAt ?? '').localeCompare(String(a.finishedAt ?? a.scheduledAt ?? '')))
+  return (
+    <div className="space-y-3">
+      {err && <p className="text-danger">{err}</p>}
+      {list === null && !err && <p className="text-muted">Cargando…</p>}
+      {list && ms.length === 0 && <p className="text-muted">Hoy todavía no terminó ningún partido.</p>}
+      {ms.length > 0 && <p className="text-xs font-bold uppercase tracking-widest text-muted">Hoy · {ms.length} {ms.length === 1 ? 'partido' : 'partidos'}</p>}
+      {ms.map((m) => <MatchCard key={m.id} m={m} />)}
+    </div>
+  )
+}
+
 // Pestaña "Finalizados": torneos del semestre y, adentro, sus jornadas con resultados
 export default function Finalizados() {
   const [list, setList] = useState(null)
   const [sel, setSel] = useState(null)
-  const [view, setView] = useState('torneo') // 'torneo' | 'jornada'
+  const [view, setView] = useState('hoy') // 'hoy' | 'jornada' | 'torneo'
   const [err, setErr] = useState('')
 
   useEffect(() => {
@@ -125,9 +150,11 @@ export default function Finalizados() {
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
-        <button onClick={() => setView('torneo')} className={chip(view === 'torneo')}>Por torneo</button>
+        <button onClick={() => setView('hoy')} className={chip(view === 'hoy')}>Hoy</button>
         <button onClick={() => setView('jornada')} className={chip(view === 'jornada')}>Por jornada</button>
+        <button onClick={() => setView('torneo')} className={chip(view === 'torneo')}>Por torneo</button>
       </div>
+      {view === 'hoy' && <Hoy />}
       {view === 'jornada' && <PorJornada />}
       {view === 'torneo' && <>
       {err && <p className="text-danger">{err}</p>}
