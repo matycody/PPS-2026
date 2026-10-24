@@ -136,6 +136,7 @@ router.get('/', async (req, res) => {
   try {
     const q = req.query;
     const where = {};
+    if (req.hidePaused) where.pausedAt = null; // los pausados solo los ve la organización
 
     for (const [key, list] of [['status', STATUSES], ['branch', BRANCHES], ['modality', MODALITIES], ['format', FORMATS]]) {
       if (q[key] === undefined) continue;
@@ -197,6 +198,46 @@ router.get('/:id', async (req, res) => {
     });
     if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
     res.json(t);
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Pausar: el torneo y todos sus partidos (programados, habilitados, en vivo o finalizados) desaparecen para
+// todos menos la organización. No se borra ni se cambia nada: reanudar lo deja exactamente como estaba.
+router.post('/:id/pause', ...admin, async (req, res) => {
+  try {
+    const t = await prisma.tournament.findUnique({ where: { id: req.params.id }, select: { id: true, pausedAt: true } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+    if (t.pausedAt) return res.status(409).json({ error: 'El torneo ya está pausado' });
+    const now = new Date();
+    const [updated, hidden] = await prisma.$transaction([
+      prisma.tournament.update({ where: { id: t.id }, data: { pausedAt: now } }),
+      prisma.match.updateMany({
+        where: { tournamentId: t.id, hiddenAt: null },
+        data: { hiddenAt: now, hiddenByPause: true },
+      }),
+    ]);
+    res.json({ ...updated, hiddenMatches: hidden.count });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Reanudar: vuelve a mostrar el torneo y solo los partidos que ocultó la pausa (no los que se ocultaron a mano)
+router.post('/:id/resume', ...admin, async (req, res) => {
+  try {
+    const t = await prisma.tournament.findUnique({ where: { id: req.params.id }, select: { id: true, pausedAt: true } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+    if (!t.pausedAt) return res.status(409).json({ error: 'El torneo no está pausado' });
+    const [updated, restored] = await prisma.$transaction([
+      prisma.tournament.update({ where: { id: t.id }, data: { pausedAt: null } }),
+      prisma.match.updateMany({
+        where: { tournamentId: t.id, hiddenByPause: true },
+        data: { hiddenAt: null, hiddenByPause: false },
+      }),
+    ]);
+    res.json({ ...updated, restoredMatches: restored.count });
   } catch (err) {
     handleDbError(err, res);
   }

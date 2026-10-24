@@ -50,7 +50,7 @@ router.get('/', async (req, res) => {
       },
     });
     // Solo la organización ve torneos en borrador
-    const pubTournament = isAdmin ? {} : { status: { not: 'DRAFT' } };
+    const pubTournament = isAdmin ? {} : { status: { not: 'DRAFT' }, pausedAt: null };
 
     const matchWhere = {
       hiddenAt: null,

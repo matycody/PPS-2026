@@ -177,6 +177,7 @@ model Tournament {
   pointsDraw Int              @default(1)
   pointsLoss Int              @default(0)
   championId String?
+  pausedAt   DateTime? // pausado: oculto para todos menos la organización; null = visible
 
   champion    Team?            @relation("TournamentChampion", fields: [championId], references: [id])
   matches     Match[]
@@ -202,6 +203,7 @@ model Match {
   readyBy      String?
   finishedAt   DateTime?
   hiddenAt     DateTime? // oculto (reversible); null = visible
+  hiddenByPause Boolean @default(false) // oculto por pausar el torneo: se restaura al reanudarlo
   statusReason        String? // motivo visible de la suspension o cancelacion
   originalScheduledAt DateTime? // fecha original si el partido se suspendio
   createdAt    DateTime    @default(now())

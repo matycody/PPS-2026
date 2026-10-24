@@ -248,6 +248,7 @@ router.get('/', optionalAuth, async (req, res) => {
 
     if (isAdmin && req.query.hidden === 'true') {
       where.hiddenAt = { not: null };
+      where.hiddenByPause = false; // los ocultos por pausar un torneo no son "eliminados": vuelven al reanudarlo
     } else {
       where.hiddenAt = null;
     }
