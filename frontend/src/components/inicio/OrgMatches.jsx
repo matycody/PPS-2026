@@ -42,6 +42,8 @@ export default function OrgMatches({ byId, filter }) {
   const [courtPick, setCourtPick] = useState('all') // pestaña Programados: 'all' | número de cancha | 'none' (sin cancha)
   const [view, setView] = useState('all') // Todos: 'all' | 'court:N' | 'fecha' | 'hora'
   const [viewOpen, setViewOpen] = useState(false)
+  const [phasePick, setPhasePick] = useState('all') // fecha del torneo elegido (Fecha 1, Semifinal, Final…); 'all' = la jornada
+  const [phaseOpen, setPhaseOpen] = useState(false)
   const [cal, setCal] = useState(null) // partidos de todas las fechas (pasadas y futuras)
 
   // Jornadas pasadas y futuras (incluye finalizados). Si el pedido falla se reintenta, y se vuelve a pedir al reconectar el socket
@@ -102,7 +104,14 @@ export default function OrgMatches({ byId, filter }) {
       else tournaments.push({ id, name: m.tournament?.name ?? 'Amistoso', n: 1 })
     })
     const cur = picked.filter((id) => tournaments.some((t) => t.id === id)) // ignora torneos que ya no están en la jornada
-    const byTour = cur.length === 0 ? dayList : dayList.filter((m) => cur.includes(m.tournament?.id ?? 'none'))
+    // Con un torneo elegido (o uno solo en la jornada) se pueden ver sus fechas (Fecha 1, 2, 3, Semifinal, Final) de cualquier día
+    const effT = cur.length === 1 ? cur[0] : tournaments.length === 1 ? tournaments[0].id : null
+    const tAll = effT && !sched ? [...merged.values()].filter((m) => (m.tournament?.id ?? 'none') === effT && inTab(m)) : []
+    const phaseOpts = []
+    ;[...tAll].sort((x, y) => phaseCmp(x, y)).forEach((m) => { const k = phaseText(m); if (!phaseOpts.includes(k)) phaseOpts.push(k) })
+    const phaseCur = phaseOpts.length > 1 && phaseOpts.includes(phasePick) ? phasePick : 'all'
+    const dayScoped = cur.length === 0 ? dayList : dayList.filter((m) => cur.includes(m.tournament?.id ?? 'none'))
+    const byTour = phaseCur !== 'all' ? tAll.filter((m) => phaseText(m) === phaseCur).sort(byStatus) : dayScoped
     // Programados: subdividido por cancha, como En vivo (las canchas no son fijas; salen de los partidos de la jornada)
     const courtKey = (m) => (m.court ? m.court : 'none')
     const courtKeys = sched ? [...new Set(byTour.map(courtKey))].sort((a, b) => (a === 'none') - (b === 'none') || a - b) : []
@@ -141,7 +150,7 @@ export default function OrgMatches({ byId, filter }) {
               className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-line bg-surface px-4 py-2.5 text-left text-xs font-bold uppercase tracking-widest text-muted"
             >
               <span className="min-w-0 truncate">
-                {curDay || listed.length ? (curDay ? dayShort(curDay) : 'Sin fecha') + ' · ' + listed.length + (listed.length === 1 ? ' partido' : ' partidos') : sched ? 'Sin partidos programados' : 'Sin partidos'}
+                {phaseCur !== 'all' ? phaseCur + ' · ' + listed.length + (listed.length === 1 ? ' partido' : ' partidos') : curDay || listed.length ? (curDay ? dayShort(curDay) : 'Sin fecha') + ' · ' + listed.length + (listed.length === 1 ? ' partido' : ' partidos') : sched ? 'Sin partidos programados' : 'Sin partidos'}
               </span>
               <ChevronDown size={18} className={'shrink-0 transition-transform ' + (dayOpen ? 'rotate-180' : '')} />
             </button>
@@ -201,6 +210,26 @@ export default function OrgMatches({ byId, filter }) {
                   <button key={t.id} onClick={() => toggle(t.id)} aria-pressed={cur.includes(t.id)} className={chip(cur.includes(t.id))}>
                     {t.name} ({t.n})
                   </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {phaseOpts.length > 1 && (
+          <div className="space-y-2">
+            <button
+              onClick={() => setPhaseOpen((v) => !v)}
+              aria-expanded={phaseOpen}
+              className="flex w-full items-center justify-between gap-2 rounded-2xl border border-line bg-surface px-4 py-2.5 text-sm font-bold"
+            >
+              <span className="min-w-0 truncate">Fecha del torneo: <span className="text-accent">{phaseCur === 'all' ? 'Jornada actual' : phaseCur}</span></span>
+              <ChevronDown size={18} className={'shrink-0 text-muted transition-transform ' + (phaseOpen ? 'rotate-180' : '')} />
+            </button>
+            {phaseOpen && (
+              <div className="flex flex-wrap gap-2 rounded-2xl border border-line bg-surface p-3">
+                <button onClick={() => { setPhasePick('all'); setPhaseOpen(false) }} className={chip(phaseCur === 'all')}>Jornada actual</button>
+                {phaseOpts.map((k) => (
+                  <button key={k} onClick={() => { setPhasePick(k); setPhaseOpen(false) }} aria-pressed={phaseCur === k} className={chip(phaseCur === k)}>{k}</button>
                 ))}
               </div>
             )}
