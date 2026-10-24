@@ -93,7 +93,7 @@ async function phasesFor(ids) {
     if (r.stage.type === 'LEAGUE') {
       const slotA = !r.teamAId && r.teamAFrom ? zoneSlot(r.teamAFrom) : null;
       const slotB = !r.teamBId && r.teamBFrom ? zoneSlot(r.teamBFrom) : null;
-      out.set(r.id, { kind: 'LEAGUE', zone: r.stage.name, label: (r.matchday ? 'Fecha ' + r.matchday.number : r.stage.name), slotA, slotB });
+      out.set(r.id, { kind: 'LEAGUE', order: r.matchday ? r.matchday.number : 0, slot: r.slot ?? 0, zone: r.stage.name, label: (r.matchday ? 'Fecha ' + r.matchday.number : r.stage.name), slotA, slotB });
       continue;
     }
     const m = byId.get(r.id);
@@ -111,6 +111,8 @@ async function phasesFor(ids) {
     };
     out.set(r.id, {
       kind: 'KNOCKOUT',
+      order: 1000 + (m.round || 0) * 10 - (third ? 1 : 0), // después de la liga; el tercer puesto antes de la final
+      slot: m.slot ?? 0,
       zone: null,
       label: third ? 'Tercer puesto' : roundLabel(m.round, max),
       slotA: slot('A', m.teamAId, m.teamAFrom),
