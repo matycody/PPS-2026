@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { Link } from 'react-router-dom'
 import TeamBadge from '../TeamBadge'
+import Forma from './Forma'
 
 const ZONE_CLS = {
   PROMOTION: 'border-l-4 border-l-live',
@@ -17,12 +18,16 @@ export default function StandingsView({ tournamentId, finished }) {
     let alive = true
     setStages(null)
     const req = finished
-      ? api('GET', '/tournaments/' + tournamentId + '/final-standings').then((d) =>
-          d.stages.map((s) => ({
+      ? Promise.all([
+          api('GET', '/tournaments/' + tournamentId + '/final-standings'),
+          api('GET', '/tournaments/' + tournamentId + '/standings').catch(() => null), // solo para "Últimas"
+        ]).then(([d, live]) => {
+          const formOf = new Map((live?.stages ?? []).flatMap((z) => z.rows.map((r) => [r.team.id, r.form])))
+          return d.stages.map((s) => ({
             ...s,
-            rows: s.standings.map((r) => ({ ...r, setDiff: r.setsFor - r.setsAgainst })),
+            rows: s.standings.map((r) => ({ ...r, setDiff: r.setsFor - r.setsAgainst, form: formOf.get(r.team.id) })),
           }))
-        )
+        })
       : api('GET', '/tournaments/' + tournamentId + '/standings').then((d) => d.stages)
     req.then((s) => alive && setStages(s)).catch((e) => alive && setErr(e.message))
     return () => { alive = false }
@@ -42,7 +47,7 @@ export default function StandingsView({ tournamentId, finished }) {
             {s.relegations > 0 && <span className="ml-2 text-danger">↓ {s.relegations}</span>}
           </p>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[420px] text-sm">
+            <table className="w-full min-w-[500px] text-sm">
               <thead className="text-xs text-muted">
                 <tr>
                   <th className="px-3 py-2 text-left">#</th>
@@ -53,6 +58,7 @@ export default function StandingsView({ tournamentId, finished }) {
                   <th className="px-2 py-2">P</th>
                   <th className="px-2 py-2">DS</th>
                   <th className="px-3 py-2 font-extrabold text-fg">Pts</th>
+                  <th className="px-2 py-2">Últimas</th>
                 </tr>
               </thead>
               <tbody>
@@ -71,13 +77,14 @@ export default function StandingsView({ tournamentId, finished }) {
                     <td className="px-2 py-2">{r.lost}</td>
                     <td className="px-2 py-2">{r.setDiff > 0 ? '+' + r.setDiff : r.setDiff}</td>
                     <td className="px-3 py-2 font-extrabold">{r.points}</td>
+                    <td className="px-2 py-2"><Forma form={r.form} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <p className="px-4 pb-3 pt-2 text-[11px] text-muted">
-            PJ jugados · G ganados · E empatados · P perdidos · DS diferencia de sets. Si hay empate total, se muestra en el orden de la tabla.
+            PJ jugados · G ganados · E empatados · P perdidos · DS diferencia de sets · Últimas: V ganó, E empató, D perdió (los 5 más recientes de esta modalidad, el más nuevo a la derecha). Si hay empate total, se muestra en el orden de la tabla.
           </p>
         </div>
       ))}

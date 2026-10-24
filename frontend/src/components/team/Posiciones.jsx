@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react'
 import { api } from '../../lib/api'
 import { BRANCH, MODALITY, normMatch } from '../../lib/format'
 import MatchCard from '../MatchCard'
+import Forma from '../torneo/Forma'
 
 const WINDOW = 6 // si la zona es más grande, se muestran los equipos cercanos al propio
 
@@ -23,6 +24,7 @@ function Tabla({ rows, teamId }) {
           <th className="w-9 py-1 text-center">PJ</th>
           <th className="w-9 py-1 text-center">DS</th>
           <th className="w-10 py-1 text-center">Pts</th>
+          <th className="py-1 pl-2 text-right">Últimas</th>
         </tr>
       </thead>
       <tbody>
@@ -35,6 +37,7 @@ function Tabla({ rows, teamId }) {
               <td className="py-1.5 text-center tabular-nums">{r.played}</td>
               <td className="py-1.5 text-center tabular-nums">{r.setDiff > 0 ? '+' + r.setDiff : r.setDiff}</td>
               <td className="py-1.5 text-center font-mono tabular-nums">{r.points}</td>
+              <td className="py-1.5 pl-2 text-right"><Forma form={r.form} size="sm" /></td>
             </tr>
           )
         })}
