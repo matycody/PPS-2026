@@ -8,7 +8,7 @@ import { Btn, Alert, inputCls } from '../../components/ui'
 import { useConfirm } from '../../components/ConfirmProvider'
 import StandingsView from '../../components/torneo/StandingsView'
 import BracketView from '../../components/torneo/BracketView'
-import FixtureView from '../../components/torneo/FixtureView'
+import FixtureView, { PlayoffsSchedule } from '../../components/torneo/FixtureView'
 import BracketEditor, { emptyBracket, fromView } from '../../components/torneo/BracketEditor'
 
 const TABS = [
@@ -237,6 +237,7 @@ function FixtureTab({ t, setErr }) {
         </div>
       )}
       <FixtureView tournamentId={t.id} admin base="/admin/partidos/" reloadKey={tick} onLoaded={setDays} />
+      <PlayoffsSchedule tournamentId={t.id} stages={t.stages.filter((x) => x.type === 'KNOCKOUT')} base="/admin/partidos/" reloadKey={tick} />
     </div>
   )
 }
