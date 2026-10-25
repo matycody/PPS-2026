@@ -118,6 +118,8 @@ export default function MatchPage() {
           slotB={m.phase?.slotB}
           formA={m.form?.A}
           formB={m.form?.B}
+          rankA={m.form?.rankA}
+          rankB={m.form?.rankB}
           size="xl"
           center={
             <span className="font-mono text-4xl font-extrabold tabular-nums text-live">
