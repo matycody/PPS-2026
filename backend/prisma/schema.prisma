@@ -1,6 +1,7 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
 }
@@ -41,6 +42,7 @@ enum MatchStatus {
   LIVE
   FINISHED
   CANCELLED
+  SUSPENDED
 }
 
 enum ProfileStatus {
@@ -60,10 +62,10 @@ model User {
   active     Boolean  @default(true)
   createdAt  DateTime @default(now())
 
-  profile      Profile?          @relation(fields: [profileId], references: [id])
-  favorites    Favorite[]
-  assignments  MatchAssignment[]
-  clockActions ClockAction[]
+  profile        Profile?          @relation(fields: [profileId], references: [id])
+  favorites      Favorite[]
+  assignments    MatchAssignment[]
+  clockActions   ClockAction[]
   playerRequests PlayerRequest[]
 }
 
@@ -77,6 +79,12 @@ model Profile {
   nickname  String?       @db.VarChar(30) // apodo, opcional (máx. 30 caracteres)
   number    Int? // número de camiseta, opcional (0 a 999; CHECK en la migración)
   photo     String?
+  birthDate DateTime?     @db.Date // solo se muestra la edad y solo si showAge
+  // Qué datos son públicos en el banner del jugador
+  showNickname Boolean   @default(true)
+  showNumber   Boolean   @default(true)
+  showAge      Boolean   @default(false)
+  showPhoto    Boolean   @default(false)
   isPlayer  Boolean       @default(false)
   isReferee Boolean       @default(false)
   active    Boolean       @default(true)
@@ -95,14 +103,22 @@ model Team {
   name String
   logo String?
 
-  branches TeamBranch[]
-  modalities TeamModality[]
-  players  PlayerTeam[]
-  matchesA Match[]      @relation("MatchTeamA")
-  matchesB Match[]      @relation("MatchTeamB")
-  wonSets  MatchSet[]   @relation("SetWinner")
-  assignments MatchAssignment[]
+  nickname    String? @db.VarChar(40) // apodo del equipo (banner público)
+  city        String? @db.VarChar(60)
+  foundedYear Int?
+
+  branches           TeamBranch[]
+  modalities         TeamModality[]
+  players            PlayerTeam[]
+  matchesA           Match[]             @relation("MatchTeamA")
+  matchesB           Match[]             @relation("MatchTeamB")
+  wonSets            MatchSet[]          @relation("SetWinner")
+  assignments        MatchAssignment[]
   playerRequestTeams PlayerRequestTeam[]
+  championOf         Tournament[]        @relation("TournamentChampion")
+  tournamentTeams    TournamentTeam[]
+  stageTeams         StageTeam[]
+  standings          StageStanding[]
 }
 
 model TeamBranch {
@@ -147,18 +163,36 @@ model PlayerTeam {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Torneos y partidos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model Tournament {
-  id       String    @id @default(uuid())
-  name     String
-  startsAt DateTime?
-  endsAt   DateTime?
+  id         String           @id @default(uuid())
+  name       String
+  startsAt   DateTime?
+  endsAt     DateTime?
+  branch     Branch
+  modality   Modality
+  year       Int
+  edition    String?
+  format     TournamentFormat @default(LEAGUE)
+  status     TournamentStatus @default(DRAFT)
+  pointsWin  Int              @default(3)
+  pointsDraw Int              @default(1)
+  pointsLoss Int              @default(0)
+  championId String?
+  pausedAt   DateTime? // pausado: oculto para todos menos la organización; null = visible
 
-  matches Match[]
+  champion    Team?            @relation("TournamentChampion", fields: [championId], references: [id])
+  matches     Match[]
+  teams       TournamentTeam[]
+  stages      Stage[]
+  tiebreakers Tiebreaker[]
+
+  @@index([year])
+  @@index([status])
 }
 
 model Match {
   id           String      @id @default(uuid())
-  tournamentId String
-  court        Int
+  tournamentId String? // null = partido suelto (amistoso)
+  court        Int?
   branch       Branch
   modality     Modality
   status       MatchStatus @default(SCHEDULED)
@@ -169,17 +203,42 @@ model Match {
   readyBy      String?
   finishedAt   DateTime?
   hiddenAt     DateTime? // oculto (reversible); null = visible
+  hiddenByPause Boolean @default(false) // oculto por pausar el torneo: se restaura al reanudarlo
+  statusReason        String? // motivo visible de la suspension o cancelacion
+  originalScheduledAt DateTime? // fecha original si el partido se suspendio
   createdAt    DateTime    @default(now())
 
-  tournament   Tournament        @relation(fields: [tournamentId], references: [id])
+  tournament   Tournament?       @relation(fields: [tournamentId], references: [id])
   teamA        Team?             @relation("MatchTeamA", fields: [teamAId], references: [id])
   teamB        Team?             @relation("MatchTeamB", fields: [teamBId], references: [id])
   assignments  MatchAssignment[]
   sets         MatchSet[]
   clockActions ClockAction[]
 
+  stageId    String?
+  matchdayId String?
+  round      Int?
+  slot       Int?
+  stage      Stage?    @relation(fields: [stageId], references: [id])
+  matchday   Matchday? @relation(fields: [matchdayId], references: [id])
+
+  // Llaves: a que partido pasa el ganador / el perdedor
+  nextMatchId  String?
+  nextSide     MatchSide?
+  loserMatchId String?
+  loserSide    MatchSide?
+
+  // Llaves: de que lugar de una zona sale cada equipo ({ stageId, position })
+  teamAFrom    Json?
+  teamBFrom    Json?
+
   @@index([tournamentId])
+  @@index([stageId])
+  @@index([matchdayId])
   @@index([status])
+  @@index([scheduledAt])
+  @@index([teamAId])
+  @@index([teamBId])
 }
 
 // REFEREE -> profileId (puede no estar vinculado aÃºn)
@@ -201,6 +260,9 @@ model MatchAssignment {
   @@unique([matchId, profileId])
   @@unique([matchId, userId])
   @@unique([matchId, teamId])
+  @@index([userId])
+  @@index([profileId])
+  @@index([teamId])
 }
 
 // Provisorio: estructura exacta del resultado a definir con Rodri
@@ -264,18 +326,18 @@ enum PlayerRequestStatus {
 }
 
 model PlayerRequest {
-  id           String               @id @default(cuid())
+  id           String              @id @default(cuid())
   userId       String
   name         String
   dni          String
   sex          Sex
   number       Int?
-  status       PlayerRequestStatus  @default(PENDING)
+  status       PlayerRequestStatus @default(PENDING)
   rejectReason String?
   reviewedById String?
   reviewedAt   DateTime?
-  createdAt    DateTime             @default(now())
-  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime            @default(now())
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   teams        PlayerRequestTeam[]
 
   @@index([status])
@@ -308,4 +370,121 @@ model AuditLog {
 
   @@index([createdAt])
   @@index([actorId])
+}
+
+// ─────────────── Torneos: formatos, zonas y fixture ───────────────
+
+enum TournamentFormat {
+  LEAGUE
+  LEAGUE_CUP
+  CUP
+}
+
+enum TournamentStatus {
+  DRAFT
+  ACTIVE
+  FINISHED
+}
+
+enum StageType {
+  LEAGUE
+  KNOCKOUT
+}
+
+enum TiebreakerCriterion {
+  HEAD_TO_HEAD
+  SET_DIFFERENCE
+  SETS_WON
+  WINS
+  DRAW_LOT
+}
+
+model TournamentTeam {
+  tournamentId String
+  teamId       String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  team         Team       @relation(fields: [teamId], references: [id])
+
+  @@id([tournamentId, teamId])
+  @@index([teamId])
+}
+
+// Una zona o una llave (Zona A y Zona B son dos Stage con la misma phase)
+model Stage {
+  id           String    @id @default(uuid())
+  tournamentId String
+  name         String
+  type         StageType
+  phase        Int
+  tier         Int?
+  promotions   Int       @default(0)
+  relegations  Int       @default(0)
+
+  tournament Tournament      @relation(fields: [tournamentId], references: [id])
+  teams      StageTeam[]
+  matchdays  Matchday[]
+  matches    Match[]
+  standings  StageStanding[]
+
+  @@index([tournamentId])
+}
+
+model StageTeam {
+  stageId    String
+  teamId     String
+  seed       Int?
+  entryRound Int?
+  stage      Stage  @relation(fields: [stageId], references: [id])
+  team       Team   @relation(fields: [teamId], references: [id])
+
+  @@id([stageId, teamId])
+  @@index([teamId])
+}
+
+// "Fecha N" de una zona con su día de juego; cada partido puede pisarla con su scheduledAt
+model Matchday {
+  id      String    @id @default(uuid())
+  stageId String
+  number  Int
+  date    DateTime?
+  stage   Stage     @relation(fields: [stageId], references: [id])
+  matches Match[]
+
+  @@unique([stageId, number])
+}
+
+model Tiebreaker {
+  id           String              @id @default(uuid())
+  tournamentId String
+  order        Int
+  criterion    TiebreakerCriterion
+  tournament   Tournament          @relation(fields: [tournamentId], references: [id])
+
+  @@unique([tournamentId, order])
+}
+
+// Tabla final congelada al cerrar el torneo (registro histórico permanente)
+model StageStanding {
+  stageId     String
+  teamId      String
+  position    Int
+  points      Int
+  played      Int
+  won         Int
+  drawn       Int
+  lost        Int
+  setsFor     Int
+  setsAgainst Int
+  stage       Stage   @relation(fields: [stageId], references: [id])
+  team        Team    @relation(fields: [teamId], references: [id])
+  tied        Boolean @default(false)
+  zone        String? // PROMOTION | RELEGATION | null
+
+  @@id([stageId, teamId])
+  @@index([teamId])
+}
+
+enum MatchSide {
+  A
+  B
 }

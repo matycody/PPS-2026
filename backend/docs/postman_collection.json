@@ -1,0 +1,3747 @@
+{
+  "info": {
+    "name": "Dodgeball BA Cronómetro — API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Importar junto con el environment. Pegar el access_token de Supabase en la variable token."
+  },
+  "item": [
+    {
+      "name": "Mi cuenta",
+      "item": [
+        {
+          "name": "PUT /me/photo",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/photo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "photo"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Subir o reemplazar mi foto (el cuerpo es la imagen, con su Content-Type)\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /me/photo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/photo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "photo"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Obtener la URL firmada de mi foto de perfil\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /me/photo",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/photo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "photo"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Borrar mi foto de perfil\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /me",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Eliminar mi cuenta: borra datos personales y favoritos; si estaba vinculada, solo se desvincula del perfil y el historial deportivo se conserva.\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirm\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Mi usuario, roles, perfil y menú según rol\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /me/assignments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/assignments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "assignments"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Mis partidos asignados (árbitro y/o mesa, por cuenta, por perfil o por equipo): pasados y futuros, sin los ocultos\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /me/profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "profile"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Mi ficha: datos propios, equipos actuales por rama y foto\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /me/profile",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "profile"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Edita apodo, número, fecha de nacimiento y qué datos son públicos. Todo opcional; null borra el valor.\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auditoría",
+      "item": [
+        {
+          "name": "GET /audit/roster",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/audit/roster",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit",
+                "roster"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Equipos con sus jugadores actuales (para elegir a quien auditar)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /audit",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/audit?before=&limit=&profile=&q=&user=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit"
+              ],
+              "query": [
+                {
+                  "key": "before",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "profile",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "user",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": []
+            },
+            "description": "Consultar /audit — parámetros: ?user=<userId> &profile=<profileId> (movimientos de una persona) &q=texto &before=<ISO> &limit=100\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Llaves (playoffs)",
+      "item": [
+        {
+          "name": "POST /tournaments/{id}/stages/{stageId}/bracket",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/stages/:stageId/bracket",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "stages",
+                ":stageId",
+                "bracket"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "stageId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Armado automático de la llave. Body: teamIds (orden de siembra) | fromStandings [{stageId, top}] | (por defecto equipos de la etapa o del torneo) shuffle (sorteo; default false), keepTop (cantidad de cabezas de serie que no se sortean) entryRounds { teamId: ronda } para escalera/ingresos tardíos; pairing 'fold'|'adjacent' thirdPlace (partido por el tercer puesto), dates [por ronda] o startDate + intervalDays, replace\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT /tournaments/{id}/stages/{stageId}/bracket",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/stages/:stageId/bracket",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "stages",
+                ":stageId",
+                "bracket"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "stageId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Llave manual. Body: { matches: [{ ref, round, slot, a, b, scheduledAt?, court? }] } a / b: null (a definir) | { teamId } | { winnerOf: ref } | { loserOf: ref }\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"matches\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /tournaments/{id}/stages/{stageId}/bracket",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/stages/:stageId/bracket",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "stages",
+                ":stageId",
+                "bracket"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "stageId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Borrar la llave (playoffs) de una etapa\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /tournaments/{id}/stages/{stageId}/bracket",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/stages/:stageId/bracket",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "stages",
+                ":stageId",
+                "bracket"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "stageId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Llave por rondas (pública)\n\nAcceso: Pública"
+          }
+        },
+        {
+          "name": "PATCH /tournaments/{id}/stages/{stageId}/bracket/rounds/{round}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/stages/:stageId/bracket/rounds/:round",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "stages",
+                ":stageId",
+                "bracket",
+                "rounds",
+                ":round"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "stageId",
+                  "value": ""
+                },
+                {
+                  "key": "round",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Organizar fechas y horarios de una ronda de playoffs\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /tournaments/{id}/stages/{stageId}/bracket/rounds/{round}/assign-courts",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/stages/:stageId/bracket/rounds/:round/assign-courts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "stages",
+                ":stageId",
+                "bracket",
+                "rounds",
+                ":round",
+                "assign-courts"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "stageId",
+                  "value": ""
+                },
+                {
+                  "key": "round",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Asignar canchas a los partidos de una ronda de playoffs\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Favoritos",
+      "item": [
+        {
+          "name": "GET /favorites",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/favorites",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "favorites"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Listar mis favoritos (equipos y jugadores)\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /favorites",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/favorites",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "favorites"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Agregar un equipo o jugador a favoritos\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetId\": \"\",\n  \"targetType\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /favorites/{type}/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/favorites/:type/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "favorites",
+                ":type",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "type",
+                  "value": ""
+                },
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Quitar un favorito\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fixture",
+      "item": [
+        {
+          "name": "POST /tournaments/{id}/stages/{stageId}/fixture",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/stages/:stageId/fixture",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "stages",
+                ":stageId",
+                "fixture"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "stageId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Sorteo del fixture todos contra todos de una zona. Body: shuffle (default true), doubleRound (ida y vuelta), dates (lista, una por fecha) o startDate + intervalDays (default 7). Sin fechas, las jornadas quedan sin día.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /tournaments/{id}/stages/{stageId}/fixture",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/stages/:stageId/fixture",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "stages",
+                ":stageId",
+                "fixture"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "stageId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Elimina el fixture de una zona. Solo si ningún partido fue habilitado, jugado ni tiene asignaciones.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /tournaments/{id}/matchdays",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/matchdays?stageId=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "matchdays"
+              ],
+              "query": [
+                {
+                  "key": "stageId",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Calendario del torneo (público): jornadas con sus partidos. Filtro opcional: stageId\n\nAcceso: Pública"
+          }
+        },
+        {
+          "name": "PATCH /tournaments/{id}/matchdays/{matchdayId}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/matchdays/:matchdayId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "matchdays",
+                ":matchdayId"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "matchdayId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Cambia el día de una jornada. Mueve solo los partidos que seguían en el día original (o sin día); los que se reprogramaron a mano no se tocan, y los jugados tampoco.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT /tournaments/{id}/matchdays/{matchdayId}/order",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/matchdays/:matchdayId/order",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "matchdays",
+                ":matchdayId",
+                "order"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "matchdayId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Define el orden de juego dentro de la jornada (matchIds en el orden deseado).\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /tournaments/{id}/matchdays/{matchdayId}/assign-courts",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/matchdays/:matchdayId/assign-courts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "matchdays",
+                ":matchdayId",
+                "assign-courts"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "matchdayId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Asigna canchas a una jornada según el orden de juego: el primer partido (el más temprano, y a igual hora el de menor orden) va a la cancha 1, y así hasta `courts` canchas simultáneas. Solo toca partidos Programados o Habilitados. overwrite=false respeta las canchas ya definidas.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Torneos",
+      "item": [
+        {
+          "name": "POST /tournaments/{id}/activate",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/activate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "activate"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Pasa el torneo de borrador a activo. Exige estructura y partidos generados.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /tournaments/{id}/close",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/close",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "close"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Cierra el torneo: congela las tablas de las zonas y registra el campeón. Body: championId (opcional, para definirlo a mano), force (cerrar con partidos sin terminar)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /tournaments/{id}/final-standings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/final-standings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "final-standings"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Tabla final congelada (pública): lo que quedó registrado al cerrar el torneo\n\nAcceso: Pública"
+          }
+        },
+        {
+          "name": "GET /tournaments/{id}/standings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/standings?stageId=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "standings"
+              ],
+              "query": [
+                {
+                  "key": "stageId",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Tabla de posiciones (pública). Filtro opcional: stageId\n\nAcceso: Pública"
+          }
+        },
+        {
+          "name": "POST /tournaments",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Crear un torneo\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /tournaments/eligible-teams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/eligible-teams?branch=&modality=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                "eligible-teams"
+              ],
+              "query": [
+                {
+                  "key": "branch",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "modality",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": []
+            },
+            "description": "Equipos que pueden jugar un torneo de esa rama y modalidad (público) Debe ir antes de GET /:id\n\nAcceso: Pública"
+          }
+        },
+        {
+          "name": "GET /tournaments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Público. Filtros: year, yearFrom, yearTo, status, branch, modality, format, limit (50, máx. 200), offset\n\nAcceso: Pública"
+          }
+        },
+        {
+          "name": "GET /tournaments/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Detalle público de un torneo (etapas, equipos, estado)\n\nAcceso: Pública"
+          }
+        },
+        {
+          "name": "POST /tournaments/{id}/pause",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/pause",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "pause"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Pausar: el torneo y todos sus partidos (programados, habilitados, en vivo o finalizados) desaparecen para todos menos la organización. No se borra ni se cambia nada: reanudar lo deja exactamente como estaba.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /tournaments/{id}/resume",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/resume",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "resume"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Reanudar: vuelve a mostrar el torneo y solo los partidos que ocultó la pausa (no los que se ocultaron a mano)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /tournaments/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Editar un torneo (todo salvo el formato si ya inició)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT /tournaments/{id}/teams",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/teams",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "teams"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Define los equipos del torneo (reemplaza la lista). Solo en borrador. Cada equipo debe tener habilitadas la rama y la modalidad del torneo.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT /tournaments/{id}/stages",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/stages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "stages"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Define la estructura del torneo (zonas o llaves) y los equipos de cada una. Reemplaza la estructura anterior. Solo en borrador y antes de generar partidos.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /tournaments/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Solo si no tiene partidos ni finalizó (no se borra historial)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Partidos",
+      "item": [
+        {
+          "name": "POST /matches",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/matches",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Crear un partido (suelto o de torneo)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch\": \"\",\n  \"court\": \"\",\n  \"modality\": \"\",\n  \"scheduledAt\": \"\",\n  \"teamAId\": \"\",\n  \"teamBId\": \"\",\n  \"tournamentId\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /matches",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches?branch=&court=&from=&hidden=&includeUndated=&limit=&offset=&status=&teamId=&to=&tournamentId=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches"
+              ],
+              "query": [
+                {
+                  "key": "branch",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "court",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "hidden",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "includeUndated",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "teamId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "tournamentId",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": []
+            },
+            "description": "Público: ?tournamentId=&status=LIVE,FINISHED&branch=&court=&teamId=&from=&to=&limit=&offset=&hidden=true (solo admin)\n\nAcceso: Opcional (con token ve más)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /matches/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Detalle de un partido: fase, sets, asignaciones, forma y lugar en la tabla\n\nAcceso: Opcional (con token ve más)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /matches/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Editar un partido (equipos, fecha, cancha, modalidad, rama)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /matches/{id}/cancel",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "cancel"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Cancelar un partido con motivo\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /matches/{id}/ready",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "ready"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Habilitar el partido (queda listo para operarse)\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /matches/{id}/unready",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/unready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "unready"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Revertir habilitación: solo antes de que arranque el reloj (READY)\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /matches/{id}/suspend",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/suspend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "suspend"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "───────────── Suspender y reprogramar un partido (solo admin) ───────────── Suspender no toca la fecha del torneo: el partido sigue en su jornada y se juega más adelante.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /matches/{id}/reschedule",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/reschedule",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "reschedule"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Reprograma un partido suspendido: nueva fecha (obligatoria), cancha y motivo opcionales. Vuelve a Programado.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /matches/{id}/reason",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/reason",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "reason"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Edita solo el motivo visible (suspendido, cancelado o reprogramado)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /matches/{id}/finish",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/finish",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "finish"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Finalizar el partido y frenar su reloj\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /matches/{id}/hide",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/hide",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "hide"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Ocultar un partido a los espectadores\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /matches/{id}/restore",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/restore",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "restore"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Restaurar un partido oculto\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /matches/{id}/purge",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/purge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "purge"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Eliminar definitivamente un partido\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /matches/{id}/assignments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/assignments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "assignments"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Designar árbitro o mesa (por persona, equipo o cuenta)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"function\": \"\",\n  \"profileId\": \"\",\n  \"teamId\": \"\",\n  \"userId\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /matches/{id}/assignments/{assignmentId}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/assignments/:assignmentId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "assignments",
+                ":assignmentId"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "assignmentId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Quitar una designación de árbitro o mesa\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /matches/{id}/sets",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/sets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "sets"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Cargar el resultado de un set\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /matches/{id}/sets/{number}",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/sets/:number",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "sets",
+                ":number"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "number",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Editar el resultado de un set\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /matches/{id}/sets/{number}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/sets/:number",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "sets",
+                ":number"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "number",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Borrar un set\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /matches/{id}/result-log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/result-log",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "result-log"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Registro de ediciones y del reloj, en una sola línea de tiempo legible (solo admin)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fotos y escudos",
+      "item": [
+        {
+          "name": "POST /photos/sign",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/photos/sign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "photos",
+                "sign"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "URLs firmadas de varios perfiles: { \"<profileId>\": \"<url>\" | null }. Solo con sesión.\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profileIds\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT /photos/profiles/{id}",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/photos/profiles/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "photos",
+                "profiles",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Admin: reemplazar o quitar la foto de cualquier persona\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /photos/profiles/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/photos/profiles/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "photos",
+                "profiles",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Borrar la foto de un perfil\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT /photos/teams/{id}",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/photos/teams/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "photos",
+                "teams",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Admin: escudo del equipo (bucket público, la URL se guarda en Team.logo)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /photos/teams/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/photos/teams/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "photos",
+                "teams",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Borrar el escudo de un equipo\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Solicitudes de jugador",
+      "item": [
+        {
+          "name": "POST /player-requests",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/player-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "player-requests"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Body: { name, dni, sex: 'M'|'F', number?, teams: [{ teamId, branch }] }\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /player-requests/mine",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/player-requests/mine",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "player-requests",
+                "mine"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Mi última solicitud (o null)\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /player-requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/player-requests?status=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "player-requests"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": []
+            },
+            "description": "Consultar /player-requests — parámetros: ?status=PENDING|APPROVED|REJECTED\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /player-requests/{id}/approve",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/player-requests/:id/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "player-requests",
+                ":id",
+                "approve"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Aprobar: crea (o vincula) el perfil, da el rol de jugador y asigna los equipos, todo junto\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /player-requests/{id}/reject",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/player-requests/:id/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "player-requests",
+                ":id",
+                "reject"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Rechazar con motivo (el usuario lo ve y puede enviar otra solicitud corregida)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Jugadores",
+      "item": [
+        {
+          "name": "GET /players/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/players/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "players",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Banner público de un jugador (equipos, historial)\n\nAcceso: Pública"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Perfiles",
+      "item": [
+        {
+          "name": "POST /profiles",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profiles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Alta manual. Si el DNI ya existe, actualiza el perfil en vez de duplicarlo.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dni\": \"\",\n  \"email\": \"\",\n  \"isPlayer\": \"\",\n  \"isReferee\": \"\",\n  \"name\": \"\",\n  \"sex\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /profiles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profiles?active=&q=&status=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles"
+              ],
+              "query": [
+                {
+                  "key": "active",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": []
+            },
+            "description": "Listado con filtros: ?status=PENDIENTE_VINCULACION&active=true&q=texto\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /profiles/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profiles/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Editar (también baja/reactivación con { active: false | true })\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": \"\",\n  \"dni\": \"\",\n  \"email\": \"\",\n  \"isPlayer\": \"\",\n  \"isReferee\": \"\",\n  \"name\": \"\",\n  \"sex\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /profiles/{id}/unlink",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profiles/:id/unlink",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                ":id",
+                "unlink"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Desvincular cuenta (perdió acceso al mail). Exige el mail nuevo para que no se revincule solo.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /profiles/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profiles/:id?permanent=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                ":id"
+              ],
+              "query": [
+                {
+                  "key": "permanent",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Baja lógica: sale de los planteles y conserva el historial. ?permanent=true la borra del todo (solo si no tiene cuenta vinculada ni partidos asignados).\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /profiles/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profiles/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Detalle de un perfil (admin), con sus equipos actuales\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Búsqueda",
+      "item": [
+        {
+          "name": "GET /search",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search?q=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": []
+            },
+            "description": "Búsqueda global (lupa), segmentada por rol\n\nAcceso: Opcional (con token ve más)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Estadísticas",
+      "item": [
+        {
+          "name": "GET /stats/champions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stats/champions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stats",
+                "champions"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Campeones por torneo y títulos por equipo\n\nAcceso: Pública"
+          }
+        },
+        {
+          "name": "GET /stats/teams/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stats/teams/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stats",
+                "teams",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Historial de un equipo: récord, títulos y posición en cada torneo\n\nAcceso: Pública"
+          }
+        },
+        {
+          "name": "GET /stats/head-to-head",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stats/head-to-head?teamA=&teamB=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stats",
+                "head-to-head"
+              ],
+              "query": [
+                {
+                  "key": "teamA",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "teamB",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": []
+            },
+            "description": "Historial entre dos equipos: ?teamA=&teamB=\n\nAcceso: Pública"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Equipos",
+      "item": [
+        {
+          "name": "POST /teams",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/teams",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "teams"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Crear equipo\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branches\": \"\",\n  \"logo\": \"\",\n  \"modalities\": \"\",\n  \"name\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /teams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/teams",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "teams"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Listado (público)\n\nAcceso: Pública"
+          }
+        },
+        {
+          "name": "GET /teams/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/teams/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "teams",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Detalle con plantel activo (público: solo nombre, sin DNI ni mail ni foto)\n\nAcceso: Pública"
+          }
+        },
+        {
+          "name": "GET /teams/{id}/posiciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/teams/:id/posiciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "teams",
+                ":id",
+                "posiciones"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Posiciones del equipo en su zona y estado de clasificación a playoffs\n\nAcceso: Pública"
+          }
+        },
+        {
+          "name": "PATCH /teams/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/teams/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "teams",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Editar nombre, logo y ramas\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branches\": \"\",\n  \"foundedYear\": \"\",\n  \"logo\": \"\",\n  \"modalities\": \"\",\n  \"name\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /teams/{id}/players",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/teams/:id/players",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "teams",
+                ":id",
+                "players"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Asignar jugador a un equipo en una rama (si ya tenía otro en esa rama: traspaso)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch\": \"\",\n  \"profileId\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /teams/{id}/players/{profileId}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/teams/:id/players/:profileId?branch=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "teams",
+                ":id",
+                "players",
+                ":profileId"
+              ],
+              "query": [
+                {
+                  "key": "branch",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "profileId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Sacar jugador del equipo en una rama: DELETE /teams/:id/players/:profileId?branch=MIXED\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT /teams/{id}/coach",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/teams/:id/coach",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "teams",
+                ":id",
+                "coach"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Designar (profileId) o quitar (profileId: null) al DT del equipo. Uno solo por equipo; es solo una marca visual.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profileId\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /teams/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/teams/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "teams",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Eliminar equipo: solo si no tiene partidos (no se borra historial)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios",
+      "item": [
+        {
+          "name": "GET /users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users?active=&q=&role=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "active",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "role",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": []
+            },
+            "description": "Consultar /users — parámetros: ?q=texto&role=ADMIN&active=true\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /users/{id}/promote",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/:id/promote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                ":id",
+                "promote"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Promover a administrador\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /users/{id}/demote",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/:id/demote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                ":id",
+                "demote"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Quitar el rol de administrador\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /users/{id}/referee",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/:id/referee",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                ":id",
+                "referee"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Designar / quitar el rol de arbitro (el usuario necesita perfil)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /users/{id}/referee",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/:id/referee",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                ":id",
+                "referee"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Quitar el rol de árbitro\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /users/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Baja lógica\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /users/{id}/reactivate",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/:id/reactivate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                ":id",
+                "reactivate"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Reactivar una cuenta desactivada\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sistema",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Estado del servidor\n\nAcceso: Pública"
+          }
+        },
+        {
+          "name": "GET /time",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/time",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "time"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Hora del servidor (para el reloj del header)\n\nAcceso: Pública"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ]
+}

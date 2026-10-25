@@ -3,15 +3,19 @@
     "dev": "node server.js",
     "start": "node server.js",
     "seed": "node prisma/seed.js",
-    "smoke": "node scripts/smoke.js"
+    "smoke": "node scripts/smoke.js",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "@sentry/node": "^10.0.0",
     "@supabase/supabase-js": "^2.116.0",
+    "compression": "^1.8.1",
     "cors": "^2.8.6",
     "dotenv": "^18.0.1",
     "express": "^5.2.1",

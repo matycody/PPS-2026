@@ -1,4 +1,4 @@
-﻿const prisma = require('../db');
+const prisma = require('../db');
 
 // Apodo si tiene, si no nombre real, si no (admin sin perfil) el mail
 async function editorLabel(user) {
@@ -20,7 +20,7 @@ function teamLabel(team, fallback) {
 function matchLabelFrom(match) {
   const a = teamLabel(match.teamA, 'Sin equipo A');
   const b = teamLabel(match.teamB, 'Sin equipo B');
-  return a + ' vs ' + b + ' (cancha ' + match.court + ')';
+  return a + ' vs ' + b + (match.court ? ' (cancha ' + match.court + ')' : '');
 }
 
 // "ganó Equipo A" o "empate"
@@ -93,6 +93,8 @@ function describeClockAction(action, detail) {
       return 'Cambió al ' + (d.half === 2 ? '2do' : '1er') + ' tiempo';
     case 'FINISH_HALF':
       return 'Finalizó el tiempo actual';
+    case 'TIMEOUT_CANCEL':
+      return 'Deshizo un tiempo muerto pedido por error';
     default:
       return action;
   }

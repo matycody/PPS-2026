@@ -13,6 +13,7 @@ const CLIENT_EVENTS = {
   MATCH_FINISH_HALF: "match:finishHalf",
   MATCH_TIMEOUT_START: "match:timeout:start",
   MATCH_TIMEOUT_END: "match:timeout:end",
+  MATCH_TIMEOUT_CANCEL: "match:timeout:cancel", // deshacer un tiempo muerto pedido por error
   // Suscripción pública (visitantes y cuentas) y de control (asignados)
   MATCH_JOIN: "match:join",
   MATCH_LEAVE: "match:leave",

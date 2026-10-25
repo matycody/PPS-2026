@@ -88,7 +88,7 @@ router.get('/:id', async (req, res) => {
         modalities: true,
         players: {
           where: { to: null, profile: { active: true } },
-          include: { profile: { select: { id: true, name: true, nickname: true, number: true } } },
+          include: { profile: { select: { id: true, name: true, nickname: true, number: true, showNickname: true, showNumber: true } } },
         },
       },
     });
@@ -98,17 +98,128 @@ router.get('/:id', async (req, res) => {
       id: team.id,
       name: team.name,
       logo: team.logo,
+      nickname: team.nickname,
+      city: team.city,
+      foundedYear: team.foundedYear,
       branches: team.branches.map((b) => b.branch),
       modalities: team.modalities.map((m) => m.modality),
       roster: team.players.map((p) => ({
         profileId: p.profile.id,
         name: p.profile.name,
-        nickname: p.profile.nickname,
-        number: p.profile.number,
+        nickname: p.profile.showNickname ? p.profile.nickname : null,
+        number: p.profile.showNumber ? p.profile.number : null,
         branch: p.branch,
         coach: p.isCoach,
       })),
     });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// ───────────── Posiciones del equipo ─────────────
+// Por cada torneo que juega (visible): la tabla de SU zona (no las de otras zonas) y su camino a los playoffs.
+const POS_TEAM = { id: true, name: true, logo: true };
+
+function sets2score(m) {
+  const win = m.modality === 'CLOTH' ? 2 : 1;
+  let a = 0;
+  let b = 0;
+  for (const st of m.sets) {
+    if (!st.winnerTeamId) {
+      if (m.modality === 'CLOTH') { a += 1; b += 1; }
+    } else if (st.winnerTeamId === m.teamAId) a += win;
+    else if (st.winnerTeamId === m.teamBId) b += win;
+  }
+  return { teamA: a, teamB: b };
+}
+
+router.get('/:id/posiciones', async (req, res) => {
+  try {
+    const teamId = req.params.id;
+    const { computeStandings } = require('../services/standings');
+    const { phasesFor } = require('../services/matchPhase');
+
+    const tts = await prisma.tournamentTeam.findMany({
+      where: { teamId, tournament: { status: { not: 'DRAFT' }, pausedAt: null } },
+      include: { tournament: { select: { id: true, name: true, year: true, edition: true, branch: true, modality: true, format: true, status: true } } },
+    });
+
+    const items = await Promise.all(tts.map(async ({ tournament: t }) => {
+      const stages = await prisma.stage.findMany({
+        where: { tournamentId: t.id },
+        include: { teams: { where: { teamId }, select: { teamId: true } } },
+      });
+      const zone = stages.find((s) => s.type === 'LEAGUE' && s.teams.length) ?? null;
+      const koIds = stages.filter((s) => s.type === 'KNOCKOUT').map((s) => s.id);
+
+      let rows = [];
+      let zoneDone = false;
+      if (zone) {
+        const data = await computeStandings(t.id, zone.id);
+        const z = data && data.stages[0];
+        rows = z ? z.rows.map((r) => ({ position: r.position, tied: r.tied, team: r.team, played: r.played, won: r.won, drawn: r.drawn, lost: r.lost, points: r.points, setDiff: r.setDiff, form: r.form })) : [];
+        const own = await prisma.match.findMany({ where: { stageId: zone.id, hiddenAt: null }, select: { status: true } });
+        zoneDone = own.length > 0 && own.every((x) => x.status === 'FINISHED' || x.status === 'CANCELLED');
+      }
+      const mine = rows.find((r) => r.team.id === teamId) ?? null;
+
+      // Playoffs
+      let qualification = null;
+      let playoffs = [];
+      if (zone && koIds.length) {
+        const ko = await prisma.match.findMany({
+          where: { stageId: { in: koIds }, hiddenAt: null },
+          include: { sets: true },
+        });
+        const spots = [...new Set(ko.flatMap((m) => [m.teamAFrom, m.teamBFrom]).filter((f) => f && f.stageId === zone.id).map((f) => f.position))].sort((x, y) => x - y);
+        if (spots.length && mine) {
+          qualification = { position: mine.position, zoneName: zone.name, done: zoneDone, inSpot: spots.includes(mine.position), maxSpot: spots[spots.length - 1] };
+        }
+        const byId = new Map(ko.map((m) => [m.id, m]));
+        const real = ko.filter((m) => m.teamAId === teamId || m.teamBId === teamId).sort((x, y) => (x.round ?? 0) - (y.round ?? 0));
+        let entry = real[0] ?? null;
+        if (!entry && !zoneDone && mine) {
+          entry = ko.find((m) => [m.teamAFrom, m.teamBFrom].some((f) => f && f.stageId === zone.id && f.position === mine.position)) ?? null;
+        }
+        const chain = [];
+        let cur = entry;
+        while (cur && chain.length < 4) {
+          chain.push(cur);
+          const sc = sets2score(cur);
+          const over = cur.status === 'FINISHED';
+          const won = over && ((cur.teamAId === teamId && sc.teamA > sc.teamB) || (cur.teamBId === teamId && sc.teamB > sc.teamA));
+          if (over && !won && cur.loserMatchId && byId.get(cur.loserMatchId) && chain.length < 3) {
+            chain.push(byId.get(cur.loserMatchId));
+            break;
+          }
+          if (over && !won) break;
+          cur = cur.nextMatchId ? byId.get(cur.nextMatchId) ?? null : null;
+        }
+        if (chain.length) {
+          const full = await prisma.match.findMany({
+            where: { id: { in: chain.map((m) => m.id) } },
+            include: { tournament: { select: { id: true, name: true } }, teamA: { select: POS_TEAM }, teamB: { select: POS_TEAM }, sets: { orderBy: { number: 'asc' } } },
+          });
+          const phases = await phasesFor(full.map((m) => m.id)).catch(() => new Map());
+          const order = new Map(chain.map((m, i) => [m.id, i]));
+          playoffs = full
+            .sort((x, y) => order.get(x.id) - order.get(y.id))
+            .map((m) => ({
+              id: m.id, tournament: m.tournament, court: m.court, branch: m.branch, modality: m.modality, status: m.status,
+              scheduledAt: m.scheduledAt, finishedAt: m.finishedAt, statusReason: m.statusReason ?? null,
+              originalScheduledAt: m.originalScheduledAt ?? null,
+              teamA: m.teamA, teamB: m.teamB,
+              sets: m.sets.map((st) => ({ number: st.number, winnerTeamId: st.winnerTeamId, draw: st.winnerTeamId === null })),
+              score: sets2score(m), phase: phases.get(m.id) ?? null,
+            }));
+        }
+      }
+      return { tournament: t, zone: zone ? { id: zone.id, name: zone.name } : null, zoneDone, rows, qualification, playoffs };
+    }));
+
+    items.sort((a, b) => (b.tournament.status === 'ACTIVE') - (a.tournament.status === 'ACTIVE') || b.tournament.year - a.tournament.year);
+    res.json(items);
   } catch (err) {
     handleDbError(err, res);
   }
@@ -129,6 +240,21 @@ router.patch('/:id', ...admin, async (req, res) => {
       data.name = String(req.body.name).trim();
     }
     if (req.body.logo !== undefined) data.logo = req.body.logo || null;
+
+    // Datos del banner público del equipo
+    for (const [key, max] of [['nickname', 40], ['city', 60]]) {
+      if (req.body[key] === undefined) continue;
+      const v = req.body[key] === null ? '' : String(req.body[key]).trim();
+      if (Array.from(v).length > max) return res.status(400).json({ error: key + ' no puede tener más de ' + max + ' caracteres' });
+      data[key] = v === '' ? null : v;
+    }
+    if (req.body.foundedYear !== undefined) {
+      const y = req.body.foundedYear;
+      if (y === null || y === '') data.foundedYear = null;
+      else if (!Number.isInteger(Number(y)) || Number(y) < 1900 || Number(y) > new Date().getFullYear()) {
+        return res.status(400).json({ error: 'Año de fundación inválido' });
+      } else data.foundedYear = Number(y);
+    }
 
     const ops = [];
     if (req.body.branches !== undefined) {

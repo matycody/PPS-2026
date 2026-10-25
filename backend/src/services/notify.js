@@ -1,6 +1,8 @@
 const prisma = require('../db');
 const { SERVER_EVENTS } = require('../timers/timerEvents');
 const { getPermissions } = require('./matchAccess');
+const authCache = require('./authCache');
+const { getMatch } = require('../timers/matchManager');
 
 const FEED_ROOM = 'matches:all';
 const matchRoom = (id) => 'match:' + id;
@@ -37,6 +39,7 @@ async function pushPermissions(io, m) {
 async function notifyMatch(io, matchId) {
   try {
     if (!io) return;
+    authCache.clearMatch(matchId);
     const m = await prisma.match.findUnique({
       where: { id: matchId },
       include: {
@@ -47,6 +50,16 @@ async function notifyMatch(io, matchId) {
       },
     });
     if (!m) return;
+
+    // Si el partido ya no está Habilitado ni En vivo (finalizado, cancelado, suspendido, reprogramado o deshabilitado),
+    // el reloj no puede seguir corriendo: se frena y se avisa el estado a quienes lo miran
+    if (m.status !== 'READY' && m.status !== 'LIVE') {
+      const engine = getMatch(matchId);
+      if (engine) {
+        if (engine.timeoutTeam !== null) engine.endTimeout();
+        engine.pause('both');
+      }
+    }
 
     let a = 0;
     let b = 0;
@@ -73,6 +86,8 @@ async function notifyMatch(io, matchId) {
       scheduledAt: m.scheduledAt,
       readyAt: m.readyAt,
       finishedAt: m.finishedAt,
+      statusReason: m.statusReason ?? null,
+      originalScheduledAt: m.originalScheduledAt ?? null,
       teamA: m.teamA,
       teamB: m.teamB,
       sets: m.sets.map((s) => ({ number: s.number, winnerTeamId: s.winnerTeamId, draw: s.winnerTeamId === null })),

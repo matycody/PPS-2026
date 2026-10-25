@@ -1,7 +1,7 @@
 ﻿const prisma = require('../db');
 const { resolveToken } = require('../middleware/auth');
 
-const MAX_CONN_PER_IP = 30;
+const MAX_CONN_PER_IP = Number(process.env.MAX_CONN_PER_IP) || 200; // cancha: muchos celulares tras la misma IP
 const connections = new Map();
 
 function clientIp(socket) {

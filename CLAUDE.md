@@ -73,8 +73,8 @@ Diagrama completo en `/docs/modelo-datos.drawio` (si se copió al repo).
 Diagrama completo en `/docs/arquitectura.drawio` (si se copió al repo).
 
 ## Pendiente / a definir antes de programar en paralelo
-- **Contrato de eventos Socket.IO**: todavía no se definieron los nombres exactos de eventos (ej. `match:start`, `set:expired`) ni sus payloads. Esto lo tienen que acordar Matías y Rodri antes de avanzar en paralelo sin bloquearse.
-- Confirmar cuenta de Figma del equipo.
+- **Payloads de eventos Socket.IO nuevos del Sprint 3**: el contrato base (prefijo `match:`) está cerrado y documentado en el Manual de Backend; falta documentar los payloads de los eventos agregados en el Sprint 3.
+- Figma: se usó solo al inicio; el diseño posterior se hizo con Claude. Ya no hace falta cuenta de equipo.
 - Confirmar que Juan Ignacio validó la estimación de Sprint 1 (Planning Poker se hizo con Matías + Rodri).
 
 ## Definition of Done del equipo

@@ -3,6 +3,7 @@
 const prisma = require('../db');
 const { getPermissions } = require('../services/matchAccess');
 const { notifyMatch, FEED_ROOM } = require('../services/notify');
+const authCache = require('../services/authCache');
 const { CLIENT_EVENTS, SERVER_EVENTS } = require('../timers/timerEvents');
 const { getOrCreateMatch, getMatch, pauseMatch, resumeMatch } = require('../timers/matchManager');
 
@@ -77,6 +78,13 @@ async function authorize(socket, matchId, need) {
   if (typeof matchId !== 'string' || !matchId || matchId.length > 64) {
     return { error: 'matchId inválido' };
   }
+  // Vencimiento del token: siempre se revisa (es gratis)
+  if (socket.data.user && socket.data.tokenExp && Date.now() / 1000 > socket.data.tokenExp) {
+    return { error: 'Sesión vencida: reconectá con un token nuevo' };
+  }
+  const cached = socket.data.user ? authCache.get(socket.data.user.id, matchId) : null;
+  if (cached && (!need || cached.perms[need])) return cached;
+
   const auth = await authUser(socket);
   if (auth.error) return auth;
 
@@ -90,7 +98,9 @@ async function authorize(socket, matchId, need) {
   if (need && !perms[need]) {
     return { error: 'Sin permiso sobre este partido (o el partido no está Habilitado)' };
   }
-  return { user: auth.user, match, perms };
+  const result = { user: auth.user, match, perms };
+  authCache.set(auth.user.id, matchId, result);
+  return result;
 }
 
 async function runGuarded(socket, need, payload, handler) {
@@ -101,6 +111,7 @@ async function runGuarded(socket, need, payload, handler) {
     await handler(ctx);
   } catch (err) {
     console.error('[socket]', err);
+    try { if (process.env.SENTRY_DSN) require('@sentry/node').captureException(err); } catch (e) { /* sin sdk */ }
     emitError(socket, matchId, 'Error interno');
   }
 }
@@ -163,7 +174,9 @@ function registerMatchHandlers(io, socket) {
   }
 
   function requireEngine(match) {
-    const engine = getMatch(match.id);
+    let engine = getMatch(match.id);
+    // Partido Habilitado o En vivo sin reloj en memoria (el servidor se reinició): se recrea, pausado y en 20:00 / 3:00
+    if (!engine && (match.status === 'READY' || match.status === 'LIVE')) engine = getEngine(io, match);
     if (!engine) emitError(socket, match.id, 'El reloj de este partido todavía no fue iniciado');
     return engine;
   }
@@ -218,6 +231,18 @@ function registerMatchHandlers(io, socket) {
         return emitError(socket, matchId, 'Demasiadas suscripciones');
       }
 
+      // Mesa por buena fe: no se bloquea a nadie, pero se avisa si ya hay otra persona operando como mesa
+      let otherTables = [];
+      if (perms.isTable && !perms.isReferee && !perms.isAdmin) {
+        const peers = await io.in(controlRoom(match.id)).fetchSockets();
+        otherTables = peers
+          .filter((x) => x.id !== socket.id && x.data.user && x.data.user.id !== ctx.user.id && x.data.tableIn && x.data.tableIn.has(match.id))
+          .map((x) => x.data.displayName || 'otra persona');
+        socket.data.tableIn = socket.data.tableIn || new Set();
+        socket.data.tableIn.add(match.id);
+      }
+      socket.emit('match:tableOthers', { matchId: match.id, names: [...new Set(otherTables)] });
+
       socket.join(publicRoom(match.id));
       socket.join(controlRoom(match.id));
 
@@ -245,6 +270,7 @@ function registerMatchHandlers(io, socket) {
   socket.on(CLIENT_EVENTS.MATCH_CONTROL_LEAVE, (payload) => {
     const matchId = payload && payload.matchId;
     if (typeof matchId === 'string') socket.leave(controlRoom(matchId));
+    if (typeof matchId === 'string' && socket.data.tableIn) socket.data.tableIn.delete(matchId);
   });
 
   // ── Comandos del reloj: árbitros asignados y mesa, con el partido Habilitado o En vivo ──
@@ -387,6 +413,16 @@ function registerMatchHandlers(io, socket) {
     const r = engine.endTimeout();
     if (!r.ok) return emitError(socket, match.id, r.message);
     await logAction(io, socket, match.id, 'TIMEOUT_END');
+  });
+
+  // Deshacer un tiempo muerto pedido sin querer: el equipo no pierde el suyo
+  on(CLIENT_EVENTS.MATCH_TIMEOUT_CANCEL, 'canControlClock', async ({ match }) => {
+    const engine = requireEngine(match);
+    if (!engine) return;
+    const team = engine.timeoutTeam;
+    const r = engine.cancelTimeout();
+    if (!r.ok) return emitError(socket, match.id, r.message);
+    await logAction(io, socket, match.id, 'TIMEOUT_CANCEL', { team });
   });
 
   on(CLIENT_EVENTS.MATCH_FINISH_HALF, 'canControlClock', async ({ match }) => {

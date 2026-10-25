@@ -1,5 +1,6 @@
-﻿// backend/server.js
+// backend/server.js
 
+require("./instrument"); // Sentry (opcional)
 require("dotenv").config();
 const express = require("express");
 const http = require("http");
@@ -17,13 +18,17 @@ app.use(cors({
   origin: "*",
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
 }));
+// Compresión gzip (si el paquete está instalado)
+try { app.use(require("compression")()); } catch (e) { console.warn("[compression] no instalado: npm i compression"); }
 app.use(express.json());
 app.use(require("./src/lib/audit").auditWrites);
+app.use(require("./src/middleware/microCache").microCache); // caché de 5 s para GET públicos
 
 // Anti-abuso: límite de requests por IP
 app.use(rateLimit({
   windowMs: 60 * 1000,
-  limit: 300,
+  limit: 1000, // varias personas comparten WiFi/datos en la cancha
+  skip: (req) => req.path === '/health' || req.path === '/time',
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Demasiadas solicitudes, probá en un minuto" },
@@ -34,6 +39,14 @@ app.get("/time", (req, res) => {
   res.json({ now: Date.now(), iso: new Date().toISOString() });
 });
 
+// Prueba de Sentry: solo existe si definís SENTRY_TEST_KEY en el entorno. Uso: /debug-sentry?key=<valor>
+app.get("/debug-sentry", (req, res) => {
+  if (!process.env.SENTRY_TEST_KEY || req.query.key !== process.env.SENTRY_TEST_KEY) {
+    return res.status(404).json({ error: "No encontrado" });
+  }
+  throw new Error("Prueba de Sentry (backend)");
+});
+
 app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Servidor backend PPS Dodgeball corriendo" });
 });
@@ -42,7 +55,16 @@ app.get("/health", (req, res) => {
 app.use("/me", require("./src/routes/me"));
 app.use("/profiles", require("./src/routes/profiles"));
 app.use("/teams", require("./src/routes/teams"));
+app.use("/players", require("./src/routes/players"));
+app.use("/tournaments", require("./src/middleware/pausedTournament")); // torneo pausado: oculto para quien no es organización
 app.use("/tournaments", require("./src/routes/tournaments"));
+app.use("/tournaments", require("./src/routes/fixture"));
+app.use("/tournaments", require("./src/routes/standings"));
+app.use("/tournaments", require("./src/routes/bracket"));
+app.use("/tournaments", require("./src/routes/lifecycle"));
+app.use("/stats", require("./src/routes/stats"));
+app.use("/search", require("./src/routes/search"));
+app.use("/matches", require("./src/middleware/bracketAdvance"));
 app.use("/matches", require("./src/routes/matches"));
 app.use("/audit", require("./src/routes/audit"));
 app.use("/users", require("./src/routes/users"));
@@ -50,6 +72,11 @@ app.use('/player-requests', require('./src/routes/playerRequests'))
 app.use("/favorites", require("./src/routes/favorites"));
 app.use("/me", require("./src/routes/account"));
 app.use("/photos", require("./src/routes/photos"));
+
+// Errores no controlados de Express -> Sentry (si está activo)
+if (process.env.SENTRY_DSN) {
+  try { require("@sentry/node").setupExpressErrorHandler(app); } catch (e) { /* sin sdk */ }
+}
 
 const server = http.createServer(app);
 
