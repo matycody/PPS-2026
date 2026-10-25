@@ -23,7 +23,7 @@ export default function Versus({ a, b, center, size = 'lg', noLink = false, slot
       <>
         <TeamBadge team={t} size={size} />
         <span className="w-full break-words text-sm font-bold leading-tight">{t?.name ?? 'Por definir'}</span>
-        {t && rank && <span className="text-[11px] font-bold leading-none text-muted">{rank}.º en la tabla</span>}
+        {t && rank && <span className="text-[11px] font-bold leading-none text-muted">{rank}.º</span>}
         {t && form?.length > 0 && <Forma form={form} size="sm" />}
       </>
     )
