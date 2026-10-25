@@ -1,10 +1,12 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import MatchCard from '../components/MatchCard'
+import OrgMatches from '../components/inicio/OrgMatches'
+import Finalizados from '../components/inicio/Finalizados'
 import { useMatchesFeed } from '../hooks/useMatchesFeed'
 import { useMatchesStore } from '../stores/matchesStore'
 import { socket } from '../sockets/socket'
-import { toSeconds } from '../lib/format'
+import { toSeconds, phaseCmp } from '../lib/format'
 import { GENERAL, ITEMS } from '../lib/navConfig'
 import { useAuthStore } from '../stores/authStore'
 import PlayerRequestBanner from '../components/PlayerRequestBanner'
@@ -15,15 +17,20 @@ const FILTERS = [
   { id: 'all', label: 'Todos' },
   { id: 'live', label: 'En vivo' },
   { id: 'sched', label: 'Programados' },
+  { id: 'fin', label: 'Finalizados' },
 ]
 const ORDER = { LIVE: 0, READY: 1, SCHEDULED: 2 }
+const WINDOW_DAYS = 7 // ventana de "próximos"
+const MAX_NEXT = 10
 const SOON_SEC = 3 * 60 // el próximo partido de la cancha se agranda con 3 min o menos
+const ORG_DAYS = 30 // la organización ve más lejos para encontrar la próxima jornada
 
 export default function InicioPage() {
-  useMatchesFeed()
   const { user, menu } = useAuthStore()
-  const cardsPref = useMenuPrefs((s) => s.byUser[user?.id]?.cards)
   const role = roleLabel(user, menu) // Organizador, Árbitro, Mesa, Jugador o Registrado
+  const isOrg = true // todos los roles ven las pestañas como la organización
+  useMatchesFeed(isOrg ? ORG_DAYS : WINDOW_DAYS)
+  const cardsPref = useMenuPrefs((s) => s.byUser[user?.id]?.cards)
   const { byId, loading, error } = useMatchesStore()
   const [filter, setFilter] = useState('all')
   const [ticks, setTicks] = useState({})
@@ -33,15 +40,15 @@ export default function InicioPage() {
     const groups = {}
     Object.values(byId)
       .filter((m) => m.status in ORDER)
-      .forEach((m) => { (groups[m.court] ??= []).push(m) })
+      .forEach((m) => { (groups[m.court ?? 0] ??= []).push(m) })
     return Object.entries(groups)
       .map(([court, list]) => {
         list.sort((a, b) =>
-          ORDER[a.status] - ORDER[b.status] || String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? ''))
+          ORDER[a.status] - ORDER[b.status] || String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b)
         )
         return { court: Number(court), list }
       })
-      .sort((a, b) => a.court - b.court)
+      .sort((a, b) => (a.court || 999) - (b.court || 999))
   }, [byId])
 
   // Reloj de cada partido en vivo, para saber cuándo está por terminar
@@ -76,13 +83,23 @@ export default function InicioPage() {
     })
 
   const promotedIds = new Set(liveSections.filter((s) => s.next).map((s) => s.next.id))
-  const upcoming = courts
+  const sameDay = (iso) => iso && new Date(iso).toDateString() === new Date().toDateString()
+  const limit = Date.now() + WINDOW_DAYS * 864e5
+  const rest = courts
     .flatMap((c) => c.list)
     .filter((m) => m.status !== 'LIVE' && !promotedIds.has(m.id))
-    .sort((a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || a.court - b.court)
+    .filter((m) => !m.scheduledAt || new Date(m.scheduledAt).getTime() <= limit)
+    .sort((a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b) || (a.court || 999) - (b.court || 999))
+  const today = rest.filter((m) => sameDay(m.scheduledAt))
+  const later = rest.filter((m) => !sameDay(m.scheduledAt))
+  const nextList = later.slice(0, MAX_NEXT)
+  const hiddenCount = later.length - nextList.length
 
-  const showLive = filter !== 'sched'
-  const showUpcoming = filter !== 'live'
+  // Organización: Todos = próxima jornada completa; En vivo = por cancha (ver OrgMatches)
+  const fin = filter === 'fin'
+  const orgView = isOrg && !fin
+  const showLive = !orgView && !fin
+  const showUpcoming = !orgView && !fin && filter !== 'live'
 
   return (
     <div className="space-y-5">
@@ -101,13 +118,13 @@ export default function InicioPage() {
         ))}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <button
             key={f.id}
             onClick={() => setFilter(f.id)}
             className={
-              'rounded-full border px-4 py-2 text-sm font-bold ' +
+              'rounded-full border px-3.5 py-2 text-sm font-bold ' +
               (filter === f.id ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
             }
           >
@@ -118,6 +135,8 @@ export default function InicioPage() {
 
       {loading && <p className="text-muted">Cargando…</p>}
       {error && <p className="text-danger">{error}</p>}
+      {orgView && !loading && !error && <OrgMatches byId={byId} filter={filter} />}
+      {fin && <Finalizados />}
 
       {showLive && liveSections.length > 0 && (
         <div className="space-y-4">
@@ -135,13 +154,22 @@ export default function InicioPage() {
 
       {showUpcoming && (
         <>
-          <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Próximos partidos</h2>
-          {!loading && !error && upcoming.length === 0 && (
-            <p className="text-muted">No hay partidos programados.</p>
+          {!loading && !error && rest.length === 0 && <p className="text-muted">No hay partidos programados.</p>}
+          {today.length > 0 && (
+            <>
+              <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Hoy</h2>
+              <div className="space-y-3">{today.map((m) => <MatchCard key={m.id} m={m} />)}</div>
+            </>
           )}
-          <div className="space-y-3">
-            {upcoming.map((m) => <MatchCard key={m.id} m={m} />)}
-          </div>
+          {nextList.length > 0 && (
+            <>
+              <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Próximos</h2>
+              <div className="space-y-3">{nextList.map((m) => <MatchCard key={m.id} m={m} />)}</div>
+            </>
+          )}
+          <Link to="/liga" className="block rounded-2xl border border-line bg-surface py-3 text-center text-sm font-bold text-accent">
+            Ver calendario completo{hiddenCount > 0 ? ` (+${hiddenCount} más)` : ''}
+          </Link>
         </>
       )}
     </div>

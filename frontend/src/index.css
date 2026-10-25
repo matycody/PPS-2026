@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 @import "./theme.css";
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Big+Shoulders+Display:wght@800&display=swap');
 
@@ -61,6 +61,79 @@ body::before {
   background-repeat: no-repeat;
 }
 
+/* Claro: fondo completo, sin capa blanca. Los textos que van sobre la imagen llevan un halo blanco para leerse */
+html:not(.dark) body::before {
+  background-image: url('/fondo-claro.svg');
+}
+html:not(.dark) :is(h1, h2, h3, .text-muted) {
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.95), 0 0 2px rgba(255, 255, 255, 0.95);
+}
+/* Claro: barras blancas legibles y menú desplegable blanco sólido */
+html:not(.dark) .menu-glass {
+  background: #ffffff;
+}
+html:not(.dark) header.menu-glass {
+  margin: 0.5rem 1rem 0;
+  border-radius: 1.25rem;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 6px 16px rgba(15, 23, 42, 0.07);
+}
+
+/* Títulos grises en mayúsculas que van sobre la imagen (fuera de tarjetas): recuadro para que se lean */
+.uppercase.tracking-widest.text-muted:not(.bg-surface *) {
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  text-shadow: none;
+}
+
+/* Pestañas, filtros, checkboxes y textos sueltos sobre la imagen: recuadro sólido, nada transparente */
+button.rounded-full.border:not([class*="bg-"]):not(.bg-surface *):not(.menu-glass *):not(.menu-glass-drawer *),
+label:has(> input[type="checkbox"]):not(.bg-surface *),
+p.text-muted:not(.bg-surface *) {
+  background: var(--surface);
+  text-shadow: none !important;
+}
+label:has(> input[type="checkbox"]):not(.bg-surface *),
+p.text-muted:not(.bg-surface *) {
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+
+/* Oscuro: mismo criterio que el claro (fondo completo, header flotante, barras y menú sólidos) */
+html.dark body::before {
+  background-image: url('/fondo-oscuro.svg');
+}
+html.dark :is(h1, h2, h3, .text-muted) {
+  text-shadow: 0 0 3px #000, 0 0 6px #000, 0 1px 10px rgba(0, 0, 0, 0.95);
+}
+html.dark .bg-surface {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+html.dark .menu-glass {
+  background: var(--surface);
+}
+html.dark header.menu-glass {
+  margin: 0.5rem 1rem 0;
+  border-radius: 1.25rem;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+html.dark .menu-glass-drawer {
+  background: var(--surface);
+  box-shadow: 6px 0 24px rgba(0, 0, 0, 0.6);
+}
+html:not(.dark) .menu-glass-drawer {
+  background: #ffffff;
+  box-shadow: 6px 0 24px rgba(15, 23, 42, 0.18);
+}
+
 .menu-glass {
   background: color-mix(in srgb, var(--bg) var(--menu-a, 30%), transparent);
   -webkit-backdrop-filter: blur(var(--menu-blur, 12px));
@@ -70,4 +143,31 @@ body::before {
   background: color-mix(in srgb, var(--bg) var(--menu-da, 30%), transparent);
   -webkit-backdrop-filter: blur(var(--menu-blur, 12px));
   backdrop-filter: blur(var(--menu-blur, 12px));
+}
+
+/* Autocompletado del navegador (mail/contraseña): mantiene el color del tema en vez del azul claro */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--bg) inset;
+  box-shadow: 0 0 0 1000px var(--bg) inset;
+  -webkit-text-fill-color: var(--fg);
+  caret-color: var(--fg);
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* Avisos (tiempo muerto, errores, advertencias): fondo sólido con el tono del aviso, sin transparencia sobre la imagen de fondo */
+.box-warn {
+  background: color-mix(in srgb, var(--surface) 84%, var(--color-warn));
+  border-color: color-mix(in srgb, var(--color-warn) 60%, transparent);
+}
+.box-danger {
+  background: color-mix(in srgb, var(--surface) 84%, var(--color-danger));
+  border-color: color-mix(in srgb, var(--color-danger) 60%, transparent);
+}
+.box-live {
+  background: color-mix(in srgb, var(--surface) 84%, var(--color-live));
+  border-color: color-mix(in srgb, var(--color-live) 60%, transparent);
 }

@@ -94,6 +94,7 @@ export default function RegisterPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-10">
+      <Link to="/login" className="mb-6 w-fit rounded-full border border-line bg-surface px-4 py-1.5 text-sm font-bold">← Volver al login</Link>
       <p className="text-xs font-semibold uppercase tracking-widest text-muted">Dodgeball</p>
       <h1 className="mb-2 mt-1 text-3xl font-extrabold">{titles[step]}</h1>
       {step === 'mail' && <p className="mb-6 text-sm text-muted">{guest ? 'Para seguir partidos y equipos. ' : ''}Te mandamos un código al mail para confirmar que es tuyo.</p>}

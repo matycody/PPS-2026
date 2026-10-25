@@ -1,10 +1,12 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import BackLink from '../../components/BackLink'
 import { ChevronLeft, X } from 'lucide-react'
 import { api } from '../../lib/api'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import MatchForm from '../../components/MatchForm'
 import StatusPill from '../../components/StatusPill'
+import MatchNotice from '../../components/MatchNotice'
 import Versus from '../../components/Versus'
 import { matchInfo } from '../../lib/matchInfo'
 import { statusBorder } from '../../lib/statusStyle'
@@ -33,7 +35,7 @@ function personLabel(profile, branch, fallback) {
   if (!profile) return fallback
   const num = personNumber(profile)
   const team = primaryTeam(profile, branch)
-  return (num != null ? '#' + num + ' ' : '') + profile.name + (team ? ' (' + team.name + ')' : '')
+  return (num != null ? '#' + num + ' ' : '') + profile.name + (team ? ' (' + (team.team?.name ?? team.name) + ')' : '')
 }
 function roleTag(profile) {
   const r = []
@@ -93,6 +95,8 @@ export default function AdminMatchPage() {
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
   const [busy, setBusy] = useState(false)
+  const [reason, setReason] = useState('')
+  const [newDate, setNewDate] = useState('')
 
   const load = () => api('GET', '/matches/' + id).then(setM).catch((e) => setErr(e.message))
   useEffect(() => {
@@ -102,6 +106,8 @@ export default function AdminMatchPage() {
     api('GET', '/profiles?active=true').then(setProfiles).catch(() => {})
     api('GET', '/users?role=ADMIN').then(setAdmins).catch(() => {})
   }, [id])
+
+  useEffect(() => { setReason(m?.statusReason ?? '') }, [m?.id, m?.statusReason])
 
   async function run(fn, msg) {
     setBusy(true); setErr(''); setOk('')
@@ -158,9 +164,9 @@ export default function AdminMatchPage() {
 
   return (
     <div className="space-y-4">
-      <Link to="/admin/partidos" className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
+      <BackLink to="/admin/partidos" className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
         <ChevronLeft size={16} /> Partidos
-      </Link>
+      </BackLink>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
       {ok && <Alert tone="ok" onClose={() => setOk('')}>{ok}</Alert>}
 
@@ -173,12 +179,38 @@ export default function AdminMatchPage() {
       <div className="grid grid-cols-2 gap-2">
         <Link to={'/partido/' + id} className="rounded-2xl border border-line bg-surface-2 py-3 text-center text-sm font-extrabold">Ver en vivo</Link>
         <Link to={'/control/' + id} className="rounded-2xl border border-line bg-surface-2 py-3 text-center text-sm font-extrabold">Control</Link>
-        {m.status === 'SCHEDULED' && <Btn tone="accent" disabled={busy} onClick={() => run(() => api('POST', '/matches/' + id + '/ready'), 'Partido habilitado')}>Habilitar partido</Btn>}
-        {m.status === 'READY' && <Btn disabled={busy} onClick={() => run(() => api('POST', '/matches/' + id + '/unready'), 'Habilitación revertida')}>Deshabilitar partido</Btn>}
-        {m.status !== 'FINISHED' && m.status !== 'CANCELLED' && (
-          <Btn tone="danger" disabled={busy} onClick={async () => (await ask({ title: 'Cancelar partido', message: '¿Cancelar el partido?', confirmText: 'Cancelar partido', cancelText: 'Volver', danger: true })) && run(() => api('POST', '/matches/' + id + '/cancel'), 'Partido cancelado')}>Cancelar partido</Btn>
-        )}
+        {m.status === 'SCHEDULED' && <Btn tone="accent" className="col-span-2" disabled={busy} onClick={() => run(() => api('POST', '/matches/' + id + '/ready'), 'Partido habilitado')}>Habilitar partido</Btn>}
+        {m.status === 'READY' && <Btn className="col-span-2" disabled={busy} onClick={() => run(() => api('POST', '/matches/' + id + '/unready'), 'Habilitación revertida')}>Deshabilitar partido</Btn>}
       </div>
+
+      {m.status !== 'FINISHED' && (
+        <section className="space-y-3 rounded-3xl border border-line bg-surface p-5">
+          <p className="text-sm font-bold">Suspensión y cancelación</p>
+          <MatchNotice m={m} />
+          <label className="block text-xs text-muted">Motivo (lo ven los espectadores)
+            <textarea className={inputCls} rows={2} maxLength={300} placeholder="Ej.: lluvia, cancha no disponible, falta de árbitros…" value={reason} onChange={(e) => setReason(e.target.value)} />
+          </label>
+          {m.status === 'SUSPENDED' && (
+            <label className="block text-xs text-muted">Nueva fecha y hora
+              <input type="datetime-local" className={inputCls} value={newDate} onChange={(e) => setNewDate(e.target.value)} />
+            </label>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {editable && (
+              <Btn className="flex-1 basis-[45%]" disabled={busy} onClick={() => run(() => api('POST', '/matches/' + id + '/suspend', { reason }), 'Partido suspendido')}>Suspender partido</Btn>
+            )}
+            {m.status === 'SUSPENDED' && (
+              <Btn tone="accent" className="flex-1 basis-[45%]" disabled={busy || !newDate} onClick={() => run(async () => { await api('POST', '/matches/' + id + '/reschedule', { scheduledAt: new Date(newDate).toISOString(), reason }); setNewDate('') }, 'Partido reprogramado')}>Reprogramar</Btn>
+            )}
+            {(m.status === 'SUSPENDED' || m.status === 'CANCELLED' || m.originalScheduledAt) && (
+              <Btn className="flex-1 basis-[45%]" disabled={busy} onClick={() => run(() => api('PATCH', '/matches/' + id + '/reason', { reason }), 'Motivo guardado')}>Guardar motivo</Btn>
+            )}
+            {m.status !== 'CANCELLED' && (
+              <Btn tone="danger" className="flex-1 basis-[45%]" disabled={busy} onClick={async () => (await ask({ title: 'Cancelar partido', message: '¿Cancelar el partido?', confirmText: 'Cancelar partido', cancelText: 'Volver', danger: true })) && run(() => api('POST', '/matches/' + id + '/cancel', { reason }), 'Partido cancelado')}>Cancelar partido</Btn>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="rounded-3xl border border-line bg-surface p-5">
         <p className="mb-3 text-sm font-bold">Datos del partido</p>

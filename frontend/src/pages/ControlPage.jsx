@@ -1,9 +1,10 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useLeaveGuard } from '../hooks/useLeaveGuard'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ChevronLeft, Play, Pause, RotateCcw, Minus, Plus, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
-import { normMatch, MODALITY } from '../lib/format'
+import { normMatch, MODALITY, courtLabel } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import Versus from '../components/Versus'
 import { MatchRosterToggle } from '../components/MatchRoster'
@@ -15,7 +16,7 @@ const ACTIONS = {
   START: 'Iniciado', PAUSE: 'Pausado', RESUME: 'Reanudado', RESET: 'Reiniciado',
   ADJUST: 'Tiempo ajustado', SET_TIME: 'Tiempo fijado', SET_MODALITY: 'Modalidad cambiada',
   SET_HALF: 'Tiempo cambiado', FINISH_HALF: 'Tiempo finalizado',
-  TIMEOUT_START: 'Tiempo muerto pedido', TIMEOUT_END: 'Tiempo muerto terminado',
+  TIMEOUT_START: 'Tiempo muerto pedido', TIMEOUT_END: 'Tiempo muerto terminado', TIMEOUT_CANCEL: 'Tiempo muerto deshecho',
 }
 
 // El backend manda "1:48"; se muestra "01:48"
@@ -178,6 +179,11 @@ function TimeoutCard({ tick, can, half, send, nameA, nameB }) {
           <Btn tone={expired ? 'live' : 'base'} disabled={!can} onClick={() => send('match:timeout:end')} className="w-full">
             {expired ? 'Reanudar' : 'Terminar tiempo y reanudar'}
           </Btn>
+          {!expired && (
+            <Btn disabled={!can} onClick={() => send('match:timeout:cancel')} className="w-full">
+              Deshacer tiempo muerto
+            </Btn>
+          )}
         </>
       )}
     </div>
@@ -195,9 +201,15 @@ export default function ControlPage() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
+  const [otherTables, setOtherTables] = useState([]) // otras personas ya operando como mesa
+  const [tableOk, setTableOk] = useState(false)
   const soundAllowed = !!(perms?.isTable || perms?.isReferee)
   useMatchSound(id, soundAllowed) // solo mesa y arbitro
   useWakeLock(!!tick && (!tick.isMatchPaused || !tick.isSetPaused || !!tick.isTimeoutRunning))
+  // Quien opera el partido (árbitro, mesa u organizador) confirma antes de irse a otra pantalla
+  const operating = !!(perms && (perms.isTable || perms.isReferee || perms.canControlClock)) && !['FINISHED', 'CANCELLED'].includes(m?.status)
+  const roleText = perms?.isReferee && perms?.isTable ? 'árbitro y mesa' : perms?.isReferee ? 'árbitro' : perms?.isTable ? 'mesa' : 'organizador'
+  const { modal: leaveModal, ask: askLeave } = useLeaveGuard(operating, roleText)
 
   const send = (event, extra = {}) => socket.emit(event, { matchId: id, ...extra })
   const pushNotice = (t) => setNotices((n) => [...n, { k: Date.now() + Math.random(), t }])
@@ -214,6 +226,7 @@ export default function ControlPage() {
     const mine = (p) => p.matchId === id
     const onTick = (p) => mine(p) && setTick(p)
     const onPerms = (p) => mine(p) && setPerms(p)
+    const onOthers = (p) => mine(p) && setOtherTables(p.names ?? [])
     const onAction = (p) => mine(p) && setLast(p)
     const onError = (p) => setErr(p.message ?? 'Error')
     const onUpdated = (p) => (p.matchId ?? p.id) === id && setM((prev) => ({ ...prev, ...normMatch(p) }))
@@ -224,6 +237,7 @@ export default function ControlPage() {
     socket.on('connect', join)
     socket.on('match:tick', onTick)
     socket.on('match:permissions', onPerms)
+    socket.on('match:tableOthers', onOthers)
     socket.on('match:action', onAction)
     socket.on('match:error', onError)
     socket.on('match:updated', onUpdated)
@@ -238,6 +252,7 @@ export default function ControlPage() {
       socket.off('connect', join)
       socket.off('match:tick', onTick)
       socket.off('match:permissions', onPerms)
+      socket.off('match:tableOthers', onOthers)
       socket.off('match:action', onAction)
       socket.off('match:error', onError)
       socket.off('match:updated', onUpdated)
@@ -278,24 +293,39 @@ export default function ControlPage() {
 
   return (
     <div className="space-y-4">
-      <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
+      {leaveModal}
+      {perms?.isTable && !perms?.isReferee && otherTables.length > 0 && !tableOk && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-4">
+            <p className="font-semibold">Ya hay una mesa designada</p>
+            <p className="mt-1 text-sm text-muted">
+              {otherTables.join(', ')} ya {otherTables.length > 1 ? 'están' : 'está'} operando este partido como mesa. ¿Querés continuar como mesa igualmente?
+            </p>
+            <div className="mt-4 flex gap-2">
+              <Btn className="flex-1" onClick={() => navigate(-1)}>Salir</Btn>
+              <Btn tone="accent" className="flex-1" onClick={() => setTableOk(true)}>Continuar</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+      <button onClick={() => askLeave({ back: true })} className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
         <ChevronLeft size={16} /> Volver
       </button>
 
       <div className="flex flex-col items-center gap-2 text-center">
         <StatusPill status={m.status} />
-        <p className="text-sm text-muted">Cancha {m.court} · {MODALITY[m.modality] ?? m.modality}</p>
+        <p className="text-sm text-muted">{courtLabel(m.court)} · {MODALITY[m.modality] ?? m.modality}</p>
       </div>
 
       <MiniBoard a={a} b={b} score={m.score} tick={tick} can={can} send={send} live={live} />
       {soundAllowed && <SoundToggle />}
       {err && (
-        <button onClick={() => setErr('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-left text-sm font-bold text-danger">
+        <button onClick={() => setErr('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border box-danger px-4 py-3 text-left text-sm font-bold text-danger">
           {err} <X size={16} className="shrink-0" />
         </button>
       )}
       {notices.map((n) => (
-        <button key={n.k} onClick={() => setNotices((l) => l.filter((x) => x.k !== n.k))} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-warn/40 bg-warn/10 px-4 py-3 text-left text-sm font-bold text-warn">
+        <button key={n.k} onClick={() => setNotices((l) => l.filter((x) => x.k !== n.k))} className="flex w-full items-center justify-between gap-3 rounded-2xl border box-warn px-4 py-3 text-left text-sm font-bold text-warn">
           {n.t} <X size={16} className="shrink-0" />
         </button>
       ))}
@@ -305,6 +335,7 @@ export default function ControlPage() {
           a={a}
           b={b}
           size="lg"
+          noLink
           center={
             <span className="font-mono text-4xl font-extrabold tabular-nums text-live">
               {m.score?.teamA ?? 0} <span className="text-lg text-muted">-</span> {m.score?.teamB ?? 0}
@@ -416,7 +447,7 @@ export default function ControlPage() {
             <Btn tone="danger" className="w-full" onClick={() => setConfirmFinish(true)}>Finalizar partido</Btn>
           )}
           {perms.canFinish && confirmFinish && (
-            <div className="space-y-2 rounded-2xl border border-danger/40 bg-danger/10 p-3">
+            <div className="space-y-2 rounded-2xl border box-danger p-3">
               <p className="text-sm font-bold text-danger">¿Finalizar el partido? Esta acción cierra el resultado.</p>
               <div className="grid grid-cols-2 gap-2">
                 <Btn onClick={() => setConfirmFinish(false)}>Cancelar</Btn>

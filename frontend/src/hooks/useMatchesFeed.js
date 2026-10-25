@@ -3,13 +3,13 @@ import { socket } from '../sockets/socket'
 import { useMatchesStore } from '../stores/matchesStore'
 
 // Feed general: lista inicial por REST + match:updated de todos los partidos
-export function useMatchesFeed() {
+export function useMatchesFeed(days) {
   useEffect(() => {
     const { load, upsert } = useMatchesStore.getState()
-    load()
+    load(days)
 
     const subscribe = () => socket.emit('matches:subscribe')
-    const onConnect = () => { subscribe(); load() } // tras reconectar se pierden las rooms
+    const onConnect = () => { subscribe(); load(days) } // tras reconectar se pierden las rooms
     const onUpdated = (p) => upsert(p)
 
     if (socket.connected) subscribe()

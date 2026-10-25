@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { BRANCH, MODALITY } from '../lib/format'
 import { Btn, inputCls } from './ui'
 
@@ -11,7 +11,7 @@ export const toLocalInput = (iso) => {
 export default function MatchForm({ initial, tournaments, teams, onSubmit, label, busy }) {
   const [f, setF] = useState({
     tournamentId: initial?.tournament?.id ?? tournaments[0]?.id ?? '',
-    court: initial?.court ?? 1,
+    court: initial?.court ?? '',
     branch: initial?.branch ?? 'MIXED',
     modality: initial?.modality ?? 'FOAM',
     scheduledAt: toLocalInput(initial?.scheduledAt),
@@ -25,11 +25,11 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
   const submit = (e) => {
     e.preventDefault()
     onSubmit({
-      tournamentId: f.tournamentId,
-      court: Number(f.court),
+      tournamentId: f.tournamentId || null, // vacío = partido suelto, sin torneo
+      court: f.court === '' ? null : Number(f.court),
       branch: f.branch,
       modality: f.modality,
-      scheduledAt: f.scheduledAt ? new Date(f.scheduledAt).toISOString() : undefined,
+      scheduledAt: f.scheduledAt ? new Date(f.scheduledAt).toISOString() : null, // vacío = sin fecha (borra la anterior)
       teamAId: f.teamAId || undefined,
       teamBId: f.teamBId || undefined,
     })
@@ -37,13 +37,13 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      <select className={inputCls} required value={f.tournamentId} onChange={(e) => set('tournamentId', e.target.value)}>
-        <option value="" disabled>Torneo…</option>
+      <select className={inputCls} value={f.tournamentId} onChange={(e) => set('tournamentId', e.target.value)}>
+        <option value="">Amistoso</option>
         {tournaments.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
       </select>
       <div className="grid grid-cols-3 gap-3 [&>*]:min-w-0">
         <label className="text-xs text-muted">Cancha
-          <input type="number" min="1" required className={inputCls} value={f.court} onChange={(e) => set('court', e.target.value)} />
+          <input type="number" min="1" placeholder="Opcional" className={inputCls} value={f.court} onChange={(e) => set('court', e.target.value)} />
         </label>
         <label className="text-xs text-muted">Rama
           <select className={inputCls} value={f.branch} onChange={(e) => setF((s) => ({ ...s, branch: e.target.value, teamAId: '', teamBId: '' }))}>
@@ -69,7 +69,7 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
           </label>
         ))}
       </div>
-      <Btn type="submit" tone="accent" disabled={busy || !f.tournamentId} className="w-full">{label}</Btn>
+      <Btn type="submit" tone="accent" disabled={busy} className="w-full">{label}</Btn>
     </form>
   )
 }

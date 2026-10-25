@@ -1,15 +1,20 @@
-﻿export const BRANCH = { MIXED: 'Mixto', MALE: 'Masculino', FEMALE: 'Femenino' }
+export const BRANCH = { MIXED: 'Mixto', MALE: 'Masculino', FEMALE: 'Femenino' }
 export const MODALITY = { FOAM: 'Foam', CLOTH: 'Cloth' }
 
 export const STATUS = {
   SCHEDULED: { label: 'Programado', cls: 'bg-surface-2 text-muted' },
-  READY: { label: 'Habilitado', cls: 'bg-live/15 text-live' },
+  READY: { label: 'Habilitado', cls: 'bg-sky-500/15 text-sky-500' },
   LIVE: { label: 'En vivo', cls: 'bg-danger/15 text-danger' },
   FINISHED: { label: 'Finalizado', cls: 'bg-surface-2 text-muted' },
   CANCELLED: { label: 'Cancelado', cls: 'bg-surface-2 text-muted' },
+  SUSPENDED: { label: 'Suspendido', cls: 'bg-orange-500/15 text-orange-500' },
 }
 
 // GET /matches trae "id"; match:updated trae "matchId"
+// Desempate entre partidos a la misma hora: primero la Fecha 1, 2, 3…, después los playoffs (cuartos, semis, tercer puesto, final)
+export const phaseCmp = (a, b) =>
+  (a.phase?.order ?? 9999) - (b.phase?.order ?? 9999) || (a.phase?.slot ?? 0) - (b.phase?.slot ?? 0)
+
 export const normMatch = (m) => ({ ...m, id: m.id ?? m.matchId })
 
 export function fmtWhen(iso) {
@@ -26,3 +31,24 @@ export function toSeconds(t) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(t ?? '')
   return m ? Number(m[1]) * 60 + Number(m[2]) : null
 }
+
+export const FORMAT = { LEAGUE: 'Liga', LEAGUE_CUP: 'Liga + Copa', CUP: 'Copa' }
+
+export const TSTATUS = {
+  DRAFT: { label: 'Borrador', cls: 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400' },
+  ACTIVE: { label: 'En curso', cls: 'bg-live/15 text-live' },
+  FINISHED: { label: 'Finalizado', cls: 'bg-surface-2 text-muted' },
+}
+
+export const CRITERIA = {
+  HEAD_TO_HEAD: 'Resultado entre sí',
+  SET_DIFFERENCE: 'Diferencia de sets',
+  SETS_WON: 'Sets ganados',
+  WINS: 'Partidos ganados',
+  DRAW_LOT: 'Sorteo',
+}
+
+// La cancha es opcional: el organizador la define según el lugar y el día
+export const courtLabel = (c) => (c ? 'Cancha ' + c : 'Sin cancha')
+
+export const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { timeZone: 'UTC' }) : '—')
