@@ -1,15 +1,20 @@
-﻿export const BRANCH = { MIXED: 'Mixto', MALE: 'Masculino', FEMALE: 'Femenino' }
+export const BRANCH = { MIXED: 'Mixto', MALE: 'Masculino', FEMALE: 'Femenino' }
 export const MODALITY = { FOAM: 'Foam', CLOTH: 'Cloth' }
 
 export const STATUS = {
   SCHEDULED: { label: 'Programado', cls: 'bg-surface-2 text-muted' },
-  READY: { label: 'Habilitado', cls: 'bg-live/15 text-live' },
+  READY: { label: 'Habilitado', cls: 'bg-sky-500/15 text-sky-500' },
   LIVE: { label: 'En vivo', cls: 'bg-danger/15 text-danger' },
   FINISHED: { label: 'Finalizado', cls: 'bg-surface-2 text-muted' },
   CANCELLED: { label: 'Cancelado', cls: 'bg-surface-2 text-muted' },
+  SUSPENDED: { label: 'Suspendido', cls: 'bg-orange-500/15 text-orange-500' },
 }
 
 // GET /matches trae "id"; match:updated trae "matchId"
+// Desempate entre partidos a la misma hora: primero la Fecha 1, 2, 3…, después los playoffs (cuartos, semis, tercer puesto, final)
+export const phaseCmp = (a, b) =>
+  (a.phase?.order ?? 9999) - (b.phase?.order ?? 9999) || (a.phase?.slot ?? 0) - (b.phase?.slot ?? 0)
+
 export const normMatch = (m) => ({ ...m, id: m.id ?? m.matchId })
 
 export function fmtWhen(iso) {

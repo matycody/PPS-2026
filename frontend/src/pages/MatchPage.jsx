@@ -1,10 +1,11 @@
-﻿import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { Eye, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { Eye, Trophy, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
 import { normMatch, MODALITY, BRANCH, courtLabel } from '../lib/format'
 import StatusPill from '../components/StatusPill'
+import MatchNotice from '../components/MatchNotice'
 import Versus from '../components/Versus'
 import MatchRoster from '../components/MatchRoster'
 import { useWakeLock } from '../hooks/useWakeLock'
@@ -28,7 +29,7 @@ function TimeoutBanner({ tick, nameA, nameB }) {
   if (!team) return null
   const expired = !tick.isTimeoutRunning
   return (
-    <div className="rounded-3xl border border-warn/40 bg-warn/10 p-5 text-center">
+    <div className="rounded-3xl border box-warn p-5 text-center">
       <p className="text-xs font-bold uppercase tracking-widest text-warn">Tiempo muerto - {team === 'A' ? nameA : nameB}</p>
       <p className={'my-3 font-mono text-[clamp(2rem,10vw,3.5rem)] font-extrabold tabular-nums ' + (expired ? 'text-danger' : 'text-warn')}>
         {showTime(tick.timeoutTime)}
@@ -87,21 +88,38 @@ export default function MatchPage() {
       <div className="flex flex-col items-center gap-2 text-center">
         <StatusPill status={m.status} />
         <p className="text-sm text-muted">{courtLabel(m.court)} · {BRANCH[m.branch] ?? m.branch}</p>
+        {m.tournament?.id && (
+          <Link to={'/liga/' + m.tournament.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-bold text-accent">
+            <Trophy size={14} /> {m.tournament.name} <span aria-hidden>›</span>
+          </Link>
+        )}
       </div>
+      <MatchNotice m={m} />
 
 
 
       {notice && (
-        <button onClick={() => setNotice('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-warn/40 bg-warn/10 px-4 py-3 text-left text-sm font-bold text-warn">
+        <button onClick={() => setNotice('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border box-warn px-4 py-3 text-left text-sm font-bold text-warn">
           {notice} <X size={16} className="shrink-0" />
         </button>
       )}
 
       <div className="rounded-3xl border border-line bg-surface p-5">
         <p className="mb-4 text-center text-xs font-bold uppercase tracking-widest text-muted">Marcador</p>
+        {m.phase?.label && (
+          <p className="-mt-2 mb-3 text-center text-xs font-bold uppercase tracking-widest text-accent">
+            {m.phase.kind === 'LEAGUE' && m.phase.zone ? m.phase.zone + ' · ' : ''}{m.phase.label}
+          </p>
+        )}
         <Versus
           a={m.teamA}
           b={m.teamB}
+          slotA={m.phase?.slotA}
+          slotB={m.phase?.slotB}
+          formA={m.form?.A}
+          formB={m.form?.B}
+          rankA={m.form?.rankA}
+          rankB={m.form?.rankB}
           size="xl"
           center={
             <span className="font-mono text-4xl font-extrabold tabular-nums text-live">

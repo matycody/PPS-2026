@@ -1,9 +1,10 @@
-﻿import { NavLink, Link } from 'react-router-dom'
-import { X, LogOut, LogIn } from 'lucide-react'
+import { useState } from 'react'
+import { NavLink, Link, useNavigate } from 'react-router-dom'
+import { X, LogOut, LogIn, Search } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import UserAvatar from './UserAvatar'
 import PersonName from './PersonName'
-import { ITEMS, SECTIONS, GENERAL, roleLabel } from '../lib/navConfig'
+import { ITEMS, SECTIONS, generalFor, roleLabel } from '../lib/navConfig'
 import { useMenuPrefs, sortKeys } from '../stores/menuPrefsStore'
 
 function Item({ to, label, Icon, soon, onClose }) {
@@ -31,6 +32,16 @@ function Title({ children }) {
 export default function Drawer({ open, onClose }) {
   const { user, menu, signOut, profile } = useAuthStore()
   const order = useMenuPrefs((s) => s.byUser[user?.id]?.order)
+  const navigate = useNavigate()
+  const [q, setQ] = useState('')
+  const search = (e) => {
+    e.preventDefault()
+    const t = q.trim()
+    if (!t) return
+    setQ('')
+    onClose()
+    navigate('/buscar?q=' + encodeURIComponent(t))
+  }
 
   return (
     <div className={'fixed inset-0 z-40 ' + (open ? '' : 'pointer-events-none')}>
@@ -46,8 +57,7 @@ export default function Drawer({ open, onClose }) {
       >
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-accent">Navegación</p>
-            <p className="mt-1 text-2xl font-extrabold leading-tight">Cronómetro Dodgeball</p>
+            <p className="text-2xl font-extrabold leading-tight">Dodgeball menú</p>
           </div>
           <button aria-label="Cerrar" onClick={onClose} className="grid h-11 w-11 place-items-center rounded-full border border-line bg-surface">
             <X size={18} />
@@ -67,7 +77,18 @@ export default function Drawer({ open, onClose }) {
           )}
         </div>
 
-        <nav className="mt-4">
+        <form onSubmit={search} className="relative mt-4">
+          <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar equipo, torneo, partido…"
+            enterKeyHint="search"
+            className="w-full rounded-xl border border-line bg-bg py-3 pl-10 pr-3 text-sm outline-none focus:border-accent"
+          />
+        </form>
+
+        <nav className="mt-3">
           <Item {...ITEMS.home} label="Menú principal" onClose={onClose} />
 
           {SECTIONS.map((s) => {
@@ -82,7 +103,7 @@ export default function Drawer({ open, onClose }) {
           })}
 
           <Title>General</Title>
-          {sortKeys(GENERAL.map((g) => g.to), order?.General).map((to) => <Item key={to} {...GENERAL.find((g) => g.to === to)} onClose={onClose} />)}
+          {sortKeys(generalFor(menu).map((g) => g.to), order?.General).map((to) => <Item key={to} {...generalFor(menu).find((g) => g.to === to)} onClose={onClose} />)}
           {menu.includes('perfil') && <Item {...ITEMS.perfil} onClose={onClose} />}
         </nav>
 

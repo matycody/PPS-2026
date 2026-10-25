@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ChevronDown, Users } from 'lucide-react'
 import { api } from '../lib/api'
 import { BRANCH } from '../lib/format'
@@ -16,7 +17,9 @@ function byNumber(a, b) {
   return a.name.localeCompare(b.name, 'es')
 }
 
-function TeamRoster({ team, matchBranch }) {
+function TeamRoster({ team, matchBranch, noLink }) {
+  // noLink: en la pantalla de control no se navega a los banners
+  const L = ({ to, className, children }) => (noLink ? <span className={className}>{children}</span> : <Link to={to} className={className}>{children}</Link>)
   const [roster, setRoster] = useState(null)
   const [err, setErr] = useState('')
 
@@ -30,7 +33,7 @@ function TeamRoster({ team, matchBranch }) {
 
   return (
     <section className="min-w-0 rounded-3xl border border-line bg-surface p-3">
-      <h3 className="mb-3 truncate text-sm font-extrabold">{team?.name ?? 'Por definir'}</h3>
+      <h3 className="mb-3 truncate text-sm font-extrabold">{team?.id ? <L to={'/equipo/' + team.id}>{team.name}</L> : 'Por definir'}</h3>
       {!team?.id && <p className="text-sm text-muted">Equipo todavía sin definir.</p>}
       {err && <p className="text-sm text-danger">{err}</p>}
       {team?.id && !roster && !err && <p className="text-sm text-muted">Cargando…</p>}
@@ -49,13 +52,13 @@ function TeamRoster({ team, matchBranch }) {
                 {list.map((r) => {
                   const n = personNumber(r)
                   return (
-                    <div key={r.profileId + r.branch} className="flex items-center gap-2 rounded-xl bg-surface-2 px-2 py-2 text-xs">
+                    <L key={r.profileId + r.branch} to={'/jugador/' + r.profileId} className="flex items-center gap-2 rounded-xl bg-surface-2 px-2 py-2 text-xs">
                       <span className="w-8 shrink-0 font-mono text-[11px] font-bold text-muted">{n != null ? '#' + n : ''}</span>
                       <span className="min-w-0 flex-1 truncate font-semibold">
                         {r.name}
                         {r.coach && <span className="ml-1.5 text-[10px] font-bold text-accent">(DT)</span>}
                       </span>
-                    </div>
+                    </L>
                   )
                 })}
               </div>
@@ -67,13 +70,13 @@ function TeamRoster({ team, matchBranch }) {
   )
 }
 
-export default function MatchRoster({ teamA, teamB, branch, hideTitle }) {
+export default function MatchRoster({ teamA, teamB, branch, hideTitle, noLink }) {
   return (
     <div className="space-y-4">
       {!hideTitle && <p className="text-xs font-bold uppercase tracking-widest text-muted">Jugadores disponibles</p>}
       <div className="grid grid-cols-2 items-start gap-3">
-        <TeamRoster team={teamA} matchBranch={branch} />
-      <TeamRoster team={teamB} matchBranch={branch} />
+        <TeamRoster team={teamA} matchBranch={branch} noLink={noLink} />
+        <TeamRoster team={teamB} matchBranch={branch} noLink={noLink} />
       </div>
     </div>
   )
@@ -89,7 +92,7 @@ export function MatchRosterToggle(props) {
         <span className="flex-1 text-xs font-bold uppercase tracking-widest text-muted">Jugadores</span>
         <ChevronDown size={18} className={'shrink-0 text-muted transition-transform ' + (open ? 'rotate-180' : '')} />
       </button>
-      {open && <div className="border-t border-line p-3"><MatchRoster {...props} hideTitle /></div>}
+      {open && <div className="border-t border-line p-3"><MatchRoster {...props} hideTitle noLink /></div>}
     </section>
   )
 }

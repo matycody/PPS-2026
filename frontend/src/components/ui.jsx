@@ -20,7 +20,7 @@ export function Btn({ children, onClick, disabled, tone = 'base', className = ''
 }
 
 export function Alert({ children, tone = 'danger', onClose }) {
-  const t = tone === 'danger' ? 'border-danger/40 bg-danger/10 text-danger' : 'border-live/40 bg-live/10 text-live'
+  const t = tone === 'danger' ? 'box-danger text-danger' : 'box-live text-live'
   return (
     <button onClick={onClose} className={'w-full rounded-2xl border px-4 py-3 text-left text-sm font-bold ' + t}>
       {children}

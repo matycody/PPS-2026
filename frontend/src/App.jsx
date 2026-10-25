@@ -1,4 +1,4 @@
-﻿import { useEffect } from 'react'
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import OfflinePage from './pages/OfflinePage'
 import LoginPage from './pages/LoginPage'
@@ -11,12 +11,15 @@ import ControlPage from './pages/ControlPage'
 import PerfilPage from './pages/PerfilPage'
 import FavoritosPage from './pages/FavoritosPage'
 import TeamPage from './pages/TeamPage'
+import PlayerPage from './pages/PlayerPage'
+import EquiposListPage from './pages/EquiposListPage'
 import MiEquipoPage from './pages/MiEquipoPage'
 import MisPartidosPage from './pages/MisPartidosPage'
 import DashboardPage from './pages/admin/DashboardPage'
 import TorneosPage from './pages/admin/TorneosPage'
 import TorneoAdminPage from './pages/admin/TorneoAdminPage'
 import LigaPage from './pages/LigaPage'
+import BuscarPage from './pages/BuscarPage'
 import TorneoPage from './pages/TorneoPage'
 import EstadisticasPage from './pages/EstadisticasPage'
 import EquiposPage from './pages/admin/EquiposPage'
@@ -78,11 +81,14 @@ function App() {
             <Route path="/" element={<InicioPage />} />
             <Route path="/partido/:id" element={<MatchPage />} />
             <Route path="/equipo/:id" element={<TeamPage />} />
+            <Route path="/jugador/:id" element={<PlayerPage />} />
             <Route path="/cronometro" element={<OfflinePage />} />
             <Route path="/liga" element={<LigaPage />} />
+            <Route path="/buscar" element={<BuscarPage />} />
             <Route path="/liga/:id" element={<TorneoPage />} />
             <Route path="/estadisticas" element={<EstadisticasPage />} />
-            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas'].includes(g.to)).map((g) => (
+            <Route path="/equipos" element={<EquiposListPage />} />
+            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos'].includes(g.to)).map((g) => (
               <Route key={g.to} path={g.to} element={<Placeholder title={g.label} />} />
             ))}
 

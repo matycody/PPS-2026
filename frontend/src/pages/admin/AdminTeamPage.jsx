@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { ChevronLeft, X, Search } from 'lucide-react'
+import BackLink from '../../components/BackLink'
 import { api, apiUpload } from '../../lib/api'
 import LogoPicker from '../../components/LogoPicker'
 import { BRANCH, MODALITY } from '../../lib/format'
@@ -14,6 +15,9 @@ export default function AdminTeamPage() {
   const user = useAuthStore((s) => s.user)
   const [team, setTeam] = useState(null)
   const [name, setName] = useState('')
+  const [nickname, setNickname] = useState('')
+  const [city, setCity] = useState('')
+  const [founded, setFounded] = useState('')
   const [branches, setBranches] = useState([])
   const [modalities, setModalities] = useState([])
   const [q, setQ] = useState('')
@@ -25,7 +29,7 @@ export default function AdminTeamPage() {
 
   const load = () =>
     api('GET', '/teams/' + id)
-      .then((t) => { setTeam(t); setName(t.name); setBranches(t.branches ?? []); setModalities(t.modalities ?? []) })
+      .then((t) => { setTeam(t); setName(t.name); setNickname(t.nickname ?? ''); setCity(t.city ?? ''); setFounded(t.foundedYear ? String(t.foundedYear) : ''); setBranches(t.branches ?? []); setModalities(t.modalities ?? []) })
       .catch((e) => setErr(e.message))
   useEffect(() => { load() }, [id])
 
@@ -41,7 +45,7 @@ export default function AdminTeamPage() {
     run(async () => { await apiUpload('/photos/teams/' + id, file); await load() }, 'Escudo actualizado')
 
   const saveTeam = () =>
-    run(async () => { await api('PATCH', '/teams/' + id, { name: name.trim(), branches, modalities }); await load() }, 'Equipo actualizado')
+    run(async () => { await api('PATCH', '/teams/' + id, { name: name.trim(), nickname: nickname.trim() || null, city: city.trim() || null, foundedYear: founded ? Number(founded) : null, branches, modalities }); await load() }, 'Equipo actualizado')
 
   const search = (e) => {
     e.preventDefault()
@@ -77,9 +81,9 @@ export default function AdminTeamPage() {
 
   return (
     <div className="space-y-4">
-      <Link to="/admin/equipos" className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
+      <BackLink to="/admin/equipos" className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
         <ChevronLeft size={16} /> Equipos
-      </Link>
+      </BackLink>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
       {ok && <Alert tone="ok" onClose={() => setOk('')}>{ok}</Alert>}
 
@@ -87,6 +91,11 @@ export default function AdminTeamPage() {
         <p className="text-sm font-bold">Datos del equipo</p>
         <LogoPicker name={team.name} src={team.logo} onPick={uploadLogo} onError={setErr} disabled={busy} />
         <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} />
+        <input className={inputCls} placeholder="Apodo del equipo (opcional)" maxLength={40} value={nickname} onChange={(e) => setNickname(e.target.value)} />
+        <div className="grid grid-cols-2 gap-2">
+          <input className={inputCls} placeholder="Ciudad / barrio" maxLength={60} value={city} onChange={(e) => setCity(e.target.value)} />
+          <input className={inputCls} placeholder="Año de fundación" inputMode="numeric" maxLength={4} value={founded} onChange={(e) => setFounded(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+        </div>
         <div className="flex flex-wrap gap-2">
           {Object.entries(BRANCH).map(([k, label]) => (
             <button

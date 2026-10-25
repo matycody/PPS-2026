@@ -38,6 +38,7 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+      <Link to="/" className="mb-6 w-fit rounded-full border border-line bg-surface px-4 py-1.5 text-sm font-bold">← Volver al inicio</Link>
       <p className="text-xs font-semibold uppercase tracking-widest text-muted">Dodgeball</p>
       <h1 className="mb-8 mt-1 text-3xl font-extrabold">Cronómetro Dodgeball</h1>
 

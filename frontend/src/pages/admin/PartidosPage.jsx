@@ -1,8 +1,8 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Trash2, RotateCcw, Check, ChevronDown } from 'lucide-react'
 import { api } from '../../lib/api'
-import { STATUS, fmtWhen, courtLabel } from '../../lib/format'
+import { STATUS, fmtWhen, courtLabel, MODALITY, BRANCH } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import MatchForm from '../../components/MatchForm'
 import StatusPill from '../../components/StatusPill'
@@ -61,6 +61,10 @@ function MatchRow({ m, hidden, busy, onHide, onRestore, onPurge, selecting, sele
 }
 
 const PAGE = 50
+
+const plain = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+// Texto buscable de un partido: equipos, torneo, modalidad y rama (el día se filtra con el selector de fecha)
+const haystack = (m) => plain([m.teamA?.name, m.teamB?.name, m.tournament?.name ?? 'Amistoso', MODALITY[m.modality], BRANCH[m.branch]].join(' '))
 const PERIODS = [
   { id: 'upcoming', label: 'Hoy y pr\u00f3ximos' },
   { id: 'today', label: 'Hoy' },
@@ -78,6 +82,8 @@ export default function PartidosPage() {
   const [tournamentId, setTournamentId] = useState('')
   const [teamId, setTeamId] = useState('')
   const [period, setPeriod] = useState('upcoming')
+  const [q, setQ] = useState('')
+  const [date, setDate] = useState('')
   const [hasMore, setHasMore] = useState(false)
   const [moreBusy, setMoreBusy] = useState(false)
   const [view, setView] = useState('active') // 'active' | 'hidden'
@@ -103,6 +109,10 @@ export default function PartidosPage() {
       if (period === 'today') { p.set('from', t0.toISOString()); p.set('to', t1.toISOString()) }
       if (period === 'week') { p.set('from', t0.toISOString()); p.set('to', new Date(t0.getTime() + 7 * 864e5).toISOString()) }
       if (period === 'past') p.set('to', new Date(t0.getTime() - 1).toISOString())
+      if (date) { // un día puntual pisa el período elegido
+        const d0 = new Date(date + 'T00:00:00')
+        p.set('from', d0.toISOString()); p.set('to', new Date(d0.getTime() + 864e5 - 1).toISOString())
+      }
     }
     return p
   }
@@ -117,8 +127,8 @@ export default function PartidosPage() {
       setMatches((prev) => [...(prev ?? []), ...r.slice(0, PAGE)])
     } catch (e) { setErr(e.message) } finally { setMoreBusy(false) }
   }
-  useEffect(() => { setMatches(null); load() }, [status, view, tournamentId, teamId, period])
-  useEffect(() => { setSelecting(false); setSelected(new Set()); setMenu(false) }, [status, view, tournamentId, teamId, period])
+  useEffect(() => { setMatches(null); load() }, [status, view, tournamentId, teamId, period, date])
+  useEffect(() => { setSelecting(false); setSelected(new Set()); setMenu(false) }, [status, view, tournamentId, teamId, period, date, q])
   useEffect(() => {
     api('GET', '/tournaments').then(setTournaments).catch((e) => setErr(e.message))
     api('GET', '/teams').then(setTeams).catch((e) => setErr(e.message))
@@ -207,7 +217,8 @@ export default function PartidosPage() {
     if (okAsk) await bulk(kind, list)
   }
 
-  const all = matches ?? []
+  const words = plain(q).split(/\s+/).filter(Boolean)
+  const all = (matches ?? []).filter((m) => { const h = words.length ? haystack(m) : ''; return words.every((w) => h.includes(w)) })
   const chosen = all.filter((x) => selected.has(x.id))
   const toggle = (id) => setSelected((s) => {
     const n = new Set(s)
@@ -233,9 +244,7 @@ export default function PartidosPage() {
 
       {open && view === 'active' && ready && (
         <div className="rounded-3xl border border-line bg-surface p-5">
-          {tournaments.length === 0
-            ? <p className="text-sm text-muted">Primero creá un torneo.</p>
-            : <MatchForm tournaments={tournaments} teams={teams} onSubmit={create} label="Crear partido" busy={busyId === 'new'} />}
+          <MatchForm tournaments={tournaments} teams={teams} onSubmit={create} label="Crear partido" busy={busyId === 'new'} />
         </div>
       )}
 
@@ -282,6 +291,11 @@ export default function PartidosPage() {
         </div>
       )}
 
+      <div className={'grid gap-2 ' + (view === 'active' ? 'grid-cols-[1fr_auto]' : 'grid-cols-1')}>
+        <input className={inputCls} placeholder="Buscar equipo, modalidad o rama" value={q} onChange={(e) => setQ(e.target.value)} />
+        {view === 'active' && <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} aria-label="Filtrar por día" />}
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
         {view === 'active' && (
           <select className={inputCls + ' col-span-2'} value={period} onChange={(e) => setPeriod(e.target.value)}>
@@ -306,8 +320,9 @@ export default function PartidosPage() {
       {matches && matches.length === 0 && (
         <p className="text-muted">{view === 'hidden' ? 'No hay partidos eliminados.' : 'No hay partidos.'}</p>
       )}
+      {matches && matches.length > 0 && all.length === 0 && <p className="text-muted">No hay partidos que coincidan con la búsqueda.</p>}
       <div className="space-y-2">
-        {(matches ?? []).map((m, i, arr) => (
+        {all.map((m, i, arr) => (
           <div key={m.id} className="space-y-2">
             {view === 'active' && (i === 0 || dayKey(arr[i - 1].scheduledAt) !== dayKey(m.scheduledAt)) && (
               <h2 className="pt-2 text-xs font-bold uppercase tracking-widest text-muted">{dayLabel(m.scheduledAt)}</h2>
