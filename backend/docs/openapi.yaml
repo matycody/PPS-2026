@@ -1,0 +1,2505 @@
+openapi: 3.0.3
+info:
+  title: Dodgeball BA Cronómetro — API REST
+  version: 3.0.0 (Sprint 3)
+  description: 'API del backend (Express + Prisma + Supabase Auth). Autenticación: header `Authorization: Bearer <access_token
+    de Supabase>`. Los eventos en tiempo real (Socket.IO) se documentan aparte. Generado a partir de backend/src/routes.'
+servers:
+- url: http://localhost:3001
+  description: Local
+- url: https://pps-2026-2.onrender.com
+  description: Producción (Render)
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT (Supabase)
+tags:
+- name: Mi cuenta
+- name: Auditoría
+- name: Llaves (playoffs)
+- name: Favoritos
+- name: Fixture
+- name: Torneos
+- name: Partidos
+- name: Fotos y escudos
+- name: Solicitudes de jugador
+- name: Jugadores
+- name: Perfiles
+- name: Búsqueda
+- name: Estadísticas
+- name: Equipos
+- name: Usuarios
+- name: Sistema
+paths:
+  /me/photo:
+    put:
+      tags:
+      - Mi cuenta
+      summary: Subir o reemplazar mi foto (el cuerpo es la imagen, con su Content-Type)
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/account.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - Mi cuenta
+      summary: Obtener la URL firmada de mi foto de perfil
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/account.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Mi cuenta
+      summary: Borrar mi foto de perfil
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/account.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+  /me:
+    delete:
+      tags:
+      - Mi cuenta
+      summary: 'Eliminar mi cuenta: borra datos personales y favoritos; si estaba vinculada, solo se desvincula del perfil
+        y el historial deportivo se conserva.'
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/account.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirm: {}
+    get:
+      tags:
+      - Mi cuenta
+      summary: Mi usuario, roles, perfil y menú según rol
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/me.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '500':
+          description: Error
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+  /audit/roster:
+    get:
+      tags:
+      - Auditoría
+      summary: Equipos con sus jugadores actuales (para elegir a quien auditar)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/audit.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /audit:
+    get:
+      tags:
+      - Auditoría
+      summary: 'Consultar /audit — parámetros: ?user=<userId> &profile=<profileId> (movimientos de una persona) &q=texto &before=<ISO>
+        &limit=100'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/audit.js'
+      parameters:
+      - name: before
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: profile
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: user
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /tournaments/{id}/stages/{stageId}/bracket:
+    post:
+      tags:
+      - Llaves (playoffs)
+      summary: 'Armado automático de la llave. Body: teamIds (orden de siembra) | fromStandings [{stageId, top}] | (por defecto
+        equipos de la etapa o del torneo) shuffle (sorteo; default false), keepTop (cantidad de cabezas de serie que no se
+        sortean) entryRounds { teamId: ronda } para escalera/ingresos tardíos; pairing ''fold''|''adjacent'' thirdPlace (partido
+        por el tercer puesto), dates [por ronda] o startDate + intervalDays, replace'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/bracket.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stageId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '201':
+          description: Error
+        '400':
+          description: Datos inválidos
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+    put:
+      tags:
+      - Llaves (playoffs)
+      summary: 'Llave manual. Body: { matches: [{ ref, round, slot, a, b, scheduledAt?, court? }] } a / b: null (a definir)
+        | { teamId } | { winnerOf: ref } | { loserOf: ref }'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/bracket.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stageId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '201':
+          description: Error
+        '400':
+          description: Datos inválidos
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                matches: {}
+    delete:
+      tags:
+      - Llaves (playoffs)
+      summary: Borrar la llave (playoffs) de una etapa
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/bracket.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stageId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - Llaves (playoffs)
+      summary: Llave por rondas (pública)
+      description: 'Acceso: Pública. Origen: backend/src/routes/bracket.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stageId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+  /tournaments/{id}/stages/{stageId}/bracket/rounds/{round}:
+    patch:
+      tags:
+      - Llaves (playoffs)
+      summary: Organizar fechas y horarios de una ronda de playoffs
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/bracket.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stageId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: round
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date: {}
+  /tournaments/{id}/stages/{stageId}/bracket/rounds/{round}/assign-courts:
+    post:
+      tags:
+      - Llaves (playoffs)
+      summary: Asignar canchas a los partidos de una ronda de playoffs
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/bracket.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stageId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: round
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /favorites:
+    get:
+      tags:
+      - Favoritos
+      summary: Listar mis favoritos (equipos y jugadores)
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/favorites.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+    post:
+      tags:
+      - Favoritos
+      summary: Agregar un equipo o jugador a favoritos
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/favorites.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '201':
+          description: Error
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetId: {}
+                targetType: {}
+  /favorites/{type}/{id}:
+    delete:
+      tags:
+      - Favoritos
+      summary: Quitar un favorito
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/favorites.js'
+      parameters:
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+  /tournaments/{id}/stages/{stageId}/fixture:
+    post:
+      tags:
+      - Fixture
+      summary: 'Sorteo del fixture todos contra todos de una zona. Body: shuffle (default true), doubleRound (ida y vuelta),
+        dates (lista, una por fecha) o startDate + intervalDays (default 7). Sin fechas, las jornadas quedan sin día.'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/fixture.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stageId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '201':
+          description: Error
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Fixture
+      summary: Elimina el fixture de una zona. Solo si ningún partido fue habilitado, jugado ni tiene asignaciones.
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/fixture.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stageId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /tournaments/{id}/matchdays:
+    get:
+      tags:
+      - Fixture
+      summary: 'Calendario del torneo (público): jornadas con sus partidos. Filtro opcional: stageId'
+      description: 'Acceso: Pública. Origen: backend/src/routes/fixture.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stageId
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+  /tournaments/{id}/matchdays/{matchdayId}:
+    patch:
+      tags:
+      - Fixture
+      summary: Cambia el día de una jornada. Mueve solo los partidos que seguían en el día original (o sin día); los que se
+        reprogramaron a mano no se tocan, y los jugados tampoco.
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/fixture.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: matchdayId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date: {}
+  /tournaments/{id}/matchdays/{matchdayId}/order:
+    put:
+      tags:
+      - Fixture
+      summary: Define el orden de juego dentro de la jornada (matchIds en el orden deseado).
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/fixture.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: matchdayId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /tournaments/{id}/matchdays/{matchdayId}/assign-courts:
+    post:
+      tags:
+      - Fixture
+      summary: 'Asigna canchas a una jornada según el orden de juego: el primer partido (el más temprano, y a igual hora el
+        de menor orden) va a la cancha 1, y así hasta `courts` canchas simultáneas. Solo toca partidos Programados o Habilitados.
+        overwrite=false respeta las canchas ya definidas.'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/fixture.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: matchdayId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /tournaments/{id}/activate:
+    post:
+      tags:
+      - Torneos
+      summary: Pasa el torneo de borrador a activo. Exige estructura y partidos generados.
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/lifecycle.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /tournaments/{id}/close:
+    post:
+      tags:
+      - Torneos
+      summary: 'Cierra el torneo: congela las tablas de las zonas y registra el campeón. Body: championId (opcional, para
+        definirlo a mano), force (cerrar con partidos sin terminar)'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/lifecycle.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /tournaments/{id}/final-standings:
+    get:
+      tags:
+      - Torneos
+      summary: 'Tabla final congelada (pública): lo que quedó registrado al cerrar el torneo'
+      description: 'Acceso: Pública. Origen: backend/src/routes/lifecycle.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+  /matches:
+    post:
+      tags:
+      - Partidos
+      summary: Crear un partido (suelto o de torneo)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/matches.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '201':
+          description: Error
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                branch: {}
+                court: {}
+                modality: {}
+                scheduledAt: {}
+                teamAId: {}
+                teamBId: {}
+                tournamentId: {}
+    get:
+      tags:
+      - Partidos
+      summary: 'Público: ?tournamentId=&status=LIVE,FINISHED&branch=&court=&teamId=&from=&to=&limit=&offset=&hidden=true (solo
+        admin)'
+      description: 'Acceso: Opcional (con token ve más). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: branch
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: court
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: hidden
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: includeUndated
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: teamId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: tournamentId
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+      security:
+      - {}
+      - bearerAuth: []
+  /matches/{id}:
+    get:
+      tags:
+      - Partidos
+      summary: 'Detalle de un partido: fase, sets, asignaciones, forma y lugar en la tabla'
+      description: 'Acceso: Opcional (con token ve más). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+      security:
+      - {}
+      - bearerAuth: []
+    patch:
+      tags:
+      - Partidos
+      summary: Editar un partido (equipos, fecha, cancha, modalidad, rama)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /matches/{id}/cancel:
+    post:
+      tags:
+      - Partidos
+      summary: Cancelar un partido con motivo
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /matches/{id}/ready:
+    post:
+      tags:
+      - Partidos
+      summary: Habilitar el partido (queda listo para operarse)
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '403':
+          description: Sin permiso
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+  /matches/{id}/unready:
+    post:
+      tags:
+      - Partidos
+      summary: 'Revertir habilitación: solo antes de que arranque el reloj (READY)'
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '403':
+          description: Sin permiso
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+  /matches/{id}/suspend:
+    post:
+      tags:
+      - Partidos
+      summary: '───────────── Suspender y reprogramar un partido (solo admin) ───────────── Suspender no toca la fecha del
+        torneo: el partido sigue en su jornada y se juega más adelante.'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /matches/{id}/reschedule:
+    post:
+      tags:
+      - Partidos
+      summary: 'Reprograma un partido suspendido: nueva fecha (obligatoria), cancha y motivo opcionales. Vuelve a Programado.'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /matches/{id}/reason:
+    patch:
+      tags:
+      - Partidos
+      summary: Edita solo el motivo visible (suspendido, cancelado o reprogramado)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /matches/{id}/finish:
+    post:
+      tags:
+      - Partidos
+      summary: Finalizar el partido y frenar su reloj
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '403':
+          description: Sin permiso
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+  /matches/{id}/hide:
+    post:
+      tags:
+      - Partidos
+      summary: Ocultar un partido a los espectadores
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /matches/{id}/restore:
+    post:
+      tags:
+      - Partidos
+      summary: Restaurar un partido oculto
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /matches/{id}/purge:
+    delete:
+      tags:
+      - Partidos
+      summary: Eliminar definitivamente un partido
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /matches/{id}/assignments:
+    post:
+      tags:
+      - Partidos
+      summary: Designar árbitro o mesa (por persona, equipo o cuenta)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '201':
+          description: Error
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                function: {}
+                profileId: {}
+                teamId: {}
+                userId: {}
+  /matches/{id}/assignments/{assignmentId}:
+    delete:
+      tags:
+      - Partidos
+      summary: Quitar una designación de árbitro o mesa
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: assignmentId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /matches/{id}/sets:
+    post:
+      tags:
+      - Partidos
+      summary: Cargar el resultado de un set
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '201':
+          description: Error
+        '403':
+          description: Sin permiso
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+  /matches/{id}/sets/{number}:
+    patch:
+      tags:
+      - Partidos
+      summary: Editar el resultado de un set
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: number
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '403':
+          description: Sin permiso
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Partidos
+      summary: Borrar un set
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: number
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '403':
+          description: Sin permiso
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+  /matches/{id}/result-log:
+    get:
+      tags:
+      - Partidos
+      summary: Registro de ediciones y del reloj, en una sola línea de tiempo legible (solo admin)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /me/assignments:
+    get:
+      tags:
+      - Mi cuenta
+      summary: 'Mis partidos asignados (árbitro y/o mesa, por cuenta, por perfil o por equipo): pasados y futuros, sin los
+        ocultos'
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/me.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '500':
+          description: Error
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+  /me/profile:
+    get:
+      tags:
+      - Mi cuenta
+      summary: 'Mi ficha: datos propios, equipos actuales por rama y foto'
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/me.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '500':
+          description: Error
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+    patch:
+      tags:
+      - Mi cuenta
+      summary: Edita apodo, número, fecha de nacimiento y qué datos son públicos. Todo opcional; null borra el valor.
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/me.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '500':
+          description: Error
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+  /photos/sign:
+    post:
+      tags:
+      - Fotos y escudos
+      summary: 'URLs firmadas de varios perfiles: { "<profileId>": "<url>" | null }. Solo con sesión.'
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/photos.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profileIds: {}
+  /photos/profiles/{id}:
+    put:
+      tags:
+      - Fotos y escudos
+      summary: 'Admin: reemplazar o quitar la foto de cualquier persona'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/photos.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Fotos y escudos
+      summary: Borrar la foto de un perfil
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/photos.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /photos/teams/{id}:
+    put:
+      tags:
+      - Fotos y escudos
+      summary: 'Admin: escudo del equipo (bucket público, la URL se guarda en Team.logo)'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/photos.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Fotos y escudos
+      summary: Borrar el escudo de un equipo
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/photos.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /player-requests:
+    post:
+      tags:
+      - Solicitudes de jugador
+      summary: 'Body: { name, dni, sex: ''M''|''F'', number?, teams: [{ teamId, branch }] }'
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/playerRequests.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '201':
+          description: Error
+        '400':
+          description: Datos inválidos
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - Solicitudes de jugador
+      summary: 'Consultar /player-requests — parámetros: ?status=PENDING|APPROVED|REJECTED'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/playerRequests.js'
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /player-requests/mine:
+    get:
+      tags:
+      - Solicitudes de jugador
+      summary: Mi última solicitud (o null)
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/playerRequests.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
+  /player-requests/{id}/approve:
+    post:
+      tags:
+      - Solicitudes de jugador
+      summary: 'Aprobar: crea (o vincula) el perfil, da el rol de jugador y asigna los equipos, todo junto'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/playerRequests.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /player-requests/{id}/reject:
+    post:
+      tags:
+      - Solicitudes de jugador
+      summary: Rechazar con motivo (el usuario lo ve y puede enviar otra solicitud corregida)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/playerRequests.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: {}
+  /players/{id}:
+    get:
+      tags:
+      - Jugadores
+      summary: Banner público de un jugador (equipos, historial)
+      description: 'Acceso: Pública. Origen: backend/src/routes/players.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '500':
+          description: Error
+  /profiles:
+    post:
+      tags:
+      - Perfiles
+      summary: Alta manual. Si el DNI ya existe, actualiza el perfil en vez de duplicarlo.
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/profiles.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dni: {}
+                email: {}
+                isPlayer: {}
+                isReferee: {}
+                name: {}
+                sex: {}
+    get:
+      tags:
+      - Perfiles
+      summary: 'Listado con filtros: ?status=PENDIENTE_VINCULACION&active=true&q=texto'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/profiles.js'
+      parameters:
+      - name: active
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /profiles/{id}:
+    patch:
+      tags:
+      - Perfiles
+      summary: 'Editar (también baja/reactivación con { active: false | true })'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/profiles.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                active: {}
+                dni: {}
+                email: {}
+                isPlayer: {}
+                isReferee: {}
+                name: {}
+                sex: {}
+    delete:
+      tags:
+      - Perfiles
+      summary: 'Baja lógica: sale de los planteles y conserva el historial. ?permanent=true la borra del todo (solo si no
+        tiene cuenta vinculada ni partidos asignados).'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/profiles.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: permanent
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - Perfiles
+      summary: Detalle de un perfil (admin), con sus equipos actuales
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/profiles.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /profiles/{id}/unlink:
+    post:
+      tags:
+      - Perfiles
+      summary: Desvincular cuenta (perdió acceso al mail). Exige el mail nuevo para que no se revincule solo.
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/profiles.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: {}
+  /search:
+    get:
+      tags:
+      - Búsqueda
+      summary: Búsqueda global (lupa), segmentada por rol
+      description: 'Acceso: Opcional (con token ve más). Origen: backend/src/routes/search.js'
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '500':
+          description: Error
+      security:
+      - {}
+      - bearerAuth: []
+  /tournaments/{id}/standings:
+    get:
+      tags:
+      - Torneos
+      summary: 'Tabla de posiciones (pública). Filtro opcional: stageId'
+      description: 'Acceso: Pública. Origen: backend/src/routes/standings.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stageId
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '500':
+          description: Error
+  /stats/champions:
+    get:
+      tags:
+      - Estadísticas
+      summary: Campeones por torneo y títulos por equipo
+      description: 'Acceso: Pública. Origen: backend/src/routes/stats.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+  /stats/teams/{id}:
+    get:
+      tags:
+      - Estadísticas
+      summary: 'Historial de un equipo: récord, títulos y posición en cada torneo'
+      description: 'Acceso: Pública. Origen: backend/src/routes/stats.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+  /stats/head-to-head:
+    get:
+      tags:
+      - Estadísticas
+      summary: 'Historial entre dos equipos: ?teamA=&teamB='
+      description: 'Acceso: Pública. Origen: backend/src/routes/stats.js'
+      parameters:
+      - name: teamA
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: teamB
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+  /teams:
+    post:
+      tags:
+      - Equipos
+      summary: Crear equipo
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/teams.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '201':
+          description: Error
+        '400':
+          description: Datos inválidos
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                branches: {}
+                logo: {}
+                modalities: {}
+                name: {}
+    get:
+      tags:
+      - Equipos
+      summary: Listado (público)
+      description: 'Acceso: Pública. Origen: backend/src/routes/teams.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+  /teams/{id}:
+    get:
+      tags:
+      - Equipos
+      summary: 'Detalle con plantel activo (público: solo nombre, sin DNI ni mail ni foto)'
+      description: 'Acceso: Pública. Origen: backend/src/routes/teams.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+    patch:
+      tags:
+      - Equipos
+      summary: Editar nombre, logo y ramas
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/teams.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                branches: {}
+                foundedYear: {}
+                logo: {}
+                modalities: {}
+                name: {}
+    delete:
+      tags:
+      - Equipos
+      summary: 'Eliminar equipo: solo si no tiene partidos (no se borra historial)'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/teams.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /teams/{id}/posiciones:
+    get:
+      tags:
+      - Equipos
+      summary: Posiciones del equipo en su zona y estado de clasificación a playoffs
+      description: 'Acceso: Pública. Origen: backend/src/routes/teams.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+  /teams/{id}/players:
+    post:
+      tags:
+      - Equipos
+      summary: 'Asignar jugador a un equipo en una rama (si ya tenía otro en esa rama: traspaso)'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/teams.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '201':
+          description: Error
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                branch: {}
+                profileId: {}
+  /teams/{id}/players/{profileId}:
+    delete:
+      tags:
+      - Equipos
+      summary: 'Sacar jugador del equipo en una rama: DELETE /teams/:id/players/:profileId?branch=MIXED'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/teams.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: profileId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branch
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /teams/{id}/coach:
+    put:
+      tags:
+      - Equipos
+      summary: 'Designar (profileId) o quitar (profileId: null) al DT del equipo. Uno solo por equipo; es solo una marca visual.'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/teams.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profileId: {}
+  /tournaments:
+    post:
+      tags:
+      - Torneos
+      summary: Crear un torneo
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/tournaments.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '201':
+          description: Error
+        '400':
+          description: Datos inválidos
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - Torneos
+      summary: 'Público. Filtros: year, yearFrom, yearTo, status, branch, modality, format, limit (50, máx. 200), offset'
+      description: 'Acceso: Pública. Origen: backend/src/routes/tournaments.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+  /tournaments/eligible-teams:
+    get:
+      tags:
+      - Torneos
+      summary: Equipos que pueden jugar un torneo de esa rama y modalidad (público) Debe ir antes de GET /:id
+      description: 'Acceso: Pública. Origen: backend/src/routes/tournaments.js'
+      parameters:
+      - name: branch
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: modality
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+  /tournaments/{id}:
+    get:
+      tags:
+      - Torneos
+      summary: Detalle público de un torneo (etapas, equipos, estado)
+      description: 'Acceso: Pública. Origen: backend/src/routes/tournaments.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+    patch:
+      tags:
+      - Torneos
+      summary: Editar un torneo (todo salvo el formato si ya inició)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/tournaments.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Torneos
+      summary: Solo si no tiene partidos ni finalizó (no se borra historial)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/tournaments.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /tournaments/{id}/pause:
+    post:
+      tags:
+      - Torneos
+      summary: 'Pausar: el torneo y todos sus partidos (programados, habilitados, en vivo o finalizados) desaparecen para
+        todos menos la organización. No se borra ni se cambia nada: reanudar lo deja exactamente como estaba.'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/tournaments.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /tournaments/{id}/resume:
+    post:
+      tags:
+      - Torneos
+      summary: 'Reanudar: vuelve a mostrar el torneo y solo los partidos que ocultó la pausa (no los que se ocultaron a mano)'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/tournaments.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /tournaments/{id}/teams:
+    put:
+      tags:
+      - Torneos
+      summary: Define los equipos del torneo (reemplaza la lista). Solo en borrador. Cada equipo debe tener habilitadas la
+        rama y la modalidad del torneo.
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/tournaments.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /tournaments/{id}/stages:
+    put:
+      tags:
+      - Torneos
+      summary: Define la estructura del torneo (zonas o llaves) y los equipos de cada una. Reemplaza la estructura anterior.
+        Solo en borrador y antes de generar partidos.
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/tournaments.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /users:
+    get:
+      tags:
+      - Usuarios
+      summary: 'Consultar /users — parámetros: ?q=texto&role=ADMIN&active=true'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/users.js'
+      parameters:
+      - name: active
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: role
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /users/{id}/promote:
+    post:
+      tags:
+      - Usuarios
+      summary: Promover a administrador
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/users.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /users/{id}/demote:
+    post:
+      tags:
+      - Usuarios
+      summary: Quitar el rol de administrador
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/users.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /users/{id}/referee:
+    post:
+      tags:
+      - Usuarios
+      summary: Designar / quitar el rol de arbitro (el usuario necesita perfil)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/users.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Usuarios
+      summary: Quitar el rol de árbitro
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/users.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /users/{id}:
+    delete:
+      tags:
+      - Usuarios
+      summary: Baja lógica
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/users.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /users/{id}/reactivate:
+    post:
+      tags:
+      - Usuarios
+      summary: Reactivar una cuenta desactivada
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/users.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /health:
+    get:
+      tags:
+      - Sistema
+      summary: Estado del servidor
+      description: 'Acceso: Pública. Origen: backend/src/routes/server.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+  /time:
+    get:
+      tags:
+      - Sistema
+      summary: Hora del servidor (para el reloj del header)
+      description: 'Acceso: Pública. Origen: backend/src/routes/server.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
