@@ -32,7 +32,7 @@ function Tabla({ rows, teamId }) {
           const me = r.team.id === teamId
           return (
             <tr key={r.team.id} className={me ? 'bg-accent/15 font-extrabold' : ''}>
-              <td className="py-1.5 pl-1 tabular-nums">{r.position}{r.tied ? '=' : ''}</td>
+              <td className="py-1.5 pl-1 tabular-nums">{rows.indexOf(r) + 1}</td>
               <td className="max-w-0 truncate py-1.5">{r.team.name}</td>
               <td className="py-1.5 text-center tabular-nums">{r.played}</td>
               <td className="py-1.5 text-center tabular-nums">{r.setDiff > 0 ? '+' + r.setDiff : r.setDiff}</td>
