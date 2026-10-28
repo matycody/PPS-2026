@@ -168,19 +168,16 @@ function draw(ctx, { m, tick, at }) {
   }
 }
 
-// Abre el PiP (hay que llamarlo desde un toque del usuario). getState() devuelve { m, tick, at }.
-// onClose se avisa cuando se cierra la ventanita (por el usuario o por el sistema). Devuelve { stop }.
-export async function startPip(getState, onClose) {
-  // PC (Chrome/Edge): ventana flotante real siempre visible, como Spotify o Meet
-  if (docPipSupported()) {
-    try { return await startDocPip(getState, onClose) } catch { /* sigue con el PiP de video */ }
-  }
-  if (!pipSupported()) throw new Error('Tu navegador no permite fijar el reloj')
+// Canvas + video listos para pasar a PiP. Safari solo deja abrir el PiP dentro del toque del usuario y con el video
+// ya cargado, así que se prepara de antemano (warmPip) y al tocar se pide el PiP de inmediato, sin esperar nada.
+const hasStd = () => typeof HTMLVideoElement !== 'undefined' && typeof HTMLVideoElement.prototype.requestPictureInPicture === 'function' && !!document.pictureInPictureEnabled
+
+function createSurface() {
   const canvas = document.createElement('canvas')
   canvas.width = W
   canvas.height = H
   const ctx = canvas.getContext('2d')
-  draw(ctx, getState())
+  draw(ctx, { m: null, tick: null, at: Date.now() })
 
   const video = document.createElement('video')
   video.muted = true
@@ -190,10 +187,9 @@ export async function startPip(getState, onClose) {
   // Tamaño real (aunque casi invisible): Safari de iPhone no siempre acepta pasar a PiP un video diminuto
   video.style.cssText = 'position:fixed;left:0;bottom:0;width:160px;height:116px;opacity:0.01;pointer-events:none;z-index:-1'
   const stream = canvas.captureStream(10)
-  const std = typeof video.requestPictureInPicture === 'function' && !!document.pictureInPictureEnabled
   let audioCtx = null
-  if (!std) {
-    // iOS: se le suma una pista de audio en silencio (el video sigue silenciado), Safari la suele pedir para ofrecer PiP
+  if (!hasStd()) {
+    // Safari viejo: se le suma una pista de audio en silencio (el video sigue silenciado)
     try {
       const AC = window.AudioContext || window.webkitAudioContext
       if (AC) {
@@ -210,6 +206,32 @@ export async function startPip(getState, onClose) {
   }
   video.srcObject = stream
   document.body.appendChild(video)
+  return { canvas, ctx, video, stream, audioCtx }
+}
+
+let warm = null
+// Deja preparado el video (silenciado, reproduciendo) para que el toque de "fijar" lo pase a PiP al instante
+export function warmPip() {
+  if (typeof document === 'undefined' || warm || docPipSupported() || !pipSupported()) return
+  try {
+    warm = createSurface()
+    warm.video.play().catch(() => {})
+  } catch { warm = null }
+}
+
+// Abre el PiP (hay que llamarlo desde un toque del usuario). getState() devuelve { m, tick, at }.
+// onClose se avisa cuando se cierra la ventanita (por el usuario o por el sistema). Devuelve { stop }.
+export async function startPip(getState, onClose) {
+  // PC (Chrome/Edge): ventana flotante real siempre visible, como Spotify o Meet
+  if (docPipSupported()) {
+    try { return await startDocPip(getState, onClose) } catch { /* sigue con el PiP de video */ }
+  }
+  if (!pipSupported()) throw new Error('Tu navegador no permite fijar el reloj')
+  const std = hasStd()
+  const fresh = !warm
+  const { ctx, video, stream, audioCtx } = warm ?? createSurface()
+  warm = null
+  draw(ctx, getState())
 
   let done = false
   let timer = 0
@@ -226,21 +248,28 @@ export async function startPip(getState, onClose) {
     video.remove()
     try { audioCtx?.close() } catch { /* ya cerrado */ }
     onClose?.()
+    setTimeout(warmPip, 300) // deja listo el próximo
   }
   video.addEventListener('leavepictureinpicture', stop)
   video.addEventListener('webkitpresentationmodechanged', () => { if (video.webkitPresentationMode !== 'picture-in-picture') stop() })
 
   timer = setInterval(() => draw(ctx, getState()), 200)
   try {
-    const playing = video.play() // arranca dentro del toque del usuario
+    const playing = video.play()
     if (std) {
-      await playing
-      await video.requestPictureInPicture()
+      // Se pide en el mismo instante del toque: después de un await Safari ya no lo considera un gesto del usuario
+      try {
+        await video.requestPictureInPicture()
+      } catch (e) {
+        if (!fresh) throw e
+        await playing // video recién creado, sin metadatos todavía: se reintenta cuando ya cargó
+        await video.requestPictureInPicture()
+      }
     } else {
       await enterWebkitPip(video, playing)
     }
   } catch (e) {
-    const info = ' [' + [e?.name, e?.message].filter(Boolean).join(': ') + ' | modo=' + video.webkitPresentationMode + ' ready=' + video.readyState + ' video=' + stream.getVideoTracks().length + ' audio=' + stream.getAudioTracks().length + ']'
+    const info = ' [' + [e?.name, e?.message].filter(Boolean).join(': ') + ' | modo=' + video.webkitPresentationMode + ' ready=' + video.readyState + ' video=' + stream.getVideoTracks().length + ' audio=' + stream.getAudioTracks().length + (fresh ? ' sin-precarga' : '') + ']'
     stop()
     throw new Error('No se pudo fijar el reloj' + info)
   }

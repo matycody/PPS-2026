@@ -1,5 +1,5 @@
-import { useCallback, useState, useSyncExternalStore } from 'react'
-import { pipSupported } from '../lib/pipClock'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { pipSupported, warmPip } from '../lib/pipClock'
 import { pipActiveId, subscribePip, togglePip } from '../lib/pipManager'
 
 const CAN_PIN = ['LIVE', 'READY', 'SCHEDULED']
@@ -13,9 +13,11 @@ export function usePipClock(m) {
     setError('')
     try { await togglePip(m) } catch (e) { setError(e.message) }
   }, [m])
+  const canPin = supported && !!m && CAN_PIN.includes(m.status)
+  useEffect(() => { if (canPin) warmPip() }, [canPin])
   return {
     supported,
-    canPin: supported && !!m && CAN_PIN.includes(m.status),
+    canPin,
     active: !!m && activeId === m.id,
     error,
     toggle,
