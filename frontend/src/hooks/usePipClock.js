@@ -2,7 +2,7 @@ import { useCallback, useState, useSyncExternalStore } from 'react'
 import { pipSupported } from '../lib/pipClock'
 import { pipActiveId, subscribePip, togglePip } from '../lib/pipManager'
 
-const CAN_PIN = ['LIVE', 'READY']
+const CAN_PIN = ['LIVE', 'READY', 'SCHEDULED']
 const supported = pipSupported()
 
 // Fijar el reloj del partido m en una ventanita flotante (para quien mira, no para quien controla)
