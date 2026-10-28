@@ -5,6 +5,7 @@ const { formsFor } = require('../services/teamForm');
 const { authenticate, optionalAuth, requireRole } = require('../middleware/auth');
 const { getPermissions } = require('../services/matchAccess');
 const { notifyMatch } = require('../services/notify');
+const { ExtraMatchError, assertTournamentOpen, planStanding, placeInFixture } = require('../services/extraMatch');
 const { getMatch } = require('../timers/matchManager');
 const { editorLabel, setResultLabel, buildLogData, logEntry, describeClockAction } = require('../services/resultLog');
 
@@ -142,6 +143,7 @@ function loadForLabel(matchId) {
 }
 
 function handleError(err, res) {
+  if (err instanceof ExtraMatchError) return res.status(err.status).json({ error: err.message });
   if (err.code === 'P2002') return res.status(409).json({ error: 'Registro duplicado (reintentá)' });
   if (err.code === 'P2025') return res.status(404).json({ error: 'No encontrado' });
   console.error('[matches]', err);
@@ -212,15 +214,23 @@ router.post('/', ...admin, async (req, res) => {
     if (errors.length) return res.status(400).json({ errors });
 
     if (tournamentId) {
-      const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
-      if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
+      // Un torneo en curso admite partidos nuevos (la organización decide); no uno finalizado ni pausado
+      await assertTournamentOpen(tournamentId);
     }
 
     const teamError = await validateTeams(teamAId, teamBId, branch, modality);
     if (teamError) return res.status(409).json({ error: teamError });
 
-    const match = await prisma.match.create({
-      data: { tournamentId, court, branch, modality, scheduledAt, teamAId, teamBId },
+    // countsInStandings: el partido suma a la tabla de una zona (y aparece en su fixture). Sin eso queda en "Fuera del fixture"
+    const plan = req.body.countsInStandings === true
+      ? await planStanding({ tournamentId, stageId: req.body.stageId, matchdayId: req.body.matchdayId, teamAId, teamBId })
+      : null;
+
+    const match = await prisma.$transaction(async (tx) => {
+      const place = plan ? await placeInFixture(tx, plan, scheduledAt) : {};
+      return tx.match.create({
+        data: { tournamentId, court, branch, modality, scheduledAt, teamAId, teamBId, ...place },
+      });
     });
     await notifyMatch(req.app.get('io'), match.id);
     res.status(201).json(serialize(await fetchMatch(match.id, true), true));
@@ -329,9 +339,32 @@ router.patch('/:id', ...admin, async (req, res) => {
     if ('teamAId' in b) data.teamAId = b.teamAId || null;
     if ('teamBId' in b) data.teamBId = b.teamBId || null;
 
+    // Asignar el partido a un torneo (o sacarlo): solo si todavía no es parte de una zona o llave
+    if ('tournamentId' in b) {
+      const target = b.tournamentId || null;
+      if (target !== match.tournamentId) {
+        if (match.stageId) {
+          return res.status(409).json({ error: 'Un partido del fixture o de las llaves no se puede mover a otro torneo' });
+        }
+        if (target) await assertTournamentOpen(target);
+        data.tournamentId = target;
+      }
+    }
+
     const next = { ...match, ...data };
     const teamError = await validateTeams(next.teamAId, next.teamBId, next.branch, next.modality);
     if (teamError) return res.status(409).json({ error: teamError });
+
+    // Sumar a la tabla de una zona (y entrar a su fixture). Es de un solo sentido: un partido del fixture no se saca de la tabla
+    let plan = null;
+    if (b.countsInStandings === true) {
+      if (match.stageId) return res.status(409).json({ error: 'El partido ya suma a la tabla' });
+      plan = await planStanding({
+        tournamentId: next.tournamentId, stageId: b.stageId, matchdayId: b.matchdayId, teamAId: next.teamAId, teamBId: next.teamBId,
+      });
+    } else if (b.countsInStandings === false && match.stageId) {
+      return res.status(409).json({ error: 'Un partido del fixture no se saca de la tabla: cancelalo u ocultalo' });
+    }
 
     const refereeIds = match.assignments
       .filter((a) => a.function === 'REFEREE' && a.profileId)
@@ -375,7 +408,19 @@ router.patch('/:id', ...admin, async (req, res) => {
       changes.push('equipo B: ' + nameOf(match.teamBId) + ' → ' + nameOf(data.teamBId));
     }
 
-    await prisma.match.update({ where: { id: match.id }, data });
+    if (data.tournamentId !== undefined) {
+      const names = await prisma.tournament.findMany({
+        where: { id: { in: [match.tournamentId, data.tournamentId].filter(Boolean) } }, select: { id: true, name: true },
+      });
+      const tn = (id) => (id ? ((names.find((x) => x.id === id) || {}).name || 'torneo') : 'amistoso');
+      changes.push('torneo: ' + tn(match.tournamentId) + ' → ' + tn(data.tournamentId));
+    }
+    if (plan) changes.push('suma a la tabla de ' + plan.stage.name);
+
+    await prisma.$transaction(async (tx) => {
+      const place = plan ? await placeInFixture(tx, plan, next.scheduledAt) : {};
+      await tx.match.update({ where: { id: match.id }, data: { ...data, ...place } });
+    });
 
     if (changes.length) {
       const label = {

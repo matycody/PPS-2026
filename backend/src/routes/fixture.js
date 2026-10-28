@@ -8,6 +8,7 @@ const admin = [authenticate, requireRole('ADMIN')];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const { parseSchedule, scheduleDate } = require('../lib/scheduleDates');
+const { listExtraMatches } = require('../services/extraMatch');
 const OPEN = ['SCHEDULED', 'READY'];
 const TEAM_SELECT = { id: true, name: true, logo: true };
 
@@ -250,6 +251,18 @@ router.get('/:id/matchdays', async (req, res) => {
         matches: md.matches.map(({ sets, modality, teamAId, teamBId, ...m }) => ({ ...m, score: setScore({ sets, modality, teamAId, teamBId }) })),
       }))),
     );
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Partidos agregados al torneo fuera del fixture (público): tienen torneo pero no zona ni llave
+router.get('/:id/extra-matches', async (req, res) => {
+  try {
+    const t = await prisma.tournament.findUnique({ where: { id: req.params.id }, select: { id: true } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+    const list = await listExtraMatches(req.params.id, TEAM_SELECT);
+    res.json(list.map(({ sets, modality, teamAId, teamBId, ...m }) => ({ ...m, score: setScore({ sets, modality, teamAId, teamBId }) })));
   } catch (err) {
     handleDbError(err, res);
   }
