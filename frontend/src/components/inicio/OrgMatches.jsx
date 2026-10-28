@@ -137,11 +137,22 @@ export default function OrgMatches({ byId, filter }) {
         else sections.push({ k, list: [m] })
       })
     }
+    // Los partidos en vivo se muestran siempre arriba (sea cual sea el día elegido), así que no se repiten en la lista
+    if (!sched) {
+      listed = listed.filter((m) => m.status !== 'LIVE')
+      if (sections) sections = sections.map((g) => ({ ...g, list: g.list.filter((m) => m.status !== 'LIVE') })).filter((g) => g.list.length)
+    }
     const toggle = (id) => setPicked(cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id])
     const summary = cur.length === 0 ? 'Todos' : cur.length === 1 ? tournaments.find((t) => t.id === cur[0])?.name : cur.length + ' torneos'
     const chip = (on) => 'rounded-full border px-3 py-1.5 text-xs font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
     return (
       <div className="space-y-3">
+        {!sched && live.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-live">En vivo ahora · {live.length}</h2>
+            {live.map((m) => <MatchCard key={m.id} m={m} featured />)}
+          </div>
+        )}
         <div className="space-y-2">
           <div className="flex gap-2">
             <button
