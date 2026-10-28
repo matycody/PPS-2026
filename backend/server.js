@@ -7,7 +7,7 @@ const http = require("http");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const { Server } = require("socket.io");
-const { registerMatchHandlers } = require("./src/sockets/matchSocket");
+const { registerMatchHandlers, restoreClocks } = require("./src/sockets/matchSocket");
 const { registerSocketAuth } = require("./src/sockets/auth");
 
 const app = express();
@@ -107,4 +107,6 @@ io.on("connection", (socket) => {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Servidor escuchando en http://localhost:${PORT}`);
+  // Recupera (en pausa) los relojes guardados antes del reinicio
+  restoreClocks(io);
 });

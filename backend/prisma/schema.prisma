@@ -214,6 +214,7 @@ model Match {
   assignments  MatchAssignment[]
   sets         MatchSet[]
   clockActions ClockAction[]
+  clock        MatchClock?
 
   stageId    String?
   matchdayId String?
@@ -292,6 +293,27 @@ model ClockAction {
   user  User  @relation(fields: [userId], references: [id])
 
   @@index([matchId])
+}
+
+// Estado del reloj de un partido Habilitado/En vivo: se guarda para recuperarlo si el servidor se reinicia.
+// Los tiempos son segundos restantes al momento de savedAt. Al recuperarse siempre queda en pausa.
+model MatchClock {
+  matchId            String   @id
+  matchTimeLeft      Int
+  setTimeLeft        Int
+  timeoutTimeLeft    Int
+  isMatchPaused      Boolean
+  isSetPaused        Boolean
+  isTimeoutRunning   Boolean
+  matchHalf          Int      @default(1)
+  clothAutoResetUsed Boolean  @default(false)
+  timeoutTeam        String? // "A" | "B" mientras hay un tiempo muerto en curso
+  timeoutHalf        Int?
+  timeoutsUsed       Json // { A: { 1, 2 }, B: { 1, 2 } }
+  resumeAfterTimeout Json // { match, set }
+  savedAt            DateTime @default(now())
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
 }
 
 model MatchResultLog {

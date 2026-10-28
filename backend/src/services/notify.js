@@ -59,6 +59,8 @@ async function notifyMatch(io, matchId) {
         if (engine.timeoutTeam !== null) engine.endTimeout();
         engine.pause('both');
       }
+      // El partido ya no está en juego: se descarta el reloj guardado (si no, se recuperaría al reiniciar)
+      require('../timers/clockStore').remove(matchId);
     }
 
     let a = 0;

@@ -209,3 +209,91 @@ describe('TimerEngine: ajustes manuales', () => {
     expect(() => engine.adjust('x', 1)).toThrow();
   });
 });
+
+describe('TimerEngine: persistencia y recuperación del reloj', () => {
+  function withPersist() {
+    const saves = [];
+    const engine = new TimerEngine('m1', { onPersist: (state, opts) => saves.push({ state, ...opts }) });
+    engine.setModality('foam');
+    return { engine, saves };
+  }
+
+  it('toJSON expone el estado completo', () => {
+    const { engine } = make();
+    engine.start('both');
+    sec(5);
+    const s = engine.toJSON();
+    expect(s.matchTimeLeft).toBe(20 * 60 - 5);
+    expect(s.setTimeLeft).toBe(3 * 60 - 5);
+    expect(s.isMatchPaused).toBe(false);
+    expect(s.timeoutsUsed).toEqual({ A: { 1: false, 2: false }, B: { 1: false, 2: false } });
+  });
+
+  it('onPersist distingue el conteo (tick) de los comandos', () => {
+    const { engine, saves } = withPersist();
+    saves.length = 0;
+    engine.start('both'); // comando
+    sec(3); // 3 ticks
+    engine.pause('both'); // comando
+    expect(saves.map((x) => x.tick)).toEqual([false, true, true, true, false]);
+  });
+
+  it('restore recupera tiempos, tiempo y tiempos muertos usados, siempre en pausa', () => {
+    const { engine } = make();
+    engine.restore({
+      matchTimeLeft: 754, setTimeLeft: 41, timeoutTimeLeft: 60,
+      isMatchPaused: false, isSetPaused: false, isTimeoutRunning: false,
+      matchHalf: 2, clothAutoResetUsed: true,
+      timeoutTeam: null, timeoutHalf: null,
+      timeoutsUsed: { A: { 1: true, 2: false }, B: { 1: false, 2: false } },
+      resumeAfterTimeout: { match: false, set: false },
+    });
+    expect(engine.matchTimeLeft).toBe(754);
+    expect(engine.setTimeLeft).toBe(41);
+    expect(engine.matchHalf).toBe(2);
+    expect(engine.isMatchPaused).toBe(true);
+    expect(engine.isSetPaused).toBe(true);
+    expect(engine.intervalId).toBeNull();
+    expect(engine.timeoutsUsed.A[1]).toBe(true);
+    expect(engine.recovered).toBe(true);
+    sec(10); // no corre solo
+    expect(engine.matchTimeLeft).toBe(754);
+  });
+
+  it('un tiempo muerto en curso se recupera detenido y no reanuda los relojes solo', () => {
+    const { engine } = make();
+    engine.restore({
+      matchTimeLeft: 600, setTimeLeft: 100, timeoutTimeLeft: 38,
+      isMatchPaused: true, isSetPaused: true, isTimeoutRunning: true,
+      matchHalf: 1, clothAutoResetUsed: false,
+      timeoutTeam: 'B', timeoutHalf: 1,
+      timeoutsUsed: { A: { 1: false, 2: false }, B: { 1: true, 2: false } },
+      resumeAfterTimeout: { match: true, set: true },
+    });
+    expect(engine.timeoutTeam).toBe('B');
+    expect(engine.isTimeoutRunning).toBe(false);
+    expect(engine.timeoutTimeLeft).toBe(38);
+    expect(engine.endTimeout()).toEqual({ ok: true });
+    expect(engine.isMatchPaused).toBe(true);
+    expect(engine.isSetPaused).toBe(true);
+  });
+
+  it('start limpia la marca de recuperado y el reloj vuelve a correr', () => {
+    const { engine } = make();
+    engine.restore({ matchTimeLeft: 300, setTimeLeft: 60, timeoutsUsed: {}, resumeAfterTimeout: {} });
+    engine.start('both');
+    expect(engine.recovered).toBe(false);
+    sec(2);
+    expect(engine.matchTimeLeft).toBe(298);
+  });
+
+  it('restore ignora valores inválidos o fuera de rango', () => {
+    const { engine } = make();
+    engine.restore({ matchTimeLeft: 99999, setTimeLeft: -5, timeoutTimeLeft: 'x', matchHalf: 7, timeoutTeam: 'Z' });
+    expect(engine.matchTimeLeft).toBe(20 * 60);
+    expect(engine.setTimeLeft).toBe(0);
+    expect(engine.timeoutTimeLeft).toBe(60);
+    expect(engine.matchHalf).toBe(1);
+    expect(engine.timeoutTeam).toBeNull();
+  });
+});

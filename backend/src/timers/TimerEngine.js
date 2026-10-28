@@ -31,7 +31,59 @@ class TimerEngine {
     this.isMatchPaused = true;
     this.isSetPaused = true;
 
+    // true si el reloj se recuperó tras un reinicio del servidor; se apaga con la primera acción de la mesa
+    this.recovered = false;
+
     this.intervalId = null;
+  }
+
+  // Estado completo para persistirlo (ver clockStore). Los tiempos son segundos restantes.
+  toJSON() {
+    return {
+      matchTimeLeft: this.matchTimeLeft,
+      setTimeLeft: this.setTimeLeft,
+      timeoutTimeLeft: this.timeoutTimeLeft,
+      isMatchPaused: this.isMatchPaused,
+      isSetPaused: this.isSetPaused,
+      isTimeoutRunning: this.isTimeoutRunning,
+      matchHalf: this.matchHalf,
+      clothAutoResetUsed: this.clothAutoResetUsed,
+      timeoutTeam: this.timeoutTeam,
+      timeoutHalf: this._timeoutHalf,
+      timeoutsUsed: JSON.parse(JSON.stringify(this.timeoutsUsed)),
+      resumeAfterTimeout: { ...this._resumeAfterTimeout },
+    };
+  }
+
+  // Recupera un estado guardado tras un reinicio. Siempre queda EN PAUSA (la mesa reanuda a mano):
+  // un reloj que corría se detiene en el último valor guardado y un tiempo muerto en curso queda detenido.
+  restore(s) {
+    const int = (v, fallback, min = 0, max = Infinity) =>
+      Number.isFinite(v) ? Math.min(max, Math.max(min, Math.floor(v))) : fallback;
+    const used = (team) => ({ 1: Boolean(s.timeoutsUsed?.[team]?.[1]), 2: Boolean(s.timeoutsUsed?.[team]?.[2]) });
+
+    this.matchTimeLeft = int(s.matchTimeLeft, MATCH_DURATION_SECONDS, 0, MATCH_DURATION_SECONDS);
+    this.setTimeLeft = int(s.setTimeLeft, SET_DURATION_SECONDS, 0, SET_DURATION_SECONDS);
+    this.timeoutTimeLeft = int(s.timeoutTimeLeft, TIMEOUT_DURATION_SECONDS, 0, TIMEOUT_DURATION_SECONDS);
+    this.matchHalf = s.matchHalf === 2 ? 2 : 1;
+    this.clothAutoResetUsed = Boolean(s.clothAutoResetUsed);
+    this.timeoutsUsed = { A: used("A"), B: used("B") };
+
+    const hasTimeout = s.timeoutTeam === "A" || s.timeoutTeam === "B";
+    this.timeoutTeam = hasTimeout ? s.timeoutTeam : null;
+    this._timeoutHalf = hasTimeout ? (s.timeoutHalf === 2 ? 2 : 1) : null;
+    // El tiempo muerto no sigue corriendo ni reanuda solo los relojes al terminarlo
+    this.isTimeoutRunning = false;
+    this._resumeAfterTimeout = { match: false, set: false };
+
+    this.isMatchPaused = true;
+    this.isSetPaused = true;
+    this.recovered = true;
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    this._emitState();
   }
 
   setModality(modality) {
@@ -78,6 +130,7 @@ class TimerEngine {
 
   start(target = "both") {
     if (this.timeoutTeam !== null) return;
+    this.recovered = false;
     if (target === "match" || target === "both") this.isMatchPaused = false;
     if (target === "set" || target === "both") this.isSetPaused = false;
 
@@ -253,7 +306,7 @@ class TimerEngine {
       timeoutJustExpired = true;
     }
 
-    this._emitState();
+    this._emitState(true);
 
     if (timeoutJustExpired && this.callbacks.onTimeoutExpired) {
       this.callbacks.onTimeoutExpired({ team: this.timeoutTeam, message: "TIEMPO MUERTO TERMINADO" });
@@ -287,7 +340,12 @@ class TimerEngine {
     this._checkMatchExpiry();
   }
 
-  _emitState() {
+  // fromTick = true en el conteo normal de cada segundo; false en cualquier cambio de estado (comando, vencimiento).
+  // onPersist recibe el estado completo y distingue ambos casos para no escribir en la base cada segundo.
+  _emitState(fromTick = false) {
+    if (this.callbacks.onPersist) {
+      this.callbacks.onPersist(this.toJSON(), { tick: fromTick });
+    }
     if (this.callbacks.onTick) {
       this.callbacks.onTick({
         matchTime: formatTime(this.matchTimeLeft),
@@ -299,6 +357,7 @@ class TimerEngine {
         timeoutTeam: this.timeoutTeam,
         isTimeoutRunning: this.isTimeoutRunning,
         timeoutsUsed: JSON.parse(JSON.stringify(this.timeoutsUsed)),
+        recovered: this.recovered,
       });
     }
   }

@@ -6,6 +6,7 @@ const { notifyMatch, FEED_ROOM } = require('../services/notify');
 const authCache = require('../services/authCache');
 const { CLIENT_EVENTS, SERVER_EVENTS } = require('../timers/timerEvents');
 const { getOrCreateMatch, getMatch, pauseMatch, resumeMatch } = require('../timers/matchManager');
+const clockStore = require('../timers/clockStore');
 
 const MAX_ROOMS = 12;
 // Valores que espera TimerEngine.setModality (verificado contra TimerEngine.js)
@@ -19,8 +20,9 @@ const lastTick = new Map();
 
 function buildCallbacks(io, matchId) {
   return {
-    onTick: ({ matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed }) => {
-      const payload = { matchId, matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed };
+    onPersist: (state, opts) => clockStore.persist(matchId, state, opts),
+    onTick: ({ matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed, recovered }) => {
+      const payload = { matchId, matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed, recovered };
       lastTick.set(matchId, payload);
       io.to(publicRoom(matchId)).emit(SERVER_EVENTS.MATCH_TICK, payload);
     },
@@ -54,6 +56,23 @@ function getEngine(io, dbMatch) {
     engine.setModality(MODALITY_TO_ENGINE[dbMatch.modality]);
   }
   return engine;
+}
+
+// Al arrancar el servidor: recrea los relojes guardados de partidos Habilitados o En vivo, siempre en pausa
+async function restoreClocks(io) {
+  try {
+    const rows = await clockStore.loadActive();
+    for (const row of rows) {
+      if (getMatch(row.matchId)) continue;
+      const engine = getOrCreateMatch(row.matchId, buildCallbacks(io, row.matchId));
+      engine.modality = MODALITY_TO_ENGINE[row.match.modality];
+      engine.restore(row);
+    }
+    if (rows.length) console.log('[clock] relojes recuperados:', rows.length);
+  } catch (err) {
+    // Sin la tabla (migración sin aplicar) o base caída: el servidor arranca igual, con relojes nuevos
+    console.error('[clock] no se pudieron recuperar los relojes:', err.code || err.message);
+  }
 }
 
 function emitError(socket, matchId, message) {
@@ -433,4 +452,4 @@ function registerMatchHandlers(io, socket) {
   });
 }
 
-module.exports = { registerMatchHandlers };
+module.exports = { registerMatchHandlers, restoreClocks };
