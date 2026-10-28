@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Maximize2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { fmtWhen, courtLabel } from '../../lib/format'
 import TeamBadge from '../TeamBadge'
 import GoTo from '../GoTo'
 import StatusPill from '../StatusPill'
 import BracketCanvas from './BracketCanvas'
+import BracketFullscreen from './BracketFullscreen'
 
 function Side({ team, from, sets, won, placeholder }) {
   // Hasta que termina la zona se muestra el lugar ("2° Zona A") y no el equipo
@@ -34,6 +36,7 @@ function sourceLabel(f) {
 export default function BracketView({ tournamentId, stageId, base = '/partido/', reloadKey }) {
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
+  const [full, setFull] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -72,5 +75,16 @@ export default function BracketView({ tournamentId, stageId, base = '/partido/',
   if (!data) return <p className="text-muted">Cargando…</p>
   if (!data.rounds.length) return <p className="text-muted">Todavía no se armó la llave.</p>
 
-  return <BracketCanvas rounds={rounds} colW={240} gap={32} />
+  const canvas = <BracketCanvas rounds={rounds} colW={240} gap={32} />
+  return (
+    <div>
+      <div className="mb-2 flex justify-end">
+        <button type="button" onClick={() => setFull(true)} className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-line bg-surface px-3 text-sm font-bold">
+          <Maximize2 size={16} /> Ver completo
+        </button>
+      </div>
+      {canvas}
+      {full && <BracketFullscreen onClose={() => setFull(false)}>{canvas}</BracketFullscreen>}
+    </div>
+  )
 }
