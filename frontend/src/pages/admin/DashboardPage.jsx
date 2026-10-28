@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { X } from 'lucide-react'
+import { Pin, PinOff, X } from 'lucide-react'
 import { socket } from '../../sockets/socket'
 import { api } from '../../lib/api'
 import { useMatchesFeed } from '../../hooks/useMatchesFeed'
@@ -12,6 +12,7 @@ import MatchNotice from '../../components/MatchNotice'
 import { Btn, Alert } from '../../components/ui'
 import { matchInfo } from '../../lib/matchInfo'
 import { statusBorder } from '../../lib/statusStyle'
+import { usePipClock } from '../../hooks/usePipClock'
 
 const ORDER = { LIVE: 0, READY: 1, SCHEDULED: 2 }
 const pad = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
@@ -19,6 +20,7 @@ const pad = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
 // Partido de la cancha con acciones rápidas para la organización
 function CourtMatch({ m, tick, full, run, busy }) {
   const [confirm, setConfirm] = useState(false)
+  const pip = usePipClock(m)
   const paused = m.status === 'LIVE' && tick?.isMatchPaused
   const open = m.status === 'READY' || m.status === 'LIVE'
   const sets = m.sets ?? []
@@ -34,12 +36,24 @@ function CourtMatch({ m, tick, full, run, busy }) {
   ) : undefined
 
   return (
-    <div className={'space-y-3 rounded-3xl border bg-surface p-5 ' + statusBorder(m.status)}>
-      <div className="flex items-center justify-between">
+    <div className={'relative space-y-3 rounded-3xl border bg-surface p-5 ' + statusBorder(m.status)}>
+      {pip.canPin && (
+        <button
+          type="button"
+          onClick={pip.toggle}
+          aria-label={pip.active ? 'Quitar reloj flotante' : 'Fijar reloj flotante'}
+          aria-pressed={pip.active}
+          className={'absolute right-1 top-1 grid h-11 w-11 place-items-center rounded-full ' + (pip.active ? 'text-live' : 'text-muted')}
+        >
+          {pip.active ? <PinOff size={18} /> : <Pin size={18} />}
+        </button>
+      )}
+      <div className={'flex items-center justify-between ' + (pip.canPin ? 'pr-8' : '')}>
         <span className="text-xs font-bold uppercase tracking-widest text-muted">{fmtWhen(m.scheduledAt)}</span>
         {paused ? <span className="rounded-full bg-warn/15 px-3 py-1 text-xs font-bold uppercase text-warn">Pausado</span> : <StatusPill status={m.status} />}
       </div>
       <Versus a={m.teamA} b={m.teamB} formA={m.form?.A} formB={m.form?.B} rankA={m.form?.rankA} rankB={m.form?.rankB} size={full ? 'lg' : 'md'} center={center} />
+      {pip.error && <p className="text-center text-xs text-danger">{pip.error}</p>}
       <p className="text-center text-xs font-bold uppercase tracking-wider text-muted">{matchInfo(m)}</p>
       <MatchNotice m={m} compact className="text-center" />
 
