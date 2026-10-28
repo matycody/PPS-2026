@@ -10,7 +10,7 @@ import MatchNotice from '../MatchNotice'
 // Fila de un partido: equipos (o lugar por definir), marcador, hora, cancha y estado
 export function MatchRow({ m, base }) {
   return (
-    <div className="rounded-2xl bg-surface-2 px-3 py-2 text-sm">
+    <div className={'rounded-2xl bg-surface-2 px-3 py-2 text-sm' + (m.paused ? ' opacity-70' : '')}>
       <Link to={base + m.id} className="flex items-center gap-2">
         <span className="min-w-0 flex-1 truncate font-semibold">
           {m.teamA?.name ?? m.fromA?.label ?? '—'}
@@ -20,6 +20,7 @@ export function MatchRow({ m, base }) {
           {m.teamB?.name ?? m.fromB?.label ?? '—'}
         </span>
         <span className="shrink-0 text-xs text-muted">{m.scheduledAt ? fmtWhen(m.scheduledAt) : 'Sin hora'} · {courtLabel(m.court)}</span>
+        {m.paused && <span className="shrink-0 rounded-full bg-warn/20 px-2 py-0.5 text-xs font-bold uppercase text-warn">Pausado</span>}
         <StatusPill status={m.status} />
       </Link>
       <MatchNotice m={m} compact className="mt-1" />
