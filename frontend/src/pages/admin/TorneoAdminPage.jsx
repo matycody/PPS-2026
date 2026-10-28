@@ -256,7 +256,7 @@ function BracketBuilder({ t, stage, onDone, setErr }) {
   const [source, setSource] = useState(leagues.length ? 'standings' : 'teams')
   const [order, setOrder] = useState(t.teams.map((x) => x.team))
   const [top, setTop] = useState(2)
-  const [o, setO] = useState({ shuffle: false, keepTop: 0, thirdPlace: false, pairing: 'auto', startDate: '', intervalDays: 7, ladder: false })
+  const [o, setO] = useState({ shuffle: false, keepTop: 0, thirdPlace: false, pairing: 'auto', startDate: '', schedule: 'interval', intervalDays: 7, ladder: false })
   const [entry, setEntry] = useState({})
   const [busy, setBusy] = useState(false)
 
@@ -267,7 +267,7 @@ function BracketBuilder({ t, stage, onDone, setErr }) {
     try {
       const body = {
         replace: true, shuffle: o.shuffle, keepTop: Number(o.keepTop) || 0, thirdPlace: o.thirdPlace,
-        intervalDays: Number(o.intervalDays) || 7,
+        intervalDays: Number(o.intervalDays) || 7, schedule: o.schedule,
         startDate: o.startDate ? o.startDate + 'T15:00:00.000Z' : undefined,
         ...(o.pairing !== 'auto' ? { pairing: o.pairing } : {}),
       }
@@ -331,9 +331,20 @@ function BracketBuilder({ t, stage, onDone, setErr }) {
         </select>
       </label>
       <div className="grid grid-cols-2 gap-3 text-xs text-muted [&>*]:min-w-0">
-        <label>Primera ronda<input type="date" className={inputCls} value={o.startDate} onChange={(e) => setO({ ...o, startDate: e.target.value })} /></label>
-        <label>Días entre rondas<input type="number" min="1" className={inputCls} value={o.intervalDays} onChange={(e) => setO({ ...o, intervalDays: e.target.value })} /></label>
+        <label>{o.schedule === 'interval' ? 'Primera ronda' : o.schedule === 'weekend' ? 'Sábado (primer día)' : 'Día de juego'}<input type="date" className={inputCls} value={o.startDate} onChange={(e) => setO({ ...o, startDate: e.target.value })} /></label>
+        <label>Reparto de rondas
+          <select className={inputCls} value={o.schedule} onChange={(e) => setO({ ...o, schedule: e.target.value })}>
+            <option value="interval">Cada N días</option>
+            <option value="sameDay">Todas el mismo día</option>
+            <option value="weekend">Fin de semana</option>
+          </select>
+        </label>
+        {o.schedule === 'interval' && (
+          <label>Días entre rondas<input type="number" min="1" className={inputCls} value={o.intervalDays} onChange={(e) => setO({ ...o, intervalDays: e.target.value })} /></label>
+        )}
       </div>
+      {o.schedule === 'sameDay' && <p className="text-xs text-muted">Todas las rondas quedan el mismo día; la hora y la cancha se asignan después.</p>}
+      {o.schedule === 'weekend' && <p className="text-xs text-muted">La primera mitad de las rondas va el sábado y el resto el domingo.</p>}
       <Btn tone="accent" disabled={busy} onClick={build} className="w-full">Armar llave</Btn>
     </div>
   )

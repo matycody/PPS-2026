@@ -319,6 +319,11 @@ export default function ControlPage() {
 
       <MiniBoard a={a} b={b} score={m.score} tick={tick} can={can} send={send} live={live} />
       {soundAllowed && <SoundToggle />}
+      {tick?.recovered && (
+        <div className="rounded-2xl border box-warn px-4 py-3 text-sm font-bold text-warn">
+          Reloj recuperado tras un reinicio del servidor: revisá el tiempo y reanudalo a mano.
+        </div>
+      )}
       {err && (
         <button onClick={() => setErr('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border box-danger px-4 py-3 text-left text-sm font-bold text-danger">
           {err} <X size={16} className="shrink-0" />
