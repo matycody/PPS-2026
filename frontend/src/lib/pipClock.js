@@ -128,6 +128,7 @@ function draw(ctx, { m, tick, at }) {
   ctx.fillText(fitText(ctx, nameA, 200), 112, 206)
   ctx.fillText(fitText(ctx, nameB, 200), W - 112, 206)
   box(ctx, W / 2 - 78, 98, 156, 66, 14, '#222831')
+  ctx.fillStyle = '#f2f4f7' // box() deja el color del recuadro; sin esto el marcador queda del mismo color y no se ve
   ctx.font = '600 46px ' + MONO
   ctx.fillText((m?.score?.teamA ?? 0) + ' - ' + (m?.score?.teamB ?? 0), W / 2, 133)
 
