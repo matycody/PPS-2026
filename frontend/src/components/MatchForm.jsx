@@ -10,7 +10,8 @@ export const toLocalInput = (iso) => {
 
 export default function MatchForm({ initial, tournaments, teams, onSubmit, label, busy }) {
   const [f, setF] = useState({
-    tournamentId: initial?.tournament?.id ?? tournaments[0]?.id ?? '',
+    // Al editar se respeta el torneo actual (o amistoso); solo un alta nueva propone el primero
+    tournamentId: initial ? (initial.tournament?.id ?? '') : (tournaments[0]?.id ?? ''),
     court: initial?.court ?? '',
     branch: initial?.branch ?? 'MIXED',
     modality: initial?.modality ?? 'FOAM',

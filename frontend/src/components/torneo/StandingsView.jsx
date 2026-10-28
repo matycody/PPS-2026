@@ -3,6 +3,7 @@ import { api } from '../../lib/api'
 import { Link } from 'react-router-dom'
 import TeamBadge from '../TeamBadge'
 import Forma from './Forma'
+import { socket } from '../../sockets/socket'
 
 const ZONE_CLS = {
   PROMOTION: 'border-l-4 border-l-live',
@@ -13,10 +14,11 @@ const ZONE_CLS = {
 export default function StandingsView({ tournamentId, finished }) {
   const [stages, setStages] = useState(null)
   const [err, setErr] = useState('')
+  const [tick, setTick] = useState(0) // sube cuando cambia un partido: la tabla en vivo se recalcula sola
 
   useEffect(() => {
     let alive = true
-    setStages(null)
+    if (tick === 0) setStages(null) // al refrescar no se vuelve a mostrar "Cargando…"
     const req = finished
       ? Promise.all([
           api('GET', '/tournaments/' + tournamentId + '/final-standings'),
@@ -31,6 +33,16 @@ export default function StandingsView({ tournamentId, finished }) {
       : api('GET', '/tournaments/' + tournamentId + '/standings').then((d) => d.stages)
     req.then((s) => alive && setStages(s)).catch((e) => alive && setErr(e.message))
     return () => { alive = false }
+  }, [tournamentId, finished, tick])
+
+  // Con el torneo en curso, un partido que cambia (por ejemplo uno que termina) actualiza la tabla
+  useEffect(() => {
+    if (finished) return undefined
+    let timer
+    const onUpdated = () => { clearTimeout(timer); timer = setTimeout(() => setTick((x) => x + 1), 1200) }
+    socket.emit('matches:subscribe')
+    socket.on('match:updated', onUpdated)
+    return () => { clearTimeout(timer); socket.off('match:updated', onUpdated); socket.emit('matches:unsubscribe') }
   }, [tournamentId, finished])
 
   if (err) return <p className="text-danger">{err}</p>

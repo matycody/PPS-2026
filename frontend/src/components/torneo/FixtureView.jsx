@@ -7,6 +7,26 @@ import { Btn, Alert, inputCls } from '../ui'
 import StatusPill from '../StatusPill'
 import MatchNotice from '../MatchNotice'
 
+// Fila de un partido: equipos (o lugar por definir), marcador, hora, cancha y estado
+export function MatchRow({ m, base }) {
+  return (
+    <div className="rounded-2xl bg-surface-2 px-3 py-2 text-sm">
+      <Link to={base + m.id} className="flex items-center gap-2">
+        <span className="min-w-0 flex-1 truncate font-semibold">
+          {m.teamA?.name ?? m.fromA?.label ?? '—'}
+          {m.score && (m.status === 'FINISHED' || m.status === 'LIVE')
+            ? <b className="mx-1.5 rounded-lg bg-surface px-2 py-0.5 font-mono tabular-nums">{m.score.teamA} - {m.score.teamB}</b>
+            : ' vs '}
+          {m.teamB?.name ?? m.fromB?.label ?? '—'}
+        </span>
+        <span className="shrink-0 text-xs text-muted">{m.scheduledAt ? fmtWhen(m.scheduledAt) : 'Sin hora'} · {courtLabel(m.court)}</span>
+        <StatusPill status={m.status} />
+      </Link>
+      <MatchNotice m={m} compact className="mt-1" />
+    </div>
+  )
+}
+
 // urls: para rondas de playoffs, { date, assign } reemplaza a los de la jornada del fixture
 export function MatchdayCard({ md, zone, tournamentId, admin, base, onChanged, setErr, urls }) {
   const [date, setDate] = useState(md.date ? md.date.slice(0, 10) : '')
@@ -43,22 +63,7 @@ export function MatchdayCard({ md, zone, tournamentId, admin, base, onChanged, s
         </div>
       )}
       <div className="space-y-2">
-        {md.matches.map((m) => (
-          <div key={m.id} className="rounded-2xl bg-surface-2 px-3 py-2 text-sm">
-            <Link to={base + m.id} className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate font-semibold">
-                {m.teamA?.name ?? m.fromA?.label ?? '—'}
-                {m.score && (m.status === 'FINISHED' || m.status === 'LIVE')
-                  ? <b className="mx-1.5 rounded-lg bg-surface px-2 py-0.5 font-mono tabular-nums">{m.score.teamA} - {m.score.teamB}</b>
-                  : ' vs '}
-                {m.teamB?.name ?? m.fromB?.label ?? '—'}
-              </span>
-              <span className="shrink-0 text-xs text-muted">{m.scheduledAt ? fmtWhen(m.scheduledAt) : 'Sin hora'} · {courtLabel(m.court)}</span>
-              <StatusPill status={m.status} />
-            </Link>
-            <MatchNotice m={m} compact className="mt-1" />
-          </div>
-        ))}
+        {md.matches.map((m) => <MatchRow key={m.id} m={m} base={base} />)}
       </div>
     </div>
   )

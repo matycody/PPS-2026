@@ -7,6 +7,8 @@ import { BRANCH, MODALITY, FORMAT, TSTATUS } from '../lib/format'
 import StandingsView from '../components/torneo/StandingsView'
 import BracketView from '../components/torneo/BracketView'
 import FixtureView from '../components/torneo/FixtureView'
+import ExtraMatchesView from '../components/torneo/ExtraMatchesView'
+import { socket } from '../sockets/socket'
 
 // Detalle público de un torneo: tabla, fixture y llaves
 export default function TorneoPage() {
@@ -14,6 +16,7 @@ export default function TorneoPage() {
   const [t, setT] = useState(null)
   const [tab, setTab] = useState('')
   const [err, setErr] = useState('')
+  const [extra, setExtra] = useState(0) // partidos fuera del fixture: la pestaña aparece solo si hay
 
   useEffect(() => {
     api('GET', '/tournaments/' + id).then((d) => {
@@ -23,6 +26,17 @@ export default function TorneoPage() {
     }).catch((e) => setErr(e.message))
   }, [id])
 
+  // Cantidad de partidos fuera del fixture; se refresca cuando cambia algún partido
+  useEffect(() => {
+    let timer
+    const load = () => api('GET', '/tournaments/' + id + '/extra-matches').then((l) => setExtra(l.length)).catch(() => {})
+    const onUpdated = () => { clearTimeout(timer); timer = setTimeout(load, 1200) }
+    load()
+    socket.emit('matches:subscribe')
+    socket.on('match:updated', onUpdated)
+    return () => { clearTimeout(timer); socket.off('match:updated', onUpdated); socket.emit('matches:unsubscribe') }
+  }, [id])
+
   if (err) return <p className="text-danger">{err}</p>
   if (!t) return <p className="text-muted">Cargando…</p>
 
@@ -30,6 +44,7 @@ export default function TorneoPage() {
   const tabs = [
     ...(t.stages.some((s) => s.type === 'LEAGUE') ? [['tabla', 'Tabla'], ['fixture', 'Fixture']] : []),
     ...(t.stages.some((s) => s.type === 'KNOCKOUT') ? [['llave', 'Playoffs']] : []),
+    ...(extra > 0 ? [['extra', 'Fuera del fixture']] : []),
   ]
   const knockouts = t.stages.filter((s) => s.type === 'KNOCKOUT')
 
@@ -51,6 +66,7 @@ export default function TorneoPage() {
       </div>
       {tab === 'tabla' && <StandingsView tournamentId={t.id} finished={t.status === 'FINISHED'} />}
       {tab === 'fixture' && <FixtureView tournamentId={t.id} />}
+      {tab === 'extra' && <ExtraMatchesView tournamentId={t.id} />}
       {tab === 'llave' && knockouts.map((s) => (
         <div key={s.id} className="space-y-2">
           <p className="text-xs font-bold uppercase tracking-widest text-muted">{s.name}</p>

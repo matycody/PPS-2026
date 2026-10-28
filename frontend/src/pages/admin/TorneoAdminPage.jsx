@@ -9,6 +9,7 @@ import { useConfirm } from '../../components/ConfirmProvider'
 import StandingsView from '../../components/torneo/StandingsView'
 import BracketView from '../../components/torneo/BracketView'
 import FixtureView, { PlayoffsSchedule } from '../../components/torneo/FixtureView'
+import ExtraMatchesView from '../../components/torneo/ExtraMatchesView'
 import BracketEditor, { emptyBracket, fromView } from '../../components/torneo/BracketEditor'
 
 const TABS = [
@@ -244,6 +245,7 @@ function FixtureTab({ t, setErr }) {
       )}
       <FixtureView tournamentId={t.id} admin base="/admin/partidos/" reloadKey={tick} onLoaded={setDays} />
       <PlayoffsSchedule tournamentId={t.id} stages={t.stages.filter((x) => x.type === 'KNOCKOUT')} base="/admin/partidos/" reloadKey={tick} />
+      <ExtraMatchesView tournamentId={t.id} t={t} days={days} admin base="/admin/partidos/" reloadKey={tick} onChanged={() => setTick((x) => x + 1)} />
     </div>
   )
 }
