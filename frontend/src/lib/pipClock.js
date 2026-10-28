@@ -4,6 +4,9 @@
 //  - iOS / Safari: video.webkitSetPresentationMode('picture-in-picture')
 // Los relojes avanzan solos entre un tick y otro (por si el navegador demora los eventos en segundo plano).
 
+import { fmt, nowSec } from './pipTime'
+import { startDocPip, docPipSupported } from './pipDocument'
+
 const W = 640
 const H = 460
 const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
@@ -11,6 +14,7 @@ const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
 
 export function pipSupported() {
   if (typeof document === 'undefined') return false
+  if (docPipSupported()) return true
   if (typeof HTMLCanvasElement === 'undefined' || typeof HTMLCanvasElement.prototype.captureStream !== 'function') return false
   const v = document.createElement('video')
   const std = !!document.pictureInPictureEnabled && typeof v.requestPictureInPicture === 'function'
@@ -33,18 +37,6 @@ function logoOf(url) {
     logos.set(url, e)
   }
   return e.ok ? e.img : null
-}
-
-const toSec = (s) => {
-  const m = /^(\d+):(\d{2})$/.exec(String(s ?? ''))
-  return m ? Number(m[1]) * 60 + Number(m[2]) : null
-}
-const fmt = (sec) => (sec == null ? '--:--' : String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'))
-// Segundos que quedan ahora: el último tick menos lo que pasó desde que llegó (si el reloj corre)
-const nowSec = (str, running, at) => {
-  const s = toSec(str)
-  if (s == null) return null
-  return running ? Math.max(0, s - Math.floor((Date.now() - at) / 1000)) : s
 }
 
 function fitText(ctx, text, maxW) {
@@ -179,6 +171,10 @@ function draw(ctx, { m, tick, at }) {
 // Abre el PiP (hay que llamarlo desde un toque del usuario). getState() devuelve { m, tick, at }.
 // onClose se avisa cuando se cierra la ventanita (por el usuario o por el sistema). Devuelve { stop }.
 export async function startPip(getState, onClose) {
+  // PC (Chrome/Edge): ventana flotante real siempre visible, como Spotify o Meet
+  if (docPipSupported()) {
+    try { return await startDocPip(getState, onClose) } catch { /* sigue con el PiP de video */ }
+  }
   if (!pipSupported()) throw new Error('Tu navegador no permite fijar el reloj')
   const canvas = document.createElement('canvas')
   canvas.width = W
