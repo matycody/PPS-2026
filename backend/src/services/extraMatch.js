@@ -60,12 +60,15 @@ async function placeInFixture(tx, { stage, matchday }, scheduledAt) {
 }
 
 // Partidos del torneo que no pertenecen a ninguna zona ni llave (público; respeta ocultos y pausa)
-function listExtraMatches(tournamentId, TEAM_SELECT) {
+function listExtraMatches(tournamentId, TEAM_SELECT, includePaused = false) {
   return prisma.match.findMany({
-    where: { tournamentId, stageId: null, hiddenAt: null },
+    where: includePaused
+      ? { tournamentId, stageId: null, OR: [{ hiddenAt: null }, { hiddenByPause: true }] }
+      : { tournamentId, stageId: null, hiddenAt: null },
     orderBy: [{ scheduledAt: 'asc' }, { createdAt: 'asc' }],
     select: {
       id: true,
+      hiddenByPause: true,
       court: true,
       status: true,
       statusReason: true,

@@ -218,6 +218,8 @@ router.delete('/:id/stages/:stageId/fixture', ...admin, async (req, res) => {
 // Calendario del torneo (público): jornadas con sus partidos. Filtro opcional: stageId
 router.get('/:id/matchdays', async (req, res) => {
   try {
+    // En un torneo pausado la organización sigue viendo los partidos que ocultó la pausa (marcados paused: true)
+    const showPaused = Boolean(req.user && req.user.roles.includes('ADMIN'));
     const where = { stage: { tournamentId: req.params.id } };
     if (req.query.stageId) where.stageId = String(req.query.stageId);
     res.json(
@@ -227,10 +229,11 @@ router.get('/:id/matchdays', async (req, res) => {
         include: {
           stage: { select: { id: true, name: true } },
           matches: {
-            where: { hiddenAt: null },
+            where: showPaused ? { OR: [{ hiddenAt: null }, { hiddenByPause: true }] } : { hiddenAt: null },
             orderBy: [{ slot: 'asc' }],
             select: {
               id: true,
+              hiddenByPause: true,
               slot: true,
               court: true,
               status: true,
@@ -248,7 +251,7 @@ router.get('/:id/matchdays', async (req, res) => {
         },
       }).then((list) => list.map((md) => ({
         ...md,
-        matches: md.matches.map(({ sets, modality, teamAId, teamBId, ...m }) => ({ ...m, score: setScore({ sets, modality, teamAId, teamBId }) })),
+        matches: md.matches.map(({ sets, modality, teamAId, teamBId, hiddenByPause, ...m }) => ({ ...m, ...(hiddenByPause ? { paused: true } : {}), score: setScore({ sets, modality, teamAId, teamBId }) })),
       }))),
     );
   } catch (err) {
@@ -261,8 +264,8 @@ router.get('/:id/extra-matches', async (req, res) => {
   try {
     const t = await prisma.tournament.findUnique({ where: { id: req.params.id }, select: { id: true } });
     if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
-    const list = await listExtraMatches(req.params.id, TEAM_SELECT);
-    res.json(list.map(({ sets, modality, teamAId, teamBId, ...m }) => ({ ...m, score: setScore({ sets, modality, teamAId, teamBId }) })));
+    const list = await listExtraMatches(req.params.id, TEAM_SELECT, Boolean(req.user && req.user.roles.includes('ADMIN')));
+    res.json(list.map(({ sets, modality, teamAId, teamBId, hiddenByPause, ...m }) => ({ ...m, ...(hiddenByPause ? { paused: true } : {}), score: setScore({ sets, modality, teamAId, teamBId }) })));
   } catch (err) {
     handleDbError(err, res);
   }
