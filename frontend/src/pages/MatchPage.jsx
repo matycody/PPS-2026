@@ -45,7 +45,7 @@ export default function MatchPage() {
   const [tick, setTick] = useState(null)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
-  const pip = usePipClock(m, tick)
+  const pip = usePipClock(m)
   useWakeLock(!!tick && (!tick.isMatchPaused || !tick.isSetPaused || !!tick.isTimeoutRunning))
 
   useEffect(() => {
@@ -131,7 +131,7 @@ export default function MatchPage() {
         />
       </div>
 
-      {pip.supported && m.status !== 'FINISHED' && (
+      {pip.canPin && (
         <div className="flex flex-col items-end gap-1">
           <button type="button" onClick={pip.toggle} className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-line bg-surface px-3 text-sm font-bold">
             <PictureInPicture2 size={16} /> {pip.active ? 'Quitar reloj flotante' : 'Fijar reloj'}

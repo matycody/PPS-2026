@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Pin, PinOff } from 'lucide-react'
 import GoTo from './GoTo'
 import StatusPill from './StatusPill'
 import MatchNotice from './MatchNotice'
@@ -6,6 +7,7 @@ import Versus from './Versus'
 import { fmtWhen, BRANCH, MODALITY, courtLabel } from '../lib/format'
 import { useLiveTick } from '../lib/liveTicks'
 import { statusBorder } from '../lib/statusStyle'
+import { usePipClock } from '../hooks/usePipClock'
 
 // "1:48" -> "01:48"
 const clock = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
@@ -14,6 +16,7 @@ const CTA = { LIVE: 'Ver en vivo', READY: 'Ver partido', SCHEDULED: 'Ver partido
 
 export default function MatchCard({ m, featured = false, to, badge }) {
   const tick = useLiveTick(m.id, m.status === 'LIVE')
+  const pip = usePipClock(m)
   const showScore = m.status === 'LIVE' || m.status === 'FINISHED'
   const center = showScore ? (
     <div className="flex flex-col items-center gap-1">
@@ -26,11 +29,12 @@ export default function MatchCard({ m, featured = false, to, badge }) {
   ) : undefined
 
   return (
+    <div className="relative">
     <Link
       to={to ?? '/partido/' + m.id}
       className={'block rounded-3xl border bg-surface p-5 ' + statusBorder(m.status, featured ? 'border-live/40' : 'border-line')}
     >
-      <div className="flex items-center justify-between">
+      <div className={'flex items-center justify-between ' + (pip.canPin ? 'pr-8' : '')}>
         <StatusPill status={m.status} />
         <span className="text-sm text-muted">{courtLabel(m.court)}</span>
       </div>
@@ -59,5 +63,20 @@ export default function MatchCard({ m, featured = false, to, badge }) {
         </div>
       )}
     </Link>
+    {pip.canPin && (
+      <>
+        <button
+          type="button"
+          onClick={pip.toggle}
+          aria-label={pip.active ? 'Quitar reloj flotante' : 'Fijar reloj flotante'}
+          aria-pressed={pip.active}
+          className={'absolute right-1 top-1 grid h-11 w-11 place-items-center rounded-full ' + (pip.active ? 'text-live' : 'text-muted')}
+        >
+          {pip.active ? <PinOff size={18} /> : <Pin size={18} />}
+        </button>
+        {pip.error && <p className="px-5 pb-2 text-center text-xs text-danger">{pip.error}</p>}
+      </>
+    )}
+    </div>
   )
 }
