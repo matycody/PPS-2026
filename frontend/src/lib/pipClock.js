@@ -187,8 +187,28 @@ export async function startPip(getState, onClose) {
   video.playsInline = true
   video.setAttribute('playsinline', '')
   video.setAttribute('aria-hidden', 'true')
-  video.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0.01;pointer-events:none'
-  video.srcObject = canvas.captureStream(10)
+  // Tamaño real (aunque casi invisible): Safari de iPhone no siempre acepta pasar a PiP un video diminuto
+  video.style.cssText = 'position:fixed;left:0;bottom:0;width:160px;height:116px;opacity:0.01;pointer-events:none;z-index:-1'
+  const stream = canvas.captureStream(10)
+  const std = typeof video.requestPictureInPicture === 'function' && !!document.pictureInPictureEnabled
+  let audioCtx = null
+  if (!std) {
+    // iOS: se le suma una pista de audio en silencio (el video sigue silenciado), Safari la suele pedir para ofrecer PiP
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext
+      if (AC) {
+        audioCtx = new AC()
+        const dest = audioCtx.createMediaStreamDestination()
+        const osc = audioCtx.createOscillator()
+        const gain = audioCtx.createGain()
+        gain.gain.value = 0
+        osc.connect(gain).connect(dest)
+        osc.start()
+        dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t))
+      }
+    } catch { /* sin audio: se intenta igual */ }
+  }
+  video.srcObject = stream
   document.body.appendChild(video)
 
   let done = false
@@ -204,6 +224,7 @@ export async function startPip(getState, onClose) {
     video.pause()
     video.srcObject = null
     video.remove()
+    try { audioCtx?.close() } catch { /* ya cerrado */ }
     onClose?.()
   }
   video.addEventListener('leavepictureinpicture', stop)
@@ -211,12 +232,35 @@ export async function startPip(getState, onClose) {
 
   timer = setInterval(() => draw(ctx, getState()), 200)
   try {
-    await video.play()
-    if (typeof video.requestPictureInPicture === 'function' && document.pictureInPictureEnabled) await video.requestPictureInPicture()
-    else video.webkitSetPresentationMode('picture-in-picture')
+    const playing = video.play() // arranca dentro del toque del usuario
+    if (std) {
+      await playing
+      await video.requestPictureInPicture()
+    } else {
+      await enterWebkitPip(video, playing)
+    }
   } catch (e) {
+    const info = ' [' + [e?.name, e?.message].filter(Boolean).join(': ') + ' | modo=' + video.webkitPresentationMode + ' ready=' + video.readyState + ' video=' + stream.getVideoTracks().length + ' audio=' + stream.getAudioTracks().length + ']'
     stop()
-    throw new Error('No se pudo fijar el reloj en este dispositivo')
+    throw new Error('No se pudo fijar el reloj' + info)
   }
   return { stop }
+}
+
+// Safari de iPhone: PiP con la API propia de WebKit. Se intenta apenas se toca (dentro del gesto) y de nuevo cuando el video ya está reproduciendo.
+async function enterWebkitPip(video, playing) {
+  const inPip = () => video.webkitPresentationMode === 'picture-in-picture'
+  let last = null
+  const attempt = () => {
+    try { video.webkitSetPresentationMode('picture-in-picture') } catch (e) { last = e }
+  }
+  attempt()
+  try { await playing } catch (e) { last = e }
+  if (!inPip()) attempt()
+  if (!inPip()) {
+    await new Promise((r) => setTimeout(r, 400))
+    if (!inPip()) attempt()
+  }
+  await new Promise((r) => setTimeout(r, 300))
+  if (!inPip()) throw last ?? new Error('Safari no abrió la ventana flotante')
 }
