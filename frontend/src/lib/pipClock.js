@@ -7,6 +7,7 @@
 import { fmt, nowSec } from './pipTime'
 import { startDocPip, docPipSupported } from './pipDocument'
 
+let flick = 0
 const W = 640
 const H = 460
 const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
@@ -166,6 +167,10 @@ function draw(ctx, { m, tick, at }) {
     ctx.textAlign = 'center'
     ctx.fillText(fitText(ctx, m.tournament.name, W - 48), W / 2, 412)
   }
+  // Un píxel que cambia siempre: sin cambios en el canvas Safari no entrega cuadros y el video queda sin cargar (readyState 0)
+  flick ^= 1
+  ctx.fillStyle = flick ? '#14171c' : '#14171d'
+  ctx.fillRect(0, 0, 2, 2)
 }
 
 // Canvas + video listos para pasar a PiP. Safari solo deja abrir el PiP dentro del toque del usuario y con el video
@@ -206,7 +211,9 @@ function createSurface() {
   }
   video.srcObject = stream
   document.body.appendChild(video)
-  return { canvas, ctx, video, stream, audioCtx }
+  // Mientras espera, redibuja para que el video reciba cuadros y cargue
+  const idle = setInterval(() => draw(ctx, { m: null, tick: null, at: Date.now() }), 200)
+  return { canvas, ctx, video, stream, audioCtx, idle }
 }
 
 let warm = null
@@ -229,7 +236,8 @@ export async function startPip(getState, onClose) {
   if (!pipSupported()) throw new Error('Tu navegador no permite fijar el reloj')
   const std = hasStd()
   const fresh = !warm
-  const { ctx, video, stream, audioCtx } = warm ?? createSurface()
+  const { ctx, video, stream, audioCtx, idle } = warm ?? createSurface()
+  clearInterval(idle)
   warm = null
   draw(ctx, getState())
 
