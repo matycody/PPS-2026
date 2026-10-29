@@ -8,6 +8,8 @@ import { BRANCH, MODALITY, normMatch } from '../lib/format'
 import TeamBadge from '../components/TeamBadge'
 import Roster from '../components/Roster'
 import MatchCard from '../components/MatchCard'
+import MatchRow from '../components/MatchRow'
+import GoTo from '../components/GoTo'
 import ResultRow, { outcome } from '../components/ResultRow'
 import Posiciones from '../components/team/Posiciones'
 
@@ -26,6 +28,8 @@ const Chip = ({ on, onClick, children }) => (
     {children}
   </button>
 )
+
+const NEXT_MAX = 5 // próximos compactos visibles antes de "Ver todos"
 
 // Banner del equipo: datos, récord, próximos partidos, resultados y plantel
 export default function TeamPage() {
@@ -49,6 +53,19 @@ export default function TeamPage() {
     [matches, mod, br]
   )
   const next = useMemo(() => shown.filter((m) => ACTIVE.includes(m.status)).sort(byDate(1)), [shown])
+  // Próximos: los en vivo siempre arriba y grandes; el resto compacto (hasta NEXT_MAX) y agrupado por torneo
+  const live = useMemo(() => next.filter((m) => m.status === 'LIVE'), [next])
+  const upcoming = useMemo(() => next.filter((m) => m.status !== 'LIVE'), [next])
+  const groups = useMemo(() => {
+    const out = []
+    ;(more.next ? upcoming : upcoming.slice(0, NEXT_MAX)).forEach((m) => {
+      const gid = m.tournament?.id ?? 'none'
+      let g = out.find((x) => x.id === gid)
+      if (!g) out.push((g = { id: gid, name: m.tournament?.name ?? 'Amistosos', list: [] }))
+      g.list.push(m)
+    })
+    return out
+  }, [upcoming, more.next])
   // Resultados de adelante para atrás: dentro de cada torneo primero la instancia más avanzada (final, tercer puesto, semis… Fecha 3, 2, 1)
   const done = useMemo(() => {
     const fin = shown.filter((m) => m.status === 'FINISHED').sort(byDate(-1))
@@ -139,13 +156,25 @@ export default function TeamPage() {
       {tab === 'posiciones' && <Posiciones teamId={id} mod={mod} br={br} />}
 
       {tab === 'proximos' && (
-        <section className="space-y-2">
+        <section className="space-y-3">
           {matches === null && <p className="text-muted">Cargando…</p>}
           {matches && next.length === 0 && <p className="text-muted">No hay partidos programados.</p>}
-          {(more.next ? next : next.slice(0, 3)).map((m) => <MatchCard key={m.id} m={m} />)}
-          {next.length > 3 && (
+          {/* En vivo: tarjeta grande; el resto, compacto y agrupado por torneo como en el Inicio */}
+          {live.map((m) => <MatchCard key={m.id} m={m} />)}
+          {groups.map((g) => (
+            <div key={g.id} className="overflow-hidden rounded-2xl border border-line bg-surface">
+              <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
+                {g.id !== 'none'
+                  ? <GoTo to={'/liga/' + g.id} className="min-w-0 truncate text-sm font-extrabold text-accent">{g.name} ›</GoTo>
+                  : <span className="min-w-0 truncate text-sm font-extrabold">{g.name}</span>}
+                <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted">{g.list.length} {g.list.length === 1 ? 'partido' : 'partidos'}</span>
+              </div>
+              <div className="divide-y divide-line">{g.list.map((m) => <MatchRow key={m.id} m={m} flat />)}</div>
+            </div>
+          ))}
+          {upcoming.length > NEXT_MAX && (
             <button onClick={() => setMore((s) => ({ ...s, next: !s.next }))} className="w-full rounded-2xl border border-line bg-surface py-2 text-sm font-bold">
-              {more.next ? 'Ver menos' : 'Ver todos (' + next.length + ')'}
+              {more.next ? 'Ver menos' : 'Ver todos (' + upcoming.length + ')'}
             </button>
           )}
         </section>
