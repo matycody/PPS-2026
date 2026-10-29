@@ -96,7 +96,7 @@ export default function StandingsView({ tournamentId, finished }) {
             </table>
           </div>
           <p className="px-4 pb-3 pt-2 text-[11px] text-muted">
-            PJ jugados · G ganados · E empatados · P perdidos · DS diferencia de sets · Últimas: V ganó, E empató, D perdió (los 5 más recientes de esta modalidad, el más nuevo a la derecha). Si hay empate total, se muestra en el orden de la tabla.
+            PJ jugados · G ganados · E empatados · P perdidos · DS diferencia de sets · Últimas: V ganó, E empató, D perdió
           </p>
         </div>
       ))}

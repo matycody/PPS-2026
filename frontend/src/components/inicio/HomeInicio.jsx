@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CalendarDays } from 'lucide-react'
+import { CalendarDays, Heart, Star } from 'lucide-react'
 import MatchCard from '../MatchCard'
 import MatchRow from '../MatchRow'
 import GoTo from '../GoTo'
@@ -8,6 +8,8 @@ import { api } from '../../lib/api'
 import { normMatch, phaseCmp, BRANCH, MODALITY } from '../../lib/format'
 import { dayOf, dayTab } from '../../lib/days'
 import { socket } from '../../sockets/socket'
+import { useAuthStore } from '../../stores/authStore'
+import { useFavorites } from '../../stores/favoritesStore'
 
 const CAL_BACK = 90 // días hacia atrás que se cargan
 const CAL_AHEAD = 180 // y hacia adelante
@@ -27,6 +29,11 @@ export default function HomeInicio({ byId, loading, error, children }) {
   const [phasePick, setPhasePick] = useState('all')
   const [cal, setCal] = useState(null)
   const [calTry, setCalTry] = useState(0)
+  const uid = useAuthStore((s) => s.user?.id)
+  const { teams: favTeams, tournaments: favTours, loaded: favLoaded, load: loadFavs, clear: clearFavs } = useFavorites()
+  useEffect(() => { if (uid) loadFavs(); else clearFavs() }, [uid])
+  const favReady = !uid || favLoaded // hasta tener los favoritos no se elige día (evita saltos)
+  const isFav = (m) => favTeams.has(m.teamA?.id) || favTeams.has(m.teamB?.id)
   const [lock, setLock] = useState(null) // pestaña elegida al entrar: después no se mueve sola
 
   const setParams = (changes) => {
@@ -64,7 +71,8 @@ export default function HomeInicio({ byId, loading, error, children }) {
     const dayKeys = Object.keys(calDays).sort()
     const today = dayOf(new Date())
     // Hasta que llega el calendario completo no se elige día (evita saltar de la jornada pasada a la próxima)
-    const autoRaw = cal === null && calTry < 3 ? null : live.length ? 'live' : dayKeys.includes(today) ? today : dayKeys.find((d) => d >= today) ?? dayKeys[dayKeys.length - 1] ?? (undated.length ? 'none' : null)
+    const favDay = favTeams.size ? dayKeys.find((d) => d >= today && calDays[d].some(isFav)) : undefined // próximo día en que juega un equipo favorito
+    const autoRaw = (cal === null && calTry < 3) || !favReady ? null : live.length ? 'live' : favDay ? favDay : dayKeys.includes(today) ? today : dayKeys.find((d) => d >= today) ?? dayKeys[dayKeys.length - 1] ?? (undated.length ? 'none' : null)
     const auto = lock === 'live' && !live.length ? autoRaw : lock ?? autoRaw // si terminó el último en vivo, vuelve al día
     const sel = dPick === 'live' || dPick === 'none' || (dPick && DATE_RE.test(dPick)) ? dPick : auto
     const tabs = [...new Set([...dayKeys, ...(sel && DATE_RE.test(sel) ? [sel] : [])])].sort()
@@ -73,7 +81,7 @@ export default function HomeInicio({ byId, loading, error, children }) {
     const tmap = new Map()
     all.forEach((m) => { if (!tmap.has(tid(m))) tmap.set(tid(m), { id: tid(m), name: m.tournament?.name ?? 'Amistoso', n: 0 }) })
     dayList.forEach((m) => { tmap.get(tid(m)).n++ })
-    const tournaments = [...tmap.values()].sort((a, b) => (b.n > 0) - (a.n > 0) || a.name.localeCompare(b.name))
+    const tournaments = [...tmap.values()].sort((a, b) => favTours.has(b.id) - favTours.has(a.id) || (b.n > 0) - (a.n > 0) || a.name.localeCompare(b.name))
     const tCur = tPick !== 'all' && tmap.has(tPick) ? tPick : 'all'
 
     // Fechas del torneo elegido (Fecha 1, 2, Semifinal…), de cualquier día
@@ -92,8 +100,12 @@ export default function HomeInicio({ byId, loading, error, children }) {
       g.list.push(m)
     })
 
-    return { autoRaw, dayCount: dayList.length, live, calDays, tabs, sel, tournaments, tCur, phaseOpts, phaseCur, shown, groups, hasUndated: undated.length > 0 }
-  }, [all, cal, calTry, lock, dPick, tPick, phasePick])
+    groups.sort((a, b) => favTours.has(b.id) - favTours.has(a.id))
+    const mine = favTeams.size && sel && sel !== 'live' ? dayList.filter((m) => isFav(m) && (tCur === 'all' || tid(m) === tCur)).sort(byStatus) : []
+    const favDays = new Set(Object.keys(calDays).filter((d) => calDays[d].some(isFav)))
+    const liveSorted = [...live].sort((a, b) => isFav(b) - isFav(a))
+    return { mine, favDays, liveSorted, autoRaw, dayCount: dayList.length, live, calDays, tabs, sel, tournaments, tCur, phaseOpts, phaseCur, shown, groups, hasUndated: undated.length > 0 }
+  }, [all, cal, calTry, lock, dPick, tPick, phasePick, favTeams, favTours, favReady])
 
   useEffect(() => { if (lock === null && v.autoRaw) setLock(v.autoRaw) }, [lock, v.autoRaw])
 
@@ -127,6 +139,7 @@ export default function HomeInicio({ byId, loading, error, children }) {
                 {d === liveBefore && liveTab}
                 <button id={'daytab-' + d} onClick={() => setParams({ d, t: null })} aria-pressed={v.sel === d} className={pill(v.sel === d)}>
                   {dayTab(d)}{countOf(d) ? ' · ' + countOf(d) : ''}
+                  {v.favDays.has(d) && <span aria-label="Juega un equipo tuyo" className={'ml-1.5 inline-block h-2 w-2 rounded-full align-middle ' + (v.sel === d ? 'bg-black' : 'bg-accent')} />}
                 </button>
               </Fragment>
             ))}
@@ -153,7 +166,7 @@ export default function HomeInicio({ byId, loading, error, children }) {
             {v.tournaments.map((t) => (
               <button key={t.id} onClick={() => { setParams({ t: t.id }); setPhasePick('all') }} aria-pressed={v.tCur === t.id}
                 className={pill(v.tCur === t.id) + (t.n === 0 && v.tCur !== t.id ? ' opacity-50' : '')}>
-                {t.name}{t.n ? ' · ' + t.n : ''}
+                {favTours.has(t.id) && <Star size={13} className="mr-1 inline fill-current align-[-1px]" />}{t.name}{t.n ? ' · ' + t.n : ''}
               </button>
             ))}
           </div>
@@ -176,14 +189,29 @@ export default function HomeInicio({ byId, loading, error, children }) {
       {cal === null && calTry < 3 && <p className="text-muted">Cargando…</p>}
 
       {v.sel === 'live' ? (
-        v.live.length ? <div className="space-y-4">{v.live.map((m) => <MatchCard key={m.id} m={m} featured />)}</div> : <p className="text-muted">No hay partidos en vivo.</p>
+        v.live.length ? <div className="space-y-4">{v.liveSorted.map((m) => <MatchCard key={m.id} m={m} featured />)}</div> : <p className="text-muted">No hay partidos en vivo.</p>
       ) : (
         <>
+          {favTeams.size > 0 && v.sel && (
+            <section className="space-y-2">
+              <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted"><Heart size={14} className="fill-accent text-accent" /> Tus partidos</h2>
+              {v.mine.length ? (
+                <div className="overflow-hidden rounded-2xl border border-accent/40 bg-surface">
+                  <div className="divide-y divide-line">
+                    {v.mine.map((m) => (m.status === 'LIVE' ? <div key={m.id} className="p-2"><MatchCard m={m} /></div> : <MatchRow key={m.id} m={m} flat />))}
+                  </div>
+                </div>
+              ) : (
+                <p className="rounded-2xl border border-line bg-surface px-4 py-4 text-sm font-semibold text-muted">No seguís partidos en este día.</p>
+              )}
+              <h2 className="pt-2 text-xs font-bold uppercase tracking-widest text-muted">Todos los partidos</h2>
+            </section>
+          )}
           {v.groups.map((g) => (
             <section key={g.id} className="overflow-hidden rounded-2xl border border-line bg-surface">
               <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
                 {g.id !== 'none'
-                  ? <GoTo to={'/liga/' + g.id} className="min-w-0 truncate text-sm font-extrabold text-accent">{g.name} ›</GoTo>
+                  ? <GoTo to={'/liga/' + g.id} className="min-w-0 truncate text-sm font-extrabold text-accent">{favTours.has(g.id) && <Star size={13} className="mr-1 inline fill-accent align-[-1px]" />}{g.name} ›</GoTo>
                   : <span className="min-w-0 truncate text-sm font-extrabold">{g.name}</span>}
                 <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted">
                   {[MODALITY[g.modality], BRANCH[g.branch]].filter(Boolean).join(' · ')} · {g.list.length} {g.list.length === 1 ? 'partido' : 'partidos'}

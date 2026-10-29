@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Check, Search } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Heart, Search, Trophy } from 'lucide-react'
 import { api } from '../lib/api'
 import { BRANCH, MODALITY } from '../lib/format'
 import { markOnboarding } from '../lib/onboarding'
@@ -70,11 +70,19 @@ export default function OnboardingPage() {
         {step > 0 ? (
           <button onClick={() => { setStep(step - 1); setQ('') }} aria-label="Volver" className="grid h-11 w-11 place-items-center rounded-full border border-line bg-surface"><ArrowLeft size={20} /></button>
         ) : <span className="h-11 w-11" />}
-        <button onClick={done} className="rounded-full px-3 py-2 text-sm font-bold text-muted">Omitir</button>
+        <button onClick={done} className="rounded-full border border-line bg-surface px-4 py-2 text-sm font-bold">Omitir</button>
       </div>
 
-      <h1 className="mt-4 text-2xl font-extrabold">{cur.title}</h1>
-      <p className="mt-1 text-sm text-muted">{cur.hint}</p>
+      <div className="mt-4 flex items-center gap-4 rounded-3xl border border-line bg-surface p-4">
+        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
+          {cur.type === 'TEAM' ? <Heart size={28} className="fill-current" /> : <Trophy size={28} />}
+        </span>
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-accent">Paso {step + 1} de {STEPS.length}</p>
+          <h1 className="text-xl font-extrabold leading-tight" style={{ textShadow: 'none' }}>{cur.title}</h1>
+          <p className="mt-0.5 text-sm text-muted">{cur.hint}</p>
+        </div>
+      </div>
 
       <div className="relative mt-4">
         <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
