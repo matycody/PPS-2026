@@ -52,6 +52,7 @@ app.get("/health", (req, res) => {
 });
 
 // Auth, perfiles, equipos, torneos, partidos, usuarios y favoritos
+app.use("/auth", require("./src/routes/authLogin"));
 app.use("/me", require("./src/routes/me"));
 app.use("/profiles", require("./src/routes/profiles"));
 app.use("/teams", require("./src/routes/teams"));

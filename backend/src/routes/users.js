@@ -25,14 +25,14 @@ router.get('/', async (req, res) => {
   try {
     const { q, role, active } = req.query;
     const where = {};
-    if (q) where.email = { contains: String(q).toLowerCase() };
+    if (q) { const t = String(q).toLowerCase(); where.OR = [{ email: { contains: t } }, { username: { contains: t } }]; }
     if (ROLES.includes(role)) where.roles = { has: role };
     if (active !== undefined) where.active = active === 'true';
 
     const users = await prisma.user.findMany({
       where,
       orderBy: { email: 'asc' },
-      select: { id: true, email: true, roles: true, active: true, profileId: true, createdAt: true },
+      select: { id: true, email: true, username: true, roles: true, active: true, profileId: true, createdAt: true },
     });
     res.json(users);
   } catch (err) {
