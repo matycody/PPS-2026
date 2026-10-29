@@ -33,8 +33,14 @@ export default function TorneoPage() {
     const onUpdated = () => { clearTimeout(timer); timer = setTimeout(load, 1200) }
     load()
     socket.emit('matches:subscribe')
+    // Pausa o reanudación del torneo: se vuelve a pedir (a quien no es organización le sale "no encontrado" mientras está pausado)
+    const onTour = (p) => {
+      if (p.tournamentId !== id) return
+      api('GET', '/tournaments/' + id).then((d) => { setErr(''); setT(d); load() }).catch((e) => setErr(e.message))
+    }
     socket.on('match:updated', onUpdated)
-    return () => { clearTimeout(timer); socket.off('match:updated', onUpdated); socket.emit('matches:unsubscribe') }
+    socket.on('tournament:updated', onTour)
+    return () => { clearTimeout(timer); socket.off('match:updated', onUpdated); socket.off('tournament:updated', onTour); socket.emit('matches:unsubscribe') }
   }, [id])
 
   if (err) return <p className="text-danger">{err}</p>

@@ -13,7 +13,8 @@ export function usePipClock(m) {
     setError('')
     try { await togglePip(m) } catch (e) { setError(e.message) }
   }, [m])
-  const canPin = supported && !!m && CAN_PIN.includes(m.status)
+  // El reloj fijado no se saca solo: si el partido terminó, la chincheta sigue para poder quitarlo
+  const canPin = supported && !!m && (CAN_PIN.includes(m.status) || activeId === m.id)
   useEffect(() => { if (canPin) warmPip() }, [canPin])
   return {
     supported,

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTournamentLive } from '../../hooks/useTournamentLive'
 import { Link, useNavigate } from 'react-router-dom'
 import { Pencil, Trash2, ChevronUp, ChevronDown, ChevronRight, Trophy } from 'lucide-react'
 import { api } from '../../lib/api'
@@ -35,6 +36,7 @@ export default function TorneosPage() {
     .then(setList).catch((e) => setErr(e.message))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [yearFilter])
+  useTournamentLive(() => load())
 
   function move(i, d) {
     setTb((a) => { const b = [...a]; const j = i + d; if (j < 0 || j >= b.length) return a; [b[i], b[j]] = [b[j], b[i]]; return b })

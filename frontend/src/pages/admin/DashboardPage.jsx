@@ -52,6 +52,9 @@ function CourtMatch({ m, tick, full, run, busy }) {
         <span className="text-xs font-bold uppercase tracking-widest text-muted">{fmtWhen(m.scheduledAt)}</span>
         {paused ? <span className="rounded-full bg-warn/15 px-3 py-1 text-xs font-bold uppercase text-warn">Pausado</span> : <StatusPill status={m.status} />}
       </div>
+      {m.status === 'LIVE' && tick?.recovered && (
+        <p className="rounded-xl bg-warn/15 px-3 py-2 text-center text-xs font-bold text-warn">Reloj recuperado tras un reinicio del servidor: revisá el tiempo y reanudalo en Control.</p>
+      )}
       <Versus a={m.teamA} b={m.teamB} formA={m.form?.A} formB={m.form?.B} rankA={m.form?.rankA} rankB={m.form?.rankB} size={full ? 'lg' : 'md'} center={center} />
       {pip.error && <p className="text-center text-xs text-danger">{pip.error}</p>}
       <p className="text-center text-xs font-bold uppercase tracking-wider text-muted">{matchInfo(m)}</p>

@@ -7,6 +7,7 @@ import { BRANCH, MODALITY, FORMAT, TSTATUS, CRITERIA } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import { useConfirm } from '../../components/ConfirmProvider'
 import StandingsView from '../../components/torneo/StandingsView'
+import { useTournamentLive } from '../../hooks/useTournamentLive'
 import BracketView from '../../components/torneo/BracketView'
 import FixtureView, { PlayoffsSchedule } from '../../components/torneo/FixtureView'
 import ExtraMatchesView from '../../components/torneo/ExtraMatchesView'
@@ -552,6 +553,7 @@ export default function TorneoAdminPage() {
 
   const load = useCallback(() => api('GET', '/tournaments/' + id).then(setT).catch((e) => setErr(e.message)), [id])
   useEffect(() => { load() }, [load])
+  useTournamentLive((p) => { if (p.tournamentId === id) load() }) // otro admin pausó o reanudó este torneo
 
   if (!t) return err ? <Alert onClose={() => setErr('')}>{err}</Alert> : <p className="text-muted">Cargando…</p>
   const st = TSTATUS[t.status]

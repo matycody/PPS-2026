@@ -131,6 +131,10 @@ export default function MatchPage() {
         />
       </div>
 
+      {tick?.recovered && (
+        <p className="rounded-2xl bg-warn/15 px-4 py-3 text-center text-sm font-bold text-warn">Reloj recuperado tras un reinicio del servidor: puede que el tiempo no sea exacto hasta que la mesa lo reanude.</p>
+      )}
+
       {pip.canPin && (
         <div className="flex flex-col items-end gap-1">
           <button type="button" onClick={pip.toggle} className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-line bg-surface px-3 text-sm font-bold">
