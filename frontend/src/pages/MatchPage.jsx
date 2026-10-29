@@ -1,5 +1,6 @@
 import { halfLabel } from '../lib/pipTime'
 import { useEffect, useState } from 'react'
+import FavHeart from '../components/FavHeart'
 import { Link, useParams } from 'react-router-dom'
 import { Eye, Pin, PinOff, Trophy, X } from 'lucide-react'
 import { api } from '../lib/api'
@@ -93,9 +94,12 @@ export default function MatchPage() {
         <StatusPill status={m.status} />
         <p className="text-sm text-muted">{courtLabel(m.court)} · {BRANCH[m.branch] ?? m.branch}</p>
         {m.tournament?.id && (
-          <Link to={'/liga/' + m.tournament.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-bold text-accent">
-            <Trophy size={14} /> {m.tournament.name} <span aria-hidden>›</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to={'/liga/' + m.tournament.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-bold text-accent">
+              <Trophy size={14} /> {m.tournament.name} <span aria-hidden>›</span>
+            </Link>
+            <FavHeart type="TOURNAMENT" id={m.tournament.id} name={m.tournament.name} className="!h-8 !w-8" />
+          </div>
         )}
       </div>
       <MatchNotice m={m} />
@@ -137,6 +141,7 @@ export default function MatchPage() {
           rankA={m.form?.rankA}
           rankB={m.form?.rankB}
           size="xl"
+          fav
           center={
             <span className="font-mono text-4xl font-extrabold tabular-nums text-live">
               {m.score?.teamA ?? 0} <span className="text-lg text-muted">-</span> {m.score?.teamB ?? 0}

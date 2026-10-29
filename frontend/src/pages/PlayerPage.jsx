@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { BRANCH, MODALITY, normMatch } from '../lib/format'
 import TeamBadge from '../components/TeamBadge'
+import FavHeart from '../components/FavHeart'
 import MatchCard from '../components/MatchCard'
 import ResultRow from '../components/ResultRow'
 
@@ -34,7 +35,8 @@ export default function PlayerPage() {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-3xl border border-line bg-surface p-5 text-center">
+      <section className="relative rounded-3xl border border-line bg-surface p-5 text-center">
+        <div className="absolute right-3 top-3"><FavHeart type="PLAYER" id={p.id ?? id} name={p.name} /></div>
         <div className="relative mx-auto h-24 w-24">
           {p.photoUrl ? (
             <img src={p.photoUrl} alt="" className="h-24 w-24 rounded-full border border-line object-cover" />

@@ -4,6 +4,7 @@ import { ChevronDown, Users } from 'lucide-react'
 import { api } from '../lib/api'
 import { BRANCH } from '../lib/format'
 import { personNumber } from '../lib/person'
+import FavHeart from './FavHeart'
 
 const ORDER = ['MALE', 'MIXED', 'FEMALE']
 
@@ -52,13 +53,16 @@ function TeamRoster({ team, matchBranch, noLink }) {
                 {list.map((r) => {
                   const n = personNumber(r)
                   return (
-                    <L key={r.profileId + r.branch} to={'/jugador/' + r.profileId} className="flex items-center gap-2 rounded-xl bg-surface-2 px-2 py-2 text-xs">
-                      <span className="w-8 shrink-0 font-mono text-[11px] font-bold text-muted">{n != null ? '#' + n : ''}</span>
-                      <span className="min-w-0 flex-1 truncate font-semibold">
-                        {r.name}
-                        {r.coach && <span className="ml-1.5 text-[10px] font-bold text-accent">(DT)</span>}
-                      </span>
-                    </L>
+                    <div key={r.profileId + r.branch} className="flex items-center rounded-xl bg-surface-2 text-xs">
+                      <L to={'/jugador/' + r.profileId} className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-2">
+                        <span className="w-8 shrink-0 font-mono text-[11px] font-bold text-muted">{n != null ? '#' + n : ''}</span>
+                        <span className="min-w-0 flex-1 truncate font-semibold">
+                          {r.name}
+                          {r.coach && <span className="ml-1.5 text-[10px] font-bold text-accent">(DT)</span>}
+                        </span>
+                      </L>
+                      {noLink ? <span className="w-2" /> : <FavHeart type="PLAYER" id={r.profileId} name={r.name} compact />}
+                    </div>
                   )
                 })}
               </div>

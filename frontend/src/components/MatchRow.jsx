@@ -61,7 +61,7 @@ export default function MatchRow({ m, to, action, footer, selecting, selected, o
       <Link
         to={to ?? '/partido/' + m.id}
         onClick={selecting ? (e) => { e.preventDefault(); onToggle?.() } : undefined}
-        className={flat ? 'block px-3 py-2.5 ' : 'block rounded-2xl border bg-surface px-3 py-2.5 ' + (selected ? 'border-accent ring-2 ring-accent/40' : statusBorder(m.status))}
+        className={flat ? 'block px-3 py-2.5 ' + (selected ? 'bg-accent-soft' : '') : 'block rounded-2xl border bg-surface px-3 py-2.5 ' + (selected ? 'border-accent ring-2 ring-accent/40' : statusBorder(m.status))}
       >
         <div className="flex items-stretch gap-3">
           {selecting && (

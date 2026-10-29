@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { CalendarDays, Heart, Star } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { CalendarDays, Heart, Star, X } from 'lucide-react'
 import MatchCard from '../MatchCard'
 import MatchRow from '../MatchRow'
 import GoTo from '../GoTo'
@@ -32,6 +32,12 @@ export default function HomeInicio({ byId, loading, error, children }) {
   const uid = useAuthStore((s) => s.user?.id)
   const { teams: favTeams, tournaments: favTours, loaded: favLoaded, load: loadFavs, clear: clearFavs } = useFavorites()
   useEffect(() => { if (uid) loadFavs(); else clearFavs() }, [uid])
+  const isAdmin = useAuthStore((s) => !!s.user?.roles?.includes('ADMIN'))
+  const promptKey = 'fav-prompt-off:' + uid
+  const [promptOff, setPromptOff] = useState(() => { try { return localStorage.getItem(promptKey) === '1' } catch { return false } })
+  useEffect(() => { try { setPromptOff(localStorage.getItem(promptKey) === '1') } catch { /* sin storage */ } }, [promptKey])
+  const dismissPrompt = () => { setPromptOff(true); try { localStorage.setItem(promptKey, '1') } catch { /* sin storage */ } }
+  const showFavPrompt = !!uid && favLoaded && !isAdmin && favTeams.size === 0 && !promptOff
   const favReady = !uid || favLoaded // hasta tener los favoritos no se elige día (evita saltos)
   const isFav = (m) => favTeams.has(m.teamA?.id) || favTeams.has(m.teamB?.id)
   const [lock, setLock] = useState(null) // pestaña elegida al entrar: después no se mueve sola
@@ -192,9 +198,24 @@ export default function HomeInicio({ byId, loading, error, children }) {
         v.live.length ? <div className="space-y-4">{v.liveSorted.map((m) => <MatchCard key={m.id} m={m} featured />)}</div> : <p className="text-muted">No hay partidos en vivo.</p>
       ) : (
         <>
+          {showFavPrompt && (
+            <div className="flex items-center gap-3 rounded-2xl border border-accent/40 bg-surface p-3">
+              <Link to="/favoritos" className="flex min-w-0 flex-1 items-center gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><Heart size={20} className="fill-current" /></span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-extrabold">Elegí tus equipos favoritos</span>
+                  <span className="block text-xs text-muted">Los partidos de tus equipos aparecen primero.</span>
+                </span>
+              </Link>
+              <button aria-label="Ocultar" onClick={dismissPrompt} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted"><X size={16} /></button>
+            </div>
+          )}
           {favTeams.size > 0 && v.sel && (
             <section className="space-y-2">
-              <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted"><Heart size={14} className="fill-accent text-accent" /> Tus partidos</h2>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted"><Heart size={14} className="fill-accent text-accent" /> Tus partidos</h2>
+                <Link to="/favoritos" className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-bold text-accent">Editar</Link>
+              </div>
               {v.mine.length ? (
                 <div className="overflow-hidden rounded-2xl border border-accent/40 bg-surface">
                   <div className="divide-y divide-line">

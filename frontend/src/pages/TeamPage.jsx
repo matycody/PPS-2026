@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Heart, MapPin, CalendarDays } from 'lucide-react'
+import { MapPin, CalendarDays } from 'lucide-react'
+import FavHeart from '../components/FavHeart'
 import { api } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import { BRANCH, MODALITY, normMatch } from '../lib/format'
@@ -32,29 +33,16 @@ export default function TeamPage() {
   const user = useAuthStore((s) => s.user)
   const [team, setTeam] = useState(null)
   const [matches, setMatches] = useState(null)
-  const [favs, setFavs] = useState([])
   const [err, setErr] = useState('')
   const [mod, setMod] = useState('all')
   const [br, setBr] = useState('all')
   const [more, setMore] = useState({ next: false, done: false })
   const [tab, setTab] = useState('posiciones') // posiciones | proximos | resultados | plantel
 
-  const loadFavs = () => (user ? api('GET', '/favorites').then(setFavs).catch(() => {}) : null)
   useEffect(() => {
     api('GET', '/teams/' + id).then(setTeam).catch((e) => setErr(e.message))
     api('GET', '/matches?teamId=' + id + '&limit=200').then((r) => setMatches(r.map(normMatch))).catch(() => setMatches([]))
-    loadFavs()
   }, [id, user])
-
-  const isFav = (type, tid) => favs.some((f) => f.targetType === type && f.targetId === tid)
-
-  async function toggle(type, tid) {
-    try {
-      if (isFav(type, tid)) await api('DELETE', '/favorites/' + type + '/' + tid)
-      else await api('POST', '/favorites', { targetType: type, targetId: tid })
-      await loadFavs()
-    } catch (e) { setErr(e.message) }
-  }
 
   const shown = useMemo(
     () => (matches ?? []).filter((m) => (mod === 'all' || m.modality === mod) && (br === 'all' || m.branch === br)),
@@ -80,12 +68,7 @@ export default function TeamPage() {
   if (err && !team) return <p className="mt-10 text-center text-danger">{err}</p>
   if (!team) return <p className="mt-10 text-center text-muted">Cargando…</p>
 
-  const heart = (type, tid) =>
-    user && (
-      <button aria-label="Seguir" onClick={() => toggle(type, tid)}>
-        <Heart size={20} className={isFav(type, tid) ? 'fill-accent text-accent' : 'text-muted'} />
-      </button>
-    )
+  const heart = (type, tid) => <FavHeart type={type} id={tid} compact={type === 'PLAYER'} name={type === 'TEAM' ? team.name : ''} />
 
   const mods = team.modalities ?? []
   const brs = team.branches ?? []

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Plus, Trash2, RotateCcw, ChevronDown } from 'lucide-react'
 import { api } from '../../lib/api'
 import { STATUS, MODALITY, BRANCH } from '../../lib/format'
@@ -24,6 +25,7 @@ function AdminRow({ m, hidden, busy, onHide, onRestore, onPurge, selecting, sele
   return (
     <MatchRow
       m={m}
+      flat
       to={'/admin/partidos/' + m.id}
       selecting={selecting}
       selected={selected}
@@ -210,6 +212,18 @@ export default function PartidosPage() {
   const toggleAll = () => setSelected(selected.size === all.length ? new Set() : new Set(all.map((x) => x.id)))
   const cancelSelect = () => { setSelecting(false); setSelected(new Set()) }
 
+  // Por día (solo en la vista activa) y, dentro de cada día, un bloque por torneo
+  const sections = []
+  all.forEach((m) => {
+    const dk = view === 'active' ? dayKey(m.scheduledAt) : undefined
+    let sec = sections[sections.length - 1]
+    if (!sec || sec.dk !== dk) sections.push((sec = { key: (dk ?? 'all') + sections.length, dk, iso: m.scheduledAt, groups: [] }))
+    const id = m.tournament?.id ?? 'none'
+    let g = sec.groups.find((x) => x.id === id)
+    if (!g) sec.groups.push((g = { id, name: m.tournament?.name ?? 'Amistosos', list: [] }))
+    g.list.push(m)
+  })
+
   const ready = tournaments && teams
 
   return (
@@ -302,23 +316,36 @@ export default function PartidosPage() {
         <p className="text-muted">{view === 'hidden' ? 'No hay partidos eliminados.' : 'No hay partidos.'}</p>
       )}
       {matches && matches.length > 0 && all.length === 0 && <p className="text-muted">No hay partidos que coincidan con la búsqueda.</p>}
-      <div className="space-y-2">
-        {all.map((m, i, arr) => (
-          <div key={m.id} className="space-y-2">
-            {view === 'active' && (i === 0 || dayKey(arr[i - 1].scheduledAt) !== dayKey(m.scheduledAt)) && (
-              <h2 className="pt-2 text-xs font-bold uppercase tracking-widest text-muted">{dayLabel(m.scheduledAt)}</h2>
-            )}
-            <AdminRow
-              m={m}
-              hidden={view === 'hidden'}
-              busy={busyId === m.id}
-              onHide={() => hide(m)}
-              onRestore={() => restore(m)}
-              onPurge={() => purge(m)}
-              selecting={selecting}
-              selected={selected.has(m.id)}
-              onToggle={() => toggle(m.id)}
-            />
+      <div className="space-y-4">
+        {sections.map((sec) => (
+          <div key={sec.key} className="space-y-2">
+            {sec.dk !== undefined && <h2 className="pt-2 text-xs font-bold uppercase tracking-widest text-muted">{dayLabel(sec.iso)}</h2>}
+            {sec.groups.map((g) => (
+              <section key={g.id} className="overflow-hidden rounded-2xl border border-line bg-surface">
+                <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
+                  {g.id !== 'none'
+                    ? <Link to={'/admin/torneos/' + g.id} className="min-w-0 truncate text-sm font-extrabold text-accent">{g.name} ›</Link>
+                    : <span className="min-w-0 truncate text-sm font-extrabold">{g.name}</span>}
+                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted">{g.list.length} {g.list.length === 1 ? 'partido' : 'partidos'}</span>
+                </div>
+                <div className="divide-y divide-line">
+                  {g.list.map((m) => (
+                    <AdminRow
+                      key={m.id}
+                      m={m}
+                      hidden={view === 'hidden'}
+                      busy={busyId === m.id}
+                      onHide={() => hide(m)}
+                      onRestore={() => restore(m)}
+                      onPurge={() => purge(m)}
+                      selecting={selecting}
+                      selected={selected.has(m.id)}
+                      onToggle={() => toggle(m.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
           </div>
         ))}
       </div>
