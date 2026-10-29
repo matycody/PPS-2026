@@ -85,7 +85,7 @@ export default function MatchPage() {
 
   const second = Number(tick?.matchHalf) === 2
   // Finalizado: lo cerró la mesa, o los dos relojes están en 00:00
-  const over = m.status === 'FINISHED' || (tick?.matchTime === '00:00' && tick?.setTime === '00:00')
+  const over = m.status === 'FINISHED' || !!tick?.matchEnded || (tick?.matchTime === '00:00' && tick?.setTime === '00:00')
 
   return (
     <div className="space-y-4">

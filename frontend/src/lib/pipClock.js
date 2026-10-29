@@ -100,7 +100,7 @@ function draw(ctx, { m, tick, at }) {
   const mLeft = nowSec(tick?.matchTime, !mPaused, at)
   const sLeft = nowSec(tick?.setTime, !sPaused, at)
   // Finalizado: lo cerró la mesa, o los dos relojes llegaron a 00:00 (aunque el estado todavía no haya cambiado)
-  const finished = m?.status === 'FINISHED' || (mLeft === 0 && sLeft === 0)
+  const finished = m?.status === 'FINISHED' || !!tick?.matchEnded || (mLeft === 0 && sLeft === 0)
   const to = tick?.timeoutTeam
   const toRunning = !!tick?.isTimeoutRunning
 
