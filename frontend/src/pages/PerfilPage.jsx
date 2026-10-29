@@ -29,6 +29,8 @@ export default function PerfilPage() {
   const [busy, setBusy] = useState(false)
   const [email, setEmail] = useState('')
   const [nick, setNick] = useState('')
+  const [uname, setUname] = useState(user?.username ?? '')
+  useEffect(() => { setUname(user?.username ?? '') }, [user?.username])
   const [num, setNum] = useState('')
   const [birth, setBirth] = useState('')
   const [pub, setPub] = useState({ showNickname: true, showNumber: true, showAge: false, showPhoto: false })
@@ -67,6 +69,15 @@ export default function PerfilPage() {
       await load()
       await refreshProfile()
     }, 'Datos guardados')
+  }
+
+  const saveUsername = () => {
+    const v = uname.trim()
+    if (!/^[a-zA-Z0-9._]{3,20}$/.test(v)) return setErr('Usuario: 3 a 20 caracteres, solo letras, números, punto y guion bajo')
+    run(async () => {
+      const r = await api('PATCH', '/me/username', { username: v })
+      useAuthStore.setState({ user: { ...user, username: r.username } })
+    }, 'Usuario guardado')
   }
 
   const savePublic = () => {
@@ -115,6 +126,14 @@ export default function PerfilPage() {
           )}
         </div>
       </div>
+
+      <Card title="Usuario para ingresar">
+        <div className="space-y-3">
+          <p className="text-xs text-muted">Con este usuario y tu contraseña entrás sin escribir el mail. Solo lo ve la organización.</p>
+          <input className={field} placeholder="usuario" maxLength={20} autoCapitalize="none" autoCorrect="off" spellCheck={false} value={uname} onChange={(e) => setUname(e.target.value.replace(/\s/g, ''))} />
+          <button disabled={busy || !uname.trim() || uname.trim().toLowerCase() === (user?.username ?? '')} onClick={saveUsername} className="w-full rounded-2xl bg-accent py-3 font-extrabold text-black disabled:opacity-40">Guardar usuario</button>
+        </div>
+      </Card>
 
       {p && (
         <Card title="Apodo y número (opcional)">

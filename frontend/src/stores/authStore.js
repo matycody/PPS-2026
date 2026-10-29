@@ -63,8 +63,15 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  signIn: async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+  // Acepta mail o nombre de usuario. Con usuario, el backend resuelve el mail (nunca llega al navegador).
+  signIn: async (identifier, password) => {
+    if (identifier.includes('@')) {
+      const { error } = await supabase.auth.signInWithPassword({ email: identifier, password })
+      if (error) throw error
+      return
+    }
+    const t = await api('POST', '/auth/login', { identifier, password })
+    const { error } = await supabase.auth.setSession({ access_token: t.access_token, refresh_token: t.refresh_token })
     if (error) throw error
   },
 
