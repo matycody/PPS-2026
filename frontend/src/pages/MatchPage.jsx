@@ -1,3 +1,4 @@
+import { halfLabel } from '../lib/pipTime'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Eye, PictureInPicture2, Trophy, X } from 'lucide-react'
@@ -83,8 +84,7 @@ export default function MatchPage() {
   if (error) return <p className="mt-10 text-center text-danger">{error}</p>
   if (!m) return <p className="mt-10 text-center text-muted">Cargando…</p>
 
-  const second = Number(tick?.matchHalf) === 2
-  // Finalizado: lo cerró la mesa, o los dos relojes están en 00:00
+  // Finalizado: solo si la mesa/árbitro lo finalizó o cerró
   const over = m.status === 'FINISHED' || !!tick?.matchEnded
 
   return (
@@ -160,7 +160,7 @@ export default function MatchPage() {
           <span className="rounded-full bg-live/15 px-4 py-2 text-sm font-bold text-live">{MODALITY[m.modality] ?? m.modality}</span>
           {tick && (
             <span className="rounded-full bg-live/15 px-4 py-2 text-sm font-bold uppercase text-live">
-              {second ? '2do tiempo' : '1er tiempo'}
+              {halfLabel(tick)}
             </span>
           )}
         </div>

@@ -1,3 +1,4 @@
+import { halfLabel } from '../../lib/pipTime'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Pin, PinOff, X } from 'lucide-react'
@@ -30,7 +31,7 @@ function CourtMatch({ m, tick, full, run, busy }) {
       <span className="font-mono text-4xl font-extrabold tabular-nums">{m.score?.teamA ?? 0} - {m.score?.teamB ?? 0}</span>
       {m.status === 'LIVE' && <span className="font-mono text-lg font-extrabold tabular-nums text-accent">{pad(tick?.matchTime)}</span>}
       {m.status === 'LIVE' && tick?.matchHalf && (
-        <span className="text-[11px] font-bold uppercase tracking-wider text-muted">{Number(tick.matchHalf) === 2 ? '2do tiempo' : '1er tiempo'}</span>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-muted">{halfLabel(tick)}</span>
       )}
     </div>
   ) : undefined

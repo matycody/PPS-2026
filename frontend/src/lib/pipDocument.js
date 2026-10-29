@@ -1,6 +1,6 @@
 // Reloj flotante para PC (Chrome / Edge): Document Picture-in-Picture, una ventanita real que queda siempre
 // encima de las demás aplicaciones, como la de Spotify o la de Meet. Se arma con HTML (texto nítido, escudos como imagen).
-import { fmt, nowSec, pipNotice } from './pipTime'
+import { fmt, nowSec, pipNotice, halfLabel } from './pipTime'
 
 const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
@@ -115,7 +115,7 @@ export async function startDocPip(getState, onClose) {
     B.nm.textContent = nameB
     score.textContent = (m?.score?.teamA ?? 0) + ' - ' + (m?.score?.teamB ?? 0)
 
-    half.textContent = !finished && tick?.matchHalf ? (Number(tick.matchHalf) === 2 ? '2DO TIEMPO' : '1ER TIEMPO') : ''
+    half.textContent = finished ? '' : halfLabel(tick)
     MC.label.textContent = 'PARTIDO' + (finished ? ' · FINALIZADO' : mPaused ? ' · PAUSA' : '')
     SC.label.textContent = 'SET' + (finished ? ' · FINALIZADO' : sPaused ? ' · PAUSA' : '')
     MC.time.textContent = fmt(mLeft)

@@ -1,3 +1,4 @@
+import { halfLabel } from '../lib/pipTime'
 import { Link } from 'react-router-dom'
 import { Pin, PinOff } from 'lucide-react'
 import GoTo from './GoTo'
@@ -23,7 +24,7 @@ export default function MatchCard({ m, featured = false, to, badge }) {
       <span className="font-mono text-3xl font-extrabold tabular-nums">{m.score?.teamA ?? 0} - {m.score?.teamB ?? 0}</span>
       {m.status === 'LIVE' && <span className="font-mono text-lg font-extrabold tabular-nums text-live">{clock(tick?.matchTime)}</span>}
       {m.status === 'LIVE' && tick?.matchHalf && (
-        <span className="text-[11px] font-bold uppercase tracking-wider text-muted">{Number(tick.matchHalf) === 2 ? '2do tiempo' : '1er tiempo'}</span>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-muted">{halfLabel(tick)}</span>
       )}
     </div>
   ) : undefined

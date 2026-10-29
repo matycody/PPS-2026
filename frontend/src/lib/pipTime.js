@@ -15,3 +15,11 @@ export const nowSec = (str, running, at) => {
 // eso lo decide la mesa/árbitro (finished = matchEnded o estado FINISHED).
 export const pipNotice = (cloth, mLeft, sLeft, finished) =>
   finished || (mLeft !== 0 && sLeft !== 0) ? '' : cloth ? 'SET FINALIZADO' : 'MUERTE SÚBITA (NO HAY ESCUDO)'
+
+// Texto del tiempo: tras finalizar el 1er tiempo (2° tiempo, relojes en 20:00/03:00 y pausados) es el entretiempo
+export const halfLabel = (tick) => {
+  if (!tick?.matchHalf) return ''
+  if (Number(tick.matchHalf) !== 2) return '1ER TIEMPO'
+  const idle = tick.isMatchPaused && tick.isSetPaused && tick.matchTime === '20:00' && tick.setTime === '03:00' && !tick.timeoutTeam
+  return idle ? 'ENTRETIEMPO' : '2DO TIEMPO'
+}

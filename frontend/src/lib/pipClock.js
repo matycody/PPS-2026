@@ -4,7 +4,7 @@
 //  - iOS / Safari: video.webkitSetPresentationMode('picture-in-picture')
 // Los relojes avanzan solos entre un tick y otro (por si el navegador demora los eventos en segundo plano).
 
-import { fmt, nowSec, pipNotice } from './pipTime'
+import { fmt, nowSec, pipNotice, halfLabel } from './pipTime'
 import { startDocPip, docPipSupported } from './pipDocument'
 
 let flick = 0
@@ -119,7 +119,7 @@ function draw(ctx, { m, tick, at }) {
     ctx.textAlign = 'center'
     ctx.font = '600 20px ' + SANS
     ctx.fillStyle = '#9aa4b2'
-    ctx.fillText(Number(tick.matchHalf) === 2 ? '2DO TIEMPO' : '1ER TIEMPO', W / 2 - 10, 38)
+    ctx.fillText(halfLabel(tick), W / 2 - 10, 38)
   }
   ctx.textAlign = 'right'
   ctx.font = '600 20px ' + SANS
