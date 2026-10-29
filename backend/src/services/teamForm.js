@@ -6,15 +6,16 @@ const { computeStandings } = require('./standings');
 async function formsFor(matches) {
   const out = new Map();
   // Posición actual en la tabla de su zona (se recalcula en cada consulta: refleja la tabla de hoy, no la de cuando se jugó)
-  const ranks = await ranksFor(matches).catch((e) => { console.error('[rank]', e.message); return new Map(); });
+  const ranksP = ranksFor(matches).catch((e) => { console.error('[rank]', e.message); return new Map(); });
   const teams = [...new Set(matches.flatMap((m) => [m.teamA?.id, m.teamB?.id]).filter(Boolean))];
   if (!teams.length) return out;
-  const finished = await prisma.match.findMany({
+  const finishedP = prisma.match.findMany({
     where: { status: 'FINISHED', hiddenAt: null, OR: [{ teamAId: { in: teams } }, { teamBId: { in: teams } }] },
     orderBy: [{ finishedAt: 'desc' }, { scheduledAt: 'desc' }],
     take: 3000,
     select: { teamAId: true, teamBId: true, modality: true, branch: true, sets: { select: { winnerTeamId: true } } },
   });
+  const [ranks, finished] = await Promise.all([ranksP, finishedP]);
   const byKey = new Map(); // equipo|modalidad|rama -> resultados del más nuevo al más viejo
   for (const f of finished) {
     const win = f.modality === 'CLOTH' ? 2 : 1;
@@ -48,16 +49,17 @@ async function ranksFor(matches) {
   });
   const byTournament = new Map();
   for (const r of rows) byTournament.set(r.tournamentId, [...(byTournament.get(r.tournamentId) ?? []), r]);
-  for (const [tid, list] of byTournament) {
+  // Los torneos se calculan en paralelo
+  await Promise.all([...byTournament].map(async ([tid, list]) => {
     const data = await computeStandings(tid);
-    if (!data) continue;
+    if (!data) return;
     const pos = new Map(); // stageId -> teamId -> lugar (1, 2, 3... aunque haya empate)
     for (const st of data.stages) pos.set(st.id, new Map(st.rows.map((x, i) => [x.team.id, i + 1])));
     for (const r of list) {
       const z = pos.get(r.stageId); // solo zonas de liga: en playoffs no hay tabla
       if (z) out.set(r.id, { A: z.get(r.teamAId) ?? null, B: z.get(r.teamBId) ?? null });
     }
-  }
+  }));
   return out;
 }
 

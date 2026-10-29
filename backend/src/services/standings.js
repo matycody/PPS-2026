@@ -1,4 +1,5 @@
 const prisma = require('../db');
+const { memo } = require('../lib/memo');
 
 const TEAM_SELECT = { id: true, name: true, logo: true };
 
@@ -128,7 +129,7 @@ function buildTable(stage, t, matches, criteria) {
 
 // Tabla de posiciones de las zonas de liga de un torneo (o de una sola con stageId).
 // Se calcula siempre desde los partidos finalizados.
-async function computeStandings(tournamentId, stageId = null) {
+async function computeStandingsRaw(tournamentId, stageId = null) {
   const t = await prisma.tournament.findUnique({
     where: { id: tournamentId },
     include: { tiebreakers: { orderBy: { order: 'asc' } } },
@@ -169,5 +170,8 @@ async function computeStandings(tournamentId, stageId = null) {
     })),
   };
 }
+
+// Con memoria corta: el Inicio pide las tablas de cada torneo en cada carga
+const computeStandings = (tournamentId, stageId = null) => memo('standings|' + tournamentId + '|' + (stageId ?? ''), () => computeStandingsRaw(tournamentId, stageId));
 
 module.exports = { computeStandings, buildTable };
