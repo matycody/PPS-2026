@@ -62,7 +62,8 @@ export default function HomeAdmin({ byId, loading, error, children }) {
     all.forEach((m) => { const d = dayOf(m.scheduledAt); if (d) (calDays[d] ??= []).push(m) })
     const dayKeys = Object.keys(calDays).sort()
     const today = dayOf(new Date())
-    const auto = dayKeys.includes(today) ? today : dayKeys.find((d) => d >= today) ?? dayKeys[dayKeys.length - 1] ?? (undated.length ? 'none' : null)
+    // Hasta que llega el calendario completo no se elige día (evita saltar de la jornada pasada a la próxima)
+    const auto = cal === null && calTry < 3 ? null : dayKeys.includes(today) ? today : dayKeys.find((d) => d >= today) ?? dayKeys[dayKeys.length - 1] ?? (undated.length ? 'none' : null)
     const sel = dPick === 'live' || dPick === 'none' || (dPick && DATE_RE.test(dPick)) ? dPick : auto
     const tabs = [...new Set([...dayKeys, ...(sel && DATE_RE.test(sel) ? [sel] : [])])].sort()
     const dayList = sel === 'live' ? live : sel === 'none' ? undated : sel ? calDays[sel] ?? [] : []
@@ -90,7 +91,7 @@ export default function HomeAdmin({ byId, loading, error, children }) {
     })
 
     return { dayCount: dayList.length, live, calDays, tabs, sel, tournaments, tCur, phaseOpts, phaseCur, shown, groups, hasUndated: undated.length > 0 }
-  }, [all, dPick, tPick, phasePick])
+  }, [all, cal, calTry, dPick, tPick, phasePick])
 
   useEffect(() => {
     document.getElementById('daytab-' + v.sel)?.scrollIntoView({ inline: 'center', block: 'nearest' })
@@ -161,7 +162,7 @@ export default function HomeAdmin({ byId, loading, error, children }) {
       )}
 
       {error && <p className="text-danger">{error}</p>}
-      {cal === null && loading && <p className="text-muted">Cargando…</p>}
+      {cal === null && calTry < 3 && <p className="text-muted">Cargando…</p>}
 
       {v.sel === 'live' ? (
         v.live.length ? <div className="space-y-4">{v.live.map((m) => <MatchCard key={m.id} m={m} featured />)}</div> : <p className="text-muted">No hay partidos en vivo.</p>
@@ -182,7 +183,7 @@ export default function HomeAdmin({ byId, loading, error, children }) {
               </div>
             </section>
           ))}
-          {v.groups.length === 0 && cal !== null && (
+          {v.groups.length === 0 && (cal !== null || calTry >= 3) && (
             <p className="rounded-2xl border border-line bg-surface px-4 py-6 text-center text-sm font-bold text-muted">
               {all.length === 0 ? 'No hay partidos.' : 'No hay partidos esta fecha.'}
             </p>

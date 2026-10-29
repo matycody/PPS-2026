@@ -82,7 +82,7 @@ export default function MatchRow({ m, to, action, footer, selecting, selected, o
             <span className={'mt-0.5 text-[10px] font-bold uppercase leading-tight ' + (m.status === 'CANCELLED' ? 'text-danger' : 'text-muted')}>{s.label}</span>
           </div>
         </div>
-        {probable && <p className="mt-2 inline-block rounded-full bg-warn/15 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-warn">Cruce probable · no definitivo</p>}
+        {probable && <p className="mt-2 inline-block rounded-full bg-warn/15 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-warn">Probable cruce</p>}
         <p className={(probable ? 'mt-1.5 ' : 'mt-2 ') + 'truncate text-[11px] font-semibold uppercase tracking-wide text-muted ' + (pip.canPin || showAction ? 'pr-10' : '')}>{meta}</p>
       </Link>
       {pip.canPin && (

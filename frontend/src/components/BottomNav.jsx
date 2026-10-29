@@ -8,8 +8,9 @@ export default function BottomNav() {
   const { user, menu } = useAuthStore()
   const bottom = useMenuPrefs((s) => s.byUser[user?.id]?.bottom)
 
+  const isAdmin = !!user?.roles?.includes('ADMIN')
   const items = user
-    ? [ITEMS.home, NOTICIAS, ...(bottom ?? BOTTOM_PRIORITY).filter((k) => k !== 'home' && menu.includes(k) && ITEMS[k]).slice(0, 2).map((k) => ITEMS[k]), ITEMS.perfil]
+    ? [ITEMS.home, NOTICIAS, ...(bottom ?? BOTTOM_PRIORITY).filter((k) => k !== 'home' && menu.includes(k) && ITEMS[k] && (!isAdmin || k === 'dashboard_canchas')).slice(0, 2).map((k) => ITEMS[k]), ...(isAdmin ? [] : [ITEMS.perfil])]
     : [ITEMS.home, NOTICIAS, { to: '/login', label: 'Ingresar', Icon: LogIn }]
 
   return (

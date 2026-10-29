@@ -108,7 +108,7 @@ export default function InicioPage() {
           ...GENERAL.slice(0, 3),
           ...(role === 'Organizador' || role === 'Árbitro' || menu.includes('control_mesa') ? [ITEMS.control_mesa] : []),
           ...(menu.includes('usuarios') ? [ITEMS.usuarios] : []),
-        ].filter((c) => !cardsPref || cardsPref.includes(c.to)).map(({ to, label, Icon, soon }) => (
+        ].filter((c) => !cardsPref || cardsPref.includes(c.to)).filter((c) => !(user?.roles?.includes('ADMIN') && c.to === '/estadisticas')).map(({ to, label, Icon, soon }) => (
           <Link key={to} to={to} className="flex min-w-0 flex-1 flex-col items-center justify-start gap-1.5 break-words rounded-2xl border border-line bg-surface px-1 py-3 text-center text-[10px] font-semibold leading-tight sm:text-sm">
             <Icon size={22} className="text-accent" />
             {label}
