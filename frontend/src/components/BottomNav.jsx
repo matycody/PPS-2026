@@ -1,7 +1,7 @@
 ﻿import { NavLink } from 'react-router-dom'
 import { LogIn } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
-import { ITEMS, BOTTOM_PRIORITY } from '../lib/navConfig'
+import { ITEMS, BOTTOM_PRIORITY, NOTICIAS } from '../lib/navConfig'
 import { useMenuPrefs } from '../stores/menuPrefsStore'
 
 export default function BottomNav() {
@@ -9,8 +9,8 @@ export default function BottomNav() {
   const bottom = useMenuPrefs((s) => s.byUser[user?.id]?.bottom)
 
   const items = user
-    ? [ITEMS.home, ...(bottom ?? BOTTOM_PRIORITY).filter((k) => k !== 'home' && menu.includes(k) && ITEMS[k]).slice(0, 2).map((k) => ITEMS[k]), ITEMS.perfil]
-    : [ITEMS.home, { to: '/login', label: 'Ingresar', Icon: LogIn }]
+    ? [ITEMS.home, NOTICIAS, ...(bottom ?? BOTTOM_PRIORITY).filter((k) => k !== 'home' && menu.includes(k) && ITEMS[k]).slice(0, 2).map((k) => ITEMS[k]), ITEMS.perfil]
+    : [ITEMS.home, NOTICIAS, { to: '/login', label: 'Ingresar', Icon: LogIn }]
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line menu-glass">

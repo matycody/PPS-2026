@@ -168,17 +168,17 @@ export default function HomeAdmin({ byId, loading, error, children }) {
       ) : (
         <>
           {v.groups.map((g) => (
-            <section key={g.id} className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
+            <section key={g.id} className="overflow-hidden rounded-2xl border border-line bg-surface">
+              <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
                 {g.id !== 'none'
-                  ? <GoTo to={'/liga/' + g.id} className="min-w-0 truncate rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-extrabold text-accent">{g.name} ›</GoTo>
-                  : <span className="min-w-0 truncate rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-extrabold">{g.name}</span>}
-                <span className="shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">
+                  ? <GoTo to={'/liga/' + g.id} className="min-w-0 truncate text-sm font-extrabold text-accent">{g.name} ›</GoTo>
+                  : <span className="min-w-0 truncate text-sm font-extrabold">{g.name}</span>}
+                <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted">
                   {[MODALITY[g.modality], BRANCH[g.branch]].filter(Boolean).join(' · ')} · {g.list.length} {g.list.length === 1 ? 'partido' : 'partidos'}
                 </span>
               </div>
-              <div className="space-y-2">
-                {g.list.map((m) => (m.status === 'LIVE' ? <MatchCard key={m.id} m={m} /> : <MatchRow key={m.id} m={m} />))}
+              <div className="divide-y divide-line">
+                {g.list.map((m) => (m.status === 'LIVE' ? <div key={m.id} className="p-2"><MatchCard m={m} /></div> : <MatchRow key={m.id} m={m} flat />))}
               </div>
             </section>
           ))}

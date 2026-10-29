@@ -1,20 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Plus, Trash2, RotateCcw, Check, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, RotateCcw, ChevronDown } from 'lucide-react'
 import { api } from '../../lib/api'
-import { STATUS, fmtWhen, courtLabel, MODALITY, BRANCH } from '../../lib/format'
+import { STATUS, MODALITY, BRANCH } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import MatchForm from '../../components/MatchForm'
-import StatusPill from '../../components/StatusPill'
-import Versus from '../../components/Versus'
-import { matchInfo } from '../../lib/matchInfo'
-import { statusBorder } from '../../lib/statusStyle'
+import MatchRow from '../../components/MatchRow'
 import { useConfirm } from '../../components/ConfirmProvider'
 
 // Solo se puede ocultar un partido que no esté en curso
 const canHide = (status) => status === 'SCHEDULED' || status === 'FINISHED' || status === 'CANCELLED'
 
-const hourOf = (iso) => (iso ? new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--')
 const dayKey = (iso) => (iso ? new Date(iso).toLocaleDateString('en-CA') : 'none')
 const dayLabel = (iso) => {
   if (!iso) return 'Sin fecha'
@@ -25,38 +20,24 @@ const dayLabel = (iso) => {
   return (diff === 0 ? 'Hoy \u00b7 ' : diff === 1 ? 'Ma\u00f1ana \u00b7 ' : '') + base
 }
 
-function MatchRow({ m, hidden, busy, onHide, onRestore, onPurge, selecting, selected, onToggle }) {
+function AdminRow({ m, hidden, busy, onHide, onRestore, onPurge, selecting, selected, onToggle }) {
   return (
-    <div
-      onClick={selecting ? onToggle : undefined}
-      className={'rounded-2xl border bg-surface px-3 py-2.5 ' + (selecting ? 'cursor-pointer ' : '') + (selected ? 'border-accent ring-2 ring-accent/40' : statusBorder(m.status))}
-    >
-      <div className="flex items-center gap-3">
-        {selecting && (
-          <span className={'grid h-6 w-6 shrink-0 place-items-center rounded-md border-2 ' + (selected ? 'border-accent bg-accent text-black' : 'border-line')}>
-            {selected && <Check size={16} />}
-          </span>
-        )}
-        <div className="w-12 shrink-0 text-center">
-          <p className="font-mono text-sm font-bold">{hourOf(m.scheduledAt)}</p>
-          <p className="text-[10px] text-muted">{courtLabel(m.court)}</p>
-        </div>
-        <Link to={'/admin/partidos/' + m.id} onClick={(e) => selecting && e.preventDefault()} className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold">{(m.teamA?.name ?? '\u2014') + ' vs ' + (m.teamB?.name ?? '\u2014')}</p>
-          <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-muted">{matchInfo(m)}</p>
-        </Link>
-        <StatusPill status={m.status} />
-        {!selecting && !hidden && canHide(m.status) && (
-          <button disabled={busy} onClick={onHide} aria-label="Eliminar" className="shrink-0 rounded-lg p-2 text-danger disabled:opacity-40"><Trash2 size={16} /></button>
-        )}
-      </div>
-      {!selecting && hidden && (
+    <MatchRow
+      m={m}
+      to={'/admin/partidos/' + m.id}
+      selecting={selecting}
+      selected={selected}
+      onToggle={onToggle}
+      action={!hidden && canHide(m.status) ? (
+        <button disabled={busy} onClick={onHide} aria-label="Eliminar" className="grid h-9 w-9 place-items-center rounded-full text-danger disabled:opacity-40"><Trash2 size={16} /></button>
+      ) : null}
+      footer={!selecting && hidden ? (
         <div className="mt-2 grid grid-cols-2 gap-2">
           <Btn tone="accent" disabled={busy} onClick={onRestore}><RotateCcw size={16} /> Restaurar</Btn>
           <Btn tone="danger" disabled={busy} onClick={onPurge}><Trash2 size={16} /> Definitivo</Btn>
         </div>
-      )}
-    </div>
+      ) : null}
+    />
   )
 }
 
@@ -327,7 +308,7 @@ export default function PartidosPage() {
             {view === 'active' && (i === 0 || dayKey(arr[i - 1].scheduledAt) !== dayKey(m.scheduledAt)) && (
               <h2 className="pt-2 text-xs font-bold uppercase tracking-widest text-muted">{dayLabel(m.scheduledAt)}</h2>
             )}
-            <MatchRow
+            <AdminRow
               m={m}
               hidden={view === 'hidden'}
               busy={busyId === m.id}

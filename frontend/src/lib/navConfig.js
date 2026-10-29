@@ -35,7 +35,7 @@ export const GENERAL = [
   { to: '/cronometro', label: 'Cronómetro offline', Icon: Timer },
   { to: '/liga', label: 'Liga o copas', Icon: Trophy },
   { to: '/estadisticas', label: 'Estadísticas', Icon: BarChart3 },
-  { to: '/noticias', label: 'Noticias', Icon: Newspaper, soon: true, showIf: 'dashboard_canchas' }, // por ahora solo la organización
+  { to: '/noticias', label: 'Noticias', Icon: Newspaper, soon: true, bottomOnly: true }, // fija en la barra inferior para todos (no va en el drawer)
   // El organizador ya tiene 'Equipos' en Administración
   { to: '/equipos', label: 'Equipos', Icon: Users, hideIf: 'equipos' },
   { to: '/reglas', label: 'Reglas del juego', Icon: BookOpen, soon: true },
@@ -43,13 +43,15 @@ export const GENERAL = [
 ]
 
 // Los 3 primeros que existan en el menú van al bottom nav (+ Perfil)
+export const NOTICIAS = GENERAL.find((g) => g.to === '/noticias')
+
 export const BOTTOM_PRIORITY = [
   'home', 'dashboard_canchas', 'partidos', 'mis_partidos_asignados',
   'control_mesa', 'mis_partidos', 'favoritos',
 ]
 
 // Entradas de GENERAL que corresponden al menú de esta persona
-export const generalFor = (menu = []) => GENERAL.filter((g) => (!g.hideIf || !menu.includes(g.hideIf)) && (!g.showIf || menu.includes(g.showIf)))
+export const generalFor = (menu = []) => GENERAL.filter((g) => !g.bottomOnly && (!g.hideIf || !menu.includes(g.hideIf)) && (!g.showIf || menu.includes(g.showIf)))
 
 export function roleLabel(user, menu = []) {
   const r = user?.roles ?? []
