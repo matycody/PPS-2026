@@ -66,7 +66,6 @@ export default function UsuariosPage() {
           return (
             <div key={u.id} className="space-y-2 rounded-2xl border border-line bg-surface p-4">
               <p className="truncate font-bold">{u.email}</p>
-              {u.username && <p className="truncate text-xs text-muted">@{u.username}</p>}
               <div className="flex flex-wrap gap-1.5">
                 {u.roles.length === 0 && <span className="text-xs text-muted">Registrado (sin rol)</span>}
                 {u.roles.map((r) => (

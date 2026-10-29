@@ -18,7 +18,6 @@ export default function RegisterPage() {
   const [code, setCode] = useState('')
   const [pass, setPass] = useState('')
   const [pass2, setPass2] = useState('')
-  const [uname, setUname] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -66,9 +65,7 @@ export default function RegisterPage() {
     e.preventDefault()
     if (pass.length < 6) return setErr('La contraseña tiene que tener al menos 6 caracteres')
     if (pass !== pass2) return setErr('Las contraseñas no coinciden')
-    if (!/^[a-zA-Z0-9._]{3,20}$/.test(uname.trim())) return setErr('Usuario: 3 a 20 caracteres, solo letras, números, punto y guion bajo')
     run(async () => {
-      await api('PATCH', '/me/username', { username: uname.trim() }) // primero: si está en uso no se toca la contraseña
       const { error } = await supabase.auth.updateUser({ password: pass })
       if (error) throw error
       // Cuenta que ya existía y está completa (jugador, árbitro, admin): directo al inicio
@@ -124,7 +121,6 @@ export default function RegisterPage() {
 
       {step === 'pass' && (
         <form onSubmit={setPassword} className="flex flex-col gap-3">
-          <input className={inputCls} type="text" required minLength={3} maxLength={20} placeholder="Nombre de usuario (para ingresar)" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="username" value={uname} onChange={(e) => setUname(e.target.value.replace(/\s/g, ""))} />
           <input className={inputCls} type="password" required minLength={6} placeholder="Contraseña" autoComplete="new-password" value={pass} onChange={(e) => setPass(e.target.value)} />
           <input className={inputCls} type="password" required minLength={6} placeholder="Repetir contraseña" autoComplete="new-password" value={pass2} onChange={(e) => setPass2(e.target.value)} />
           <Btn type="submit" tone="accent" disabled={busy}>{busy ? '…' : 'Continuar'}</Btn>
