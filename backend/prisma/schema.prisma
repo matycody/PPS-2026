@@ -56,7 +56,6 @@ model User {
   id         String   @id @default(uuid())
   supabaseId String?  @unique // null solo para admins del seed hasta su primer login
   email      String   @unique // fuente de verdad del mail
-  username   String?  @unique @db.VarChar(20) // para iniciar sesión; solo lo ve la organización (en minúsculas)
   roles      Role[] // vacÃ­o = usuario registrado
   profileId  String?  @unique
   photo      String?

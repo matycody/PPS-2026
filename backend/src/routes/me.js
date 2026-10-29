@@ -80,7 +80,7 @@ async function loadProfile(profileId) {
 
 router.get('/', authenticate, async (req, res) => {
   try {
-    const { id, email, roles, profileId, username } = req.user;
+    const { id, email, roles, profileId } = req.user;
 
     const tableOr = [{ function: 'TABLE', userId: id }];
     if (profileId) {
@@ -92,7 +92,7 @@ router.get('/', authenticate, async (req, res) => {
       where: { OR: tableOr, match: { status: { in: ACTIVE }, hiddenAt: null } },
     });
 
-    res.json({ user: { id, email, username, roles, profileId }, menu: buildMenu(roles, tableCount > 0) });
+    res.json({ user: { id, email, roles, profileId }, menu: buildMenu(roles, tableCount > 0) });
   } catch (err) {
     console.error('[me]', err);
     res.status(500).json({ error: 'Error interno' });
@@ -100,28 +100,6 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // Mis partidos asignados (árbitro y/o mesa, por cuenta, por perfil o por equipo): pasados y futuros, sin los ocultos
-// Nombre de usuario para iniciar sesión (solo lo ve la organización). null lo quita.
-const USERNAME_RE = /^[a-z0-9._]{3,20}$/;
-router.patch('/username', authenticate, async (req, res) => {
-  try {
-    const raw = req.body?.username;
-    const username = raw === null ? null : typeof raw === 'string' ? raw.trim().toLowerCase() : undefined;
-    if (username === undefined || (username !== null && !USERNAME_RE.test(username))) {
-      return res.status(400).json({ error: 'Usuario inválido: 3 a 20 caracteres, solo letras, números, punto y guion bajo' });
-    }
-    try {
-      await prisma.user.update({ where: { id: req.user.id }, data: { username } });
-    } catch (err) {
-      if (err.code === 'P2002') return res.status(409).json({ error: 'Ese usuario ya está en uso' });
-      throw err;
-    }
-    res.json({ username });
-  } catch (err) {
-    console.error('[me]', err);
-    res.status(500).json({ error: 'Error interno' });
-  }
-});
-
 router.get('/assignments', authenticate, async (req, res) => {
   try {
     const or = [{ function: 'TABLE', userId: req.user.id }];
