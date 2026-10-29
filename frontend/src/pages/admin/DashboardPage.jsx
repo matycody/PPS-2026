@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { Pin, PinOff, X } from 'lucide-react'
 import { socket } from '../../sockets/socket'
 import { api } from '../../lib/api'
+import { normMatch } from '../../lib/format'
 import { useMatchesFeed } from '../../hooks/useMatchesFeed'
 import { useMatchesStore } from '../../stores/matchesStore'
 import { fmtWhen, courtLabel, phaseCmp } from '../../lib/format'
@@ -119,11 +120,25 @@ export default function DashboardPage() {
   const [ticks, setTicks] = useState({})
   const [sel, setSel] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [fin, setFin] = useState({}) // finalizados recientes (el feed general solo trae los activos)
   const [err, setErr] = useState('')
+
+  useEffect(() => {
+    const from = encodeURIComponent(new Date(Date.now() - 2 * 864e5).toISOString())
+    const load = () => api('GET', '/matches?status=FINISHED&limit=60&from=' + from)
+      .then((list) => setFin(Object.fromEntries(list.map((m) => [m.id, normMatch(m)]))))
+      .catch(() => {})
+    load()
+    const onUpd = (p) => { if (p.status === 'FINISHED') load() }
+    socket.on('match:updated', onUpd)
+    socket.on('connect', load)
+    return () => { socket.off('match:updated', onUpd); socket.off('connect', load) }
+  }, [])
 
   const courts = useMemo(() => {
     const groups = {}
-    Object.values(byId)
+    const all = { ...fin, ...byId }
+    Object.values(all)
       .filter((m) => m.status in ORDER)
       .forEach((m) => { (groups[m.court ?? 0] ??= []).push(m) })
     return Object.entries(groups)
@@ -134,7 +149,7 @@ export default function DashboardPage() {
         return { court: Number(court), list: active, done }
       })
       .sort((a, b) => (a.court || 999) - (b.court || 999))
-  }, [byId])
+  }, [byId, fin])
 
   // Cancha elegida: la que el organizador tocó o, por defecto, la primera con partido en vivo
   const current = courts.find((c) => c.court === sel) ?? courts.find((c) => c.list[0]?.status === 'LIVE') ?? courts[0]
