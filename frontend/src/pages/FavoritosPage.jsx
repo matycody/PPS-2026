@@ -39,10 +39,12 @@ export default function FavoritosPage() {
             <TeamBadge team={{ name: f.name, logo: f.logo }} />
             {f.targetType === 'TEAM' ? (
               <Link to={'/equipo/' + f.targetId} className="flex-1 truncate font-bold">{f.name}</Link>
+            ) : f.targetType === 'TOURNAMENT' ? (
+              <Link to={'/liga/' + f.targetId} className="flex-1 truncate font-bold">{f.name}</Link>
             ) : (
               <Link to={'/jugador/' + f.targetId} className="flex-1 truncate font-bold"><PersonName p={f} /></Link>
             )}
-            <span className="text-[11px] font-bold uppercase text-muted">{f.targetType === 'TEAM' ? 'Equipo' : 'Jugador'}</span>
+            <span className="text-[11px] font-bold uppercase text-muted">{f.targetType === 'TEAM' ? 'Equipo' : f.targetType === 'TOURNAMENT' ? 'Torneo' : 'Jugador'}</span>
             <button
               aria-label="Dejar de seguir"
               onClick={() => api('DELETE', '/favorites/' + f.targetType + '/' + f.targetId).then(loadFavs).catch((e) => setErr(e.message))}

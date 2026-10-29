@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { CalendarDays } from 'lucide-react'
 import MatchCard from '../MatchCard'
@@ -104,6 +104,15 @@ export default function HomeInicio({ byId, loading, error, children }) {
   const pill = (on) => 'shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
   const strip = '-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
   const countOf = (d) => v.calDays[d]?.length ?? 0
+  // "En vivo" va en su lugar del tiempo: justo antes del primer día de hoy en adelante (o al final si no hay)
+  const today = dayOf(new Date())
+  const liveBefore = v.live.length ? v.tabs.find((d) => d >= today) ?? null : undefined
+  const liveTab = v.live.length > 0 && (
+    <button id="daytab-live" onClick={() => setParams({ d: 'live', t: null })} aria-pressed={v.sel === 'live'}
+      className={'shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-bold ' + (v.sel === 'live' ? 'border-live bg-live text-black' : 'border-live/50 bg-surface text-live')}>
+      En vivo ({v.live.length})
+    </button>
+  )
 
   return (
     <div className="space-y-4">
@@ -113,17 +122,15 @@ export default function HomeInicio({ byId, loading, error, children }) {
       <div className="flex items-center gap-2">
         <div className={strip + ' min-w-0 flex-1'}>
           <div className="flex gap-2">
-            {v.live.length > 0 && (
-              <button id="daytab-live" onClick={() => setParams({ d: 'live', t: null })} aria-pressed={v.sel === 'live'}
-                className={'shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-bold ' + (v.sel === 'live' ? 'border-live bg-live text-black' : 'border-live/50 bg-surface text-live')}>
-                En vivo ({v.live.length})
-              </button>
-            )}
             {v.tabs.map((d) => (
-              <button key={d} id={'daytab-' + d} onClick={() => setParams({ d, t: null })} aria-pressed={v.sel === d} className={pill(v.sel === d)}>
-                {dayTab(d)}{countOf(d) ? ' · ' + countOf(d) : ''}
-              </button>
+              <Fragment key={d}>
+                {d === liveBefore && liveTab}
+                <button id={'daytab-' + d} onClick={() => setParams({ d, t: null })} aria-pressed={v.sel === d} className={pill(v.sel === d)}>
+                  {dayTab(d)}{countOf(d) ? ' · ' + countOf(d) : ''}
+                </button>
+              </Fragment>
             ))}
+            {liveBefore === null && liveTab}
             {v.hasUndated && (
               <button id="daytab-none" onClick={() => setParams({ d: 'none', t: null })} aria-pressed={v.sel === 'none'} className={pill(v.sel === 'none')}>Sin fecha</button>
             )}

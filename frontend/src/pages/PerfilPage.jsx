@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Camera, LogOut, Trash2 } from 'lucide-react'
 import { api, apiUploadPhoto } from '../lib/api'
-import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import { BRANCH } from '../lib/format'
 import { roleLabel } from '../lib/navConfig'
 import PersonName from '../components/PersonName'
 import PlayerRequestBanner from '../components/PlayerRequestBanner'
 import MenuPrefsCard from '../components/MenuPrefsCard'
+import CuentaCard from '../components/CuentaCard'
 
 function Card({ title, children }) {
   return (
@@ -27,10 +27,7 @@ export default function PerfilPage() {
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
-  const [email, setEmail] = useState('')
   const [nick, setNick] = useState('')
-  const [uname, setUname] = useState(user?.username ?? '')
-  useEffect(() => { setUname(user?.username ?? '') }, [user?.username])
   const [num, setNum] = useState('')
   const [birth, setBirth] = useState('')
   const [pub, setPub] = useState({ showNickname: true, showNumber: true, showAge: false, showPhoto: false })
@@ -69,15 +66,6 @@ export default function PerfilPage() {
       await load()
       await refreshProfile()
     }, 'Datos guardados')
-  }
-
-  const saveUsername = () => {
-    const v = uname.trim()
-    if (!/^[a-zA-Z0-9._]{3,20}$/.test(v)) return setErr('Usuario: 3 a 20 caracteres, solo letras, números, punto y guion bajo')
-    run(async () => {
-      const r = await api('PATCH', '/me/username', { username: v })
-      useAuthStore.setState({ user: { ...user, username: r.username } })
-    }, 'Usuario guardado')
   }
 
   const savePublic = () => {
@@ -127,13 +115,7 @@ export default function PerfilPage() {
         </div>
       </div>
 
-      <Card title="Usuario para ingresar">
-        <div className="space-y-3">
-          <p className="text-xs text-muted">Con este usuario y tu contraseña entrás sin escribir el mail. Solo lo ve la organización.</p>
-          <input className={field} placeholder="usuario" maxLength={20} autoCapitalize="none" autoCorrect="off" spellCheck={false} value={uname} onChange={(e) => setUname(e.target.value.replace(/\s/g, ''))} />
-          <button disabled={busy || !uname.trim() || uname.trim().toLowerCase() === (user?.username ?? '')} onClick={saveUsername} className="w-full rounded-2xl bg-accent py-3 font-extrabold text-black disabled:opacity-40">Guardar usuario</button>
-        </div>
-      </Card>
+      <CuentaCard run={run} busy={busy} setErr={setErr} />
 
       {p && (
         <Card title="Apodo y número (opcional)">
@@ -217,23 +199,6 @@ export default function PerfilPage() {
       )}
 
       <MenuPrefsCard />
-
-      <Card title="Cambiar mail">
-        <div className="flex gap-2">
-          <input className={field} type="email" placeholder="Mail nuevo" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <button
-            disabled={busy || !email.trim()}
-            onClick={() => run(async () => {
-              const { error } = await supabase.auth.updateUser({ email: email.trim() })
-              if (error) throw error
-              setEmail('')
-            }, 'Te enviamos un mail de confirmación al mail nuevo. Hasta confirmarlo sigue vigente el actual.')}
-            className="shrink-0 rounded-xl bg-accent px-4 font-bold text-black disabled:opacity-40"
-          >
-            Guardar
-          </button>
-        </div>
-      </Card>
 
       <button onClick={() => signOut().then(() => navigate('/'))} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-surface py-3 font-bold">
         <LogOut size={18} /> Cerrar sesión

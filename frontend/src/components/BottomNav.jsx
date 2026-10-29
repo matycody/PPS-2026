@@ -2,15 +2,13 @@
 import { LogIn } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { ITEMS, BOTTOM_PRIORITY, NOTICIAS } from '../lib/navConfig'
-import { useMenuPrefs } from '../stores/menuPrefsStore'
 
 export default function BottomNav() {
   const { user, menu } = useAuthStore()
-  const bottom = useMenuPrefs((s) => s.byUser[user?.id]?.bottom)
 
   const isAdmin = !!user?.roles?.includes('ADMIN')
   const items = user
-    ? [ITEMS.home, NOTICIAS, ...(bottom ?? BOTTOM_PRIORITY).filter((k) => k !== 'home' && menu.includes(k) && ITEMS[k] && (!isAdmin || k === 'dashboard_canchas' || k === 'partidos')).slice(0, 2).map((k) => ITEMS[k]), ...(isAdmin ? [] : [ITEMS.perfil])]
+    ? [ITEMS.home, NOTICIAS, ...BOTTOM_PRIORITY.filter((k) => k !== 'home' && menu.includes(k) && ITEMS[k] && (!isAdmin || k === 'dashboard_canchas' || k === 'partidos')).slice(0, 2).map((k) => ITEMS[k]), ...(isAdmin ? [] : [ITEMS.perfil])]
     : [ITEMS.home, NOTICIAS, { to: '/login', label: 'Ingresar', Icon: LogIn }]
 
   return (
