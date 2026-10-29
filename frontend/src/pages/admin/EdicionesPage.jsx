@@ -3,6 +3,7 @@ import { api } from '../../lib/api'
 import { inputCls } from '../../components/ui'
 import { fmtWhen } from '../../lib/format'
 import MovimientosPanel from './MovimientosPanel'
+import ResumenPanel from './ResumenPanel'
 
 // Color del punto según el tipo de evento; lo que no reconozco queda gris
 const DOT = {
@@ -17,7 +18,7 @@ export default function EdicionesPage() {
   const [sel, setSel] = useState('')
   const [log, setLog] = useState(null)
   const [err, setErr] = useState('')
-  const [tab, setTab] = useState('matches')
+  const [tab, setTab] = useState('summary')
 
   useEffect(() => { api('GET', '/matches?limit=200').then(setMatches).catch((e) => setErr(e.message)) }, [])
   useEffect(() => {
@@ -30,9 +31,11 @@ export default function EdicionesPage() {
     <div className="space-y-4">
       <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Registro de ediciones</h1>
       <div className="flex gap-2 text-sm font-bold">
+        <button onClick={() => setTab('summary')} className={'rounded-full border px-4 py-1.5 ' + (tab === 'summary' ? 'border-accent text-accent' : 'border-line text-muted')}>Resumen</button>
         <button onClick={() => setTab('matches')} className={'rounded-full border px-4 py-1.5 ' + (tab === 'matches' ? 'border-accent text-accent' : 'border-line text-muted')}>Partidos</button>
         <button onClick={() => setTab('users')} className={'rounded-full border px-4 py-1.5 ' + (tab === 'users' ? 'border-accent text-accent' : 'border-line text-muted')}>Movimientos</button>
       </div>
+      {tab === 'summary' && <ResumenPanel />}
       {tab === 'users' && <MovimientosPanel />}
       {tab === 'matches' && <>
       {err && <p className="text-danger">{err}</p>}

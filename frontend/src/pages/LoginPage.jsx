@@ -43,8 +43,8 @@ export default function LoginPage() {
       <h1 className="mb-8 mt-1 text-3xl font-extrabold">Cronómetro Dodgeball</h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <input className={field} type="email" placeholder="Mail" required
-          value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+        <input className={field} type="text" placeholder="Usuario o mail" required autoCapitalize="none" autoCorrect="off" spellCheck={false}
+          value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
         <input className={field} type="password" placeholder="Contraseña" required minLength={6}
           value={password} onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password" />
