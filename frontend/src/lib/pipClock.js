@@ -95,7 +95,12 @@ function draw(ctx, { m, tick, at }) {
   const nameA = m?.teamA?.name ?? 'Equipo A'
   const nameB = m?.teamB?.name ?? 'Equipo B'
   const cloth = m?.modality === 'CLOTH'
-  const finished = m?.status === 'FINISHED'
+  const mPaused = tick?.isMatchPaused ?? true
+  const sPaused = tick?.isSetPaused ?? true
+  const mLeft = nowSec(tick?.matchTime, !mPaused, at)
+  const sLeft = nowSec(tick?.setTime, !sPaused, at)
+  // Finalizado: lo cerró la mesa, o los dos relojes llegaron a 00:00 (aunque el estado todavía no haya cambiado)
+  const finished = m?.status === 'FINISHED' || (mLeft === 0 && sLeft === 0)
   const to = tick?.timeoutTeam
   const toRunning = !!tick?.isTimeoutRunning
 
@@ -109,6 +114,12 @@ function draw(ctx, { m, tick, at }) {
   ctx.font = '600 18px ' + SANS
   ctx.textAlign = 'center'
   ctx.fillText(cloth ? 'CLOTH' : 'FOAM', 24 + (cloth ? 54 : 49), 38)
+  if (!finished && tick?.matchHalf) {
+    ctx.textAlign = 'center'
+    ctx.font = '600 20px ' + SANS
+    ctx.fillStyle = '#9aa4b2'
+    ctx.fillText(Number(tick.matchHalf) === 2 ? '2DO TIEMPO' : '1ER TIEMPO', W / 2 - 10, 38)
+  }
   ctx.textAlign = 'right'
   ctx.font = '600 20px ' + SANS
   ctx.fillStyle = finished ? '#9aa4b2' : '#ff6b6b'
@@ -133,23 +144,21 @@ function draw(ctx, { m, tick, at }) {
   ctx.fillText((m?.score?.teamA ?? 0) + ' - ' + (m?.score?.teamB ?? 0), W / 2, 133)
 
   // Los dos relojes
-  const mPaused = tick?.isMatchPaused ?? true
-  const sPaused = tick?.isSetPaused ?? true
   const dim = !!to
-  const clock = (x, label, str, paused) => {
+  const clock = (x, label, left, paused) => {
     box(ctx, x, 236, 288, 128, 16, '#1d222a')
     ctx.globalAlpha = dim ? 0.55 : 1
     ctx.fillStyle = '#9aa4b2'
     ctx.font = '600 20px ' + SANS
     ctx.textAlign = 'center'
-    ctx.fillText(label + (paused ? ' · PAUSA' : ''), x + 144, 262)
+    ctx.fillText(label + (finished ? ' · FINALIZADO' : paused ? ' · PAUSA' : ''), x + 144, 262)
     ctx.fillStyle = '#f2f4f7'
     ctx.font = '600 76px ' + MONO
-    ctx.fillText(fmt(nowSec(str, !paused, at)), x + 144, 321)
+    ctx.fillText(fmt(left), x + 144, 321)
     ctx.globalAlpha = 1
   }
-  clock(24, 'PARTIDO', tick?.matchTime, mPaused)
-  clock(328, 'SET', tick?.setTime, sPaused)
+  clock(24, 'PARTIDO', mLeft, mPaused)
+  clock(328, 'SET', sLeft, sPaused)
 
   // Tiempo muerto (o el torneo, si no hay)
   if (to) {

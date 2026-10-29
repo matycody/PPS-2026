@@ -56,6 +56,8 @@ export async function startDocPip(getState, onClose) {
   const live = el(doc, 'span', 'font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px', null, top)
   const dot = el(doc, 'span', 'width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block', null, live)
   const liveTxt = el(doc, 'span', '', 'EN VIVO', live)
+  const half = el(doc, 'span', 'font-size:12px;font-weight:600;letter-spacing:.06em;color:#9aa4b2', '', top)
+  top.insertBefore(half, live)
 
   // Equipos y marcador
   const teams = el(doc, 'div', 'display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:6px', null, root)
@@ -88,7 +90,12 @@ export async function startDocPip(getState, onClose) {
   const update = () => {
     const { m, tick, at } = getState()
     const cloth = m?.modality === 'CLOTH'
-    const finished = m?.status === 'FINISHED'
+    const mPaused = tick?.isMatchPaused ?? true
+    const sPaused = tick?.isSetPaused ?? true
+    const mLeft = nowSec(tick?.matchTime, !mPaused, at)
+    const sLeft = nowSec(tick?.setTime, !sPaused, at)
+    // Finalizado: lo cerró la mesa, o los dos relojes llegaron a 00:00
+    const finished = m?.status === 'FINISHED' || (mLeft === 0 && sLeft === 0)
     const to = tick?.timeoutTeam
     const toRunning = !!tick?.isTimeoutRunning
     const nameA = m?.teamA?.name ?? 'Equipo A'
@@ -107,12 +114,11 @@ export async function startDocPip(getState, onClose) {
     B.nm.textContent = nameB
     score.textContent = (m?.score?.teamA ?? 0) + ' - ' + (m?.score?.teamB ?? 0)
 
-    const mPaused = tick?.isMatchPaused ?? true
-    const sPaused = tick?.isSetPaused ?? true
-    MC.label.textContent = 'PARTIDO' + (mPaused ? ' · PAUSA' : '')
-    SC.label.textContent = 'SET' + (sPaused ? ' · PAUSA' : '')
-    MC.time.textContent = fmt(nowSec(tick?.matchTime, !mPaused, at))
-    SC.time.textContent = fmt(nowSec(tick?.setTime, !sPaused, at))
+    half.textContent = !finished && tick?.matchHalf ? (Number(tick.matchHalf) === 2 ? '2DO TIEMPO' : '1ER TIEMPO') : ''
+    MC.label.textContent = 'PARTIDO' + (finished ? ' · FINALIZADO' : mPaused ? ' · PAUSA' : '')
+    SC.label.textContent = 'SET' + (finished ? ' · FINALIZADO' : sPaused ? ' · PAUSA' : '')
+    MC.time.textContent = fmt(mLeft)
+    SC.time.textContent = fmt(sLeft)
     MC.b.style.opacity = SC.b.style.opacity = to ? '0.55' : '1'
 
     if (to) {

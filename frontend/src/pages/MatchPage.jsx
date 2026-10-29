@@ -13,13 +13,13 @@ import { usePipClock } from '../hooks/usePipClock'
 
 const showTime = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
 
-function ClockCard({ label, time, paused, color }) {
+function ClockCard({ label, time, paused, color, finished }) {
   return (
     <div className="rounded-3xl border border-line bg-surface p-5">
       <p className="text-xs font-bold uppercase tracking-widest text-muted">{label}</p>
       <p className={'my-4 text-center font-mono text-[clamp(1.75rem,9vw,3rem)] font-extrabold tabular-nums ' + color}>{showTime(time)}</p>
-      <p className={'rounded-full py-2 text-center text-xs font-bold uppercase ' + (paused ? 'bg-danger/15 text-danger' : 'bg-live/15 text-live')}>
-        {paused ? 'Pausado' : 'En marcha'}
+      <p className={'rounded-full py-2 text-center text-xs font-bold uppercase ' + (finished ? 'bg-surface-2 text-muted' : paused ? 'bg-danger/15 text-danger' : 'bg-live/15 text-live')}>
+        {finished ? 'Finalizado' : paused ? 'Pausado' : 'En marcha'}
       </p>
     </div>
   )
@@ -84,6 +84,8 @@ export default function MatchPage() {
   if (!m) return <p className="mt-10 text-center text-muted">Cargando…</p>
 
   const second = Number(tick?.matchHalf) === 2
+  // Finalizado: lo cerró la mesa, o los dos relojes están en 00:00
+  const over = m.status === 'FINISHED' || (tick?.matchTime === '00:00' && tick?.setTime === '00:00')
 
   return (
     <div className="space-y-4">
@@ -145,8 +147,8 @@ export default function MatchPage() {
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <ClockCard label="Partido" time={tick?.matchTime} paused={tick?.isMatchPaused ?? true} color="text-live" />
-        <ClockCard label="Set" time={tick?.setTime} paused={tick?.isSetPaused ?? true} color="text-live" />
+        <ClockCard label="Partido" time={tick?.matchTime} paused={tick?.isMatchPaused ?? true} finished={over} color="text-live" />
+        <ClockCard label="Set" time={tick?.setTime} paused={tick?.isSetPaused ?? true} finished={over} color="text-live" />
       </div>
 
       <TimeoutBanner tick={tick} nameA={m.teamA?.name ?? 'Equipo A'} nameB={m.teamB?.name ?? 'Equipo B'} />
