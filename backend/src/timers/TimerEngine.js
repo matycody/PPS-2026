@@ -27,6 +27,8 @@ class TimerEngine {
     this.setTimeLeft = SET_DURATION_SECONDS;
     this.matchHalf = 1;
     this.clothAutoResetUsed = false;
+    // true cuando terminó el 2° tiempo y la mesa finalizó el partido (aún sin cerrarlo)
+    this.matchEnded = false;
 
     this.isMatchPaused = true;
     this.isSetPaused = true;
@@ -48,6 +50,7 @@ class TimerEngine {
       isTimeoutRunning: this.isTimeoutRunning,
       matchHalf: this.matchHalf,
       clothAutoResetUsed: this.clothAutoResetUsed,
+      matchEnded: this.matchEnded,
       timeoutTeam: this.timeoutTeam,
       timeoutHalf: this._timeoutHalf,
       timeoutsUsed: JSON.parse(JSON.stringify(this.timeoutsUsed)),
@@ -67,6 +70,7 @@ class TimerEngine {
     this.timeoutTimeLeft = int(s.timeoutTimeLeft, TIMEOUT_DURATION_SECONDS, 0, TIMEOUT_DURATION_SECONDS);
     this.matchHalf = s.matchHalf === 2 ? 2 : 1;
     this.clothAutoResetUsed = Boolean(s.clothAutoResetUsed);
+    this.matchEnded = Boolean(s.matchEnded);
     this.timeoutsUsed = { A: used("A"), B: used("B") };
 
     const hasTimeout = s.timeoutTeam === "A" || s.timeoutTeam === "B";
@@ -99,6 +103,7 @@ class TimerEngine {
       throw new Error(`Tiempo inválido: ${half}`);
     }
     this.matchHalf = half;
+    this.matchEnded = false;
     this.clothAutoResetUsed = false;
     this._emitState();
   }
@@ -119,6 +124,7 @@ class TimerEngine {
       return { matchEnded: false };
     } else {
       this.matchHalf = 1;
+      this.matchEnded = true;
       this._emitState();
 
       if (this.callbacks.onMatchFinished) {
@@ -131,6 +137,7 @@ class TimerEngine {
   start(target = "both") {
     if (this.timeoutTeam !== null) return;
     this.recovered = false;
+    this.matchEnded = false;
     if (target === "match" || target === "both") this.isMatchPaused = false;
     if (target === "set" || target === "both") this.isSetPaused = false;
 
@@ -358,6 +365,7 @@ class TimerEngine {
         isTimeoutRunning: this.isTimeoutRunning,
         timeoutsUsed: JSON.parse(JSON.stringify(this.timeoutsUsed)),
         recovered: this.recovered,
+        matchEnded: this.matchEnded,
       });
     }
   }

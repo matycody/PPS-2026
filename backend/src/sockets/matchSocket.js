@@ -21,8 +21,8 @@ const lastTick = new Map();
 function buildCallbacks(io, matchId) {
   return {
     onPersist: (state, opts) => clockStore.persist(matchId, state, opts),
-    onTick: ({ matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed, recovered }) => {
-      const payload = { matchId, matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed, recovered };
+    onTick: ({ matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed, recovered, matchEnded }) => {
+      const payload = { matchId, matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed, recovered, matchEnded };
       lastTick.set(matchId, payload);
       io.to(publicRoom(matchId)).emit(SERVER_EVENTS.MATCH_TICK, payload);
     },
