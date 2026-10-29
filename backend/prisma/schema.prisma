@@ -334,7 +334,7 @@ model MatchResultLog {
 
 model Favorite {
   userId     String
-  targetType String // TEAM | PLAYER
+  targetType String // TEAM | PLAYER | TOURNAMENT
   targetId   String
 
   user User @relation(fields: [userId], references: [id])
