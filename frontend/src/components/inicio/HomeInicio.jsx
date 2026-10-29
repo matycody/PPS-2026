@@ -19,8 +19,8 @@ const phaseText = (m) => m.phase?.label ?? 'Sin fase'
 const tid = (m) => m.tournament?.id ?? 'none'
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
-// Inicio de la organización: tira de partidos, tira de días (por jornada) y tira de torneos, con la lista agrupada por torneo.
-export default function HomeAdmin({ byId, loading, error, children }) {
+// Inicio de todos los roles: tira de días (por jornada) y tira de torneos, con la lista agrupada por torneo.
+export default function HomeInicio({ byId, loading, error, children }) {
   const [sp, setSp] = useSearchParams()
   const dPick = sp.get('d')
   const tPick = sp.get('t') || 'all'

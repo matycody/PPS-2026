@@ -1,6 +1,5 @@
-import { useState } from 'react'
-import { NavLink, Link, useNavigate } from 'react-router-dom'
-import { X, LogOut, LogIn, Search } from 'lucide-react'
+import { NavLink, Link } from 'react-router-dom'
+import { X, LogOut, LogIn } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import UserAvatar from './UserAvatar'
 import PersonName from './PersonName'
@@ -32,16 +31,6 @@ function Title({ children }) {
 export default function Drawer({ open, onClose }) {
   const { user, menu, signOut, profile } = useAuthStore()
   const order = useMenuPrefs((s) => s.byUser[user?.id]?.order)
-  const navigate = useNavigate()
-  const [q, setQ] = useState('')
-  const search = (e) => {
-    e.preventDefault()
-    const t = q.trim()
-    if (!t) return
-    setQ('')
-    onClose()
-    navigate('/buscar?q=' + encodeURIComponent(t))
-  }
 
   return (
     <div className={'fixed inset-0 z-40 ' + (open ? '' : 'pointer-events-none')}>
@@ -77,18 +66,6 @@ export default function Drawer({ open, onClose }) {
           )}
         </div>
 
-        {!user?.roles?.includes('ADMIN') && (
-        <form onSubmit={search} className="relative mt-4">
-          <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar equipo, torneo, partido…"
-            enterKeyHint="search"
-            className="w-full rounded-xl border border-line bg-bg py-3 pl-10 pr-3 text-sm outline-none focus:border-accent"
-          />
-        </form>
-        )}
 
         <nav className="mt-3">
           <Item {...ITEMS.home} label="Menú principal" onClose={onClose} />

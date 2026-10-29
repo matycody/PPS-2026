@@ -1,106 +1,21 @@
-import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import MatchCard from '../components/MatchCard'
-import OrgMatches from '../components/inicio/OrgMatches'
-import Finalizados from '../components/inicio/Finalizados'
-import HomeAdmin from '../components/inicio/HomeAdmin'
+import HomeInicio from '../components/inicio/HomeInicio'
 import { useMatchesFeed } from '../hooks/useMatchesFeed'
 import { useMatchesStore } from '../stores/matchesStore'
-import { socket } from '../sockets/socket'
-import { toSeconds, phaseCmp } from '../lib/format'
 import { GENERAL, ITEMS } from '../lib/navConfig'
 import { useAuthStore } from '../stores/authStore'
 import PlayerRequestBanner from '../components/PlayerRequestBanner'
 import { roleLabel } from '../lib/navConfig'
 import { useMenuPrefs } from '../stores/menuPrefsStore'
 
-const FILTERS = [
-  { id: 'all', label: 'Todos' },
-  { id: 'live', label: 'En vivo' },
-  { id: 'sched', label: 'Programados' },
-  { id: 'fin', label: 'Finalizados' },
-]
-const ORDER = { LIVE: 0, READY: 1, SCHEDULED: 2 }
-const WINDOW_DAYS = 7 // ventana de "próximos"
-const MAX_NEXT = 10
-const SOON_SEC = 3 * 60 // el próximo partido de la cancha se agranda con 3 min o menos
-const ORG_DAYS = 30 // la organización ve más lejos para encontrar la próxima jornada
+const ORG_DAYS = 30 // se carga más lejos para encontrar la próxima jornada
 
 export default function InicioPage() {
   const { user, menu } = useAuthStore()
   const role = roleLabel(user, menu) // Organizador, Árbitro, Mesa, Jugador o Registrado
-  const isOrg = true // todos los roles ven las pestañas como la organización
-  useMatchesFeed(isOrg ? ORG_DAYS : WINDOW_DAYS)
+  useMatchesFeed(ORG_DAYS)
   const cardsPref = useMenuPrefs((s) => s.byUser[user?.id]?.cards)
   const { byId, loading, error } = useMatchesStore()
-  const [filter, setFilter] = useState('all')
-  const [ticks, setTicks] = useState({})
-
-  // Agrupa por cancha (la cantidad de canchas no es fija); dentro de cada una, en orden cronológico
-  const courts = useMemo(() => {
-    const groups = {}
-    Object.values(byId)
-      .filter((m) => m.status in ORDER)
-      .forEach((m) => { (groups[m.court ?? 0] ??= []).push(m) })
-    return Object.entries(groups)
-      .map(([court, list]) => {
-        list.sort((a, b) =>
-          ORDER[a.status] - ORDER[b.status] || String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b)
-        )
-        return { court: Number(court), list }
-      })
-      .sort((a, b) => (a.court || 999) - (b.court || 999))
-  }, [byId])
-
-  // Reloj de cada partido en vivo, para saber cuándo está por terminar
-  const liveIds = useMemo(
-    () => courts.filter((c) => c.list[0]?.status === 'LIVE').map((c) => c.list[0].id).slice(0, 10),
-    [courts]
-  )
-  const liveKey = liveIds.join(',')
-  useEffect(() => {
-    const join = () => liveIds.forEach((id) => socket.emit('match:join', { matchId: id }))
-    const onTick = (p) => setTicks((t) => ({ ...t, [p.matchId]: p }))
-    socket.connect()
-    if (socket.connected) join()
-    socket.on('connect', join)
-    socket.on('match:tick', onTick)
-    return () => {
-      liveIds.forEach((id) => socket.emit('match:leave', { matchId: id }))
-      socket.off('connect', join)
-      socket.off('match:tick', onTick)
-    }
-  }, [liveKey])
-
-  // Una sección por cancha en vivo: el partido en curso y, si le queda poco, el que le sigue en esa cancha
-  const liveSections = courts
-    .filter((c) => c.list[0]?.status === 'LIVE')
-    .map((c) => {
-      const live = c.list[0]
-      const next = c.list[1] && c.list[1].status !== 'LIVE' ? c.list[1] : null
-      const left = toSeconds(ticks[live.id]?.matchTime)
-      const promote = !!next && left != null && left <= SOON_SEC
-      return { court: c.court, live, next: promote ? next : null }
-    })
-
-  const promotedIds = new Set(liveSections.filter((s) => s.next).map((s) => s.next.id))
-  const sameDay = (iso) => iso && new Date(iso).toDateString() === new Date().toDateString()
-  const limit = Date.now() + WINDOW_DAYS * 864e5
-  const rest = courts
-    .flatMap((c) => c.list)
-    .filter((m) => m.status !== 'LIVE' && !promotedIds.has(m.id))
-    .filter((m) => !m.scheduledAt || new Date(m.scheduledAt).getTime() <= limit)
-    .sort((a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b) || (a.court || 999) - (b.court || 999))
-  const today = rest.filter((m) => sameDay(m.scheduledAt))
-  const later = rest.filter((m) => !sameDay(m.scheduledAt))
-  const nextList = later.slice(0, MAX_NEXT)
-  const hiddenCount = later.length - nextList.length
-
-  // Organización: Todos = próxima jornada completa; En vivo = por cancha (ver OrgMatches)
-  const fin = filter === 'fin'
-  const orgView = isOrg && !fin
-  const showLive = !orgView && !fin
-  const showUpcoming = !orgView && !fin && filter !== 'live'
 
   const shortcuts = (
       <div className="flex gap-2">
@@ -117,78 +32,11 @@ export default function InicioPage() {
         ))}
       </div>
   )
-  const newHome = !!user?.roles?.includes('ADMIN') // nuevo Inicio: por ahora solo la organización
 
   return (
     <div className="space-y-5">
       <PlayerRequestBanner />
-      {!newHome && shortcuts}
-
-      {newHome ? (
-        <HomeAdmin byId={byId} loading={loading} error={error}>{shortcuts}</HomeAdmin>
-      ) : (
-        <>
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id)}
-            className={
-              'rounded-full border px-3.5 py-2 text-sm font-bold ' +
-              (filter === f.id ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
-            }
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
-      {loading && <p className="text-muted">Cargando…</p>}
-      {error && <p className="text-danger">{error}</p>}
-      {orgView && !loading && !error && <OrgMatches byId={byId} filter={filter} />}
-      {fin && <Finalizados />}
-
-      {showLive && liveSections.length > 0 && (
-        <div className="space-y-4">
-          {liveSections.map(({ court, live, next }) => (
-            <div key={court} className="space-y-3">
-              <MatchCard m={live} featured />
-              {next && <MatchCard m={next} featured badge="Arranca pronto" />}
-            </div>
-          ))}
-        </div>
-      )}
-      {showLive && filter === 'live' && liveSections.length === 0 && !loading && !error && (
-        <p className="text-muted">No hay partidos en vivo.</p>
-      )}
-
-      {showUpcoming && (
-        <>
-          {!loading && !error && rest.length === 0 && <p className="text-muted">No hay partidos programados.</p>}
-          {today.length > 0 && (
-            <>
-              <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Hoy</h2>
-              <div className="space-y-3">{today.map((m) => <MatchCard key={m.id} m={m} />)}</div>
-            </>
-          )}
-          {nextList.length > 0 && (
-            <>
-              <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Próximos</h2>
-              <div className="space-y-3">{nextList.map((m) => <MatchCard key={m.id} m={m} />)}</div>
-            </>
-          )}
-          <Link to="/liga" className="block rounded-2xl border border-line bg-surface py-3 text-center text-sm font-bold text-accent">
-            Ver calendario completo{hiddenCount > 0 ? ` (+${hiddenCount} más)` : ''}
-          </Link>
-        </>
-      )}
-        </>
-      )}
+      <HomeInicio byId={byId} loading={loading} error={error}>{shortcuts}</HomeInicio>
     </div>
   )
 }
-
-
-
-
-
