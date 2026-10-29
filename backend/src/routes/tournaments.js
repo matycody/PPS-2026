@@ -1,6 +1,17 @@
 const express = require('express');
 const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { FEED_ROOM } = require('../services/notify');
+
+// Avisa a quienes tienen la app abierta que un torneo se pausó o reanudó (para que recarguen sus listas)
+function emitTournamentUpdate(req, tournamentId, pausedAt) {
+  try {
+    const io = req.app.get('io');
+    if (io) io.to(FEED_ROOM).emit('tournament:updated', { tournamentId, pausedAt: pausedAt ?? null });
+  } catch (err) {
+    console.error('[tournament:updated]', err);
+  }
+}
 
 const router = express.Router();
 const admin = [authenticate, requireRole('ADMIN')];
@@ -218,6 +229,7 @@ router.post('/:id/pause', ...admin, async (req, res) => {
         data: { hiddenAt: now, hiddenByPause: true },
       }),
     ]);
+    emitTournamentUpdate(req, t.id, updated.pausedAt);
     res.json({ ...updated, hiddenMatches: hidden.count });
   } catch (err) {
     handleDbError(err, res);
@@ -237,6 +249,7 @@ router.post('/:id/resume', ...admin, async (req, res) => {
         data: { hiddenAt: null, hiddenByPause: false },
       }),
     ]);
+    emitTournamentUpdate(req, t.id, null);
     res.json({ ...updated, restoredMatches: restored.count });
   } catch (err) {
     handleDbError(err, res);
