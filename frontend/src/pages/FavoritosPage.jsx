@@ -32,7 +32,7 @@ export default function FavoritosPage() {
   }, [favTeams, favTours, favPlayers])
 
   useEffect(() => {
-    const iso = (d) => encodeURIComponent(new Date(Date.now() + d * 864e5).toISOString())
+    const iso = (d) => new Date(Date.now() + d * 864e5).toLocaleDateString('en-CA')
     api('GET', '/matches?status=LIVE,READY,SCHEDULED,SUSPENDED,FINISHED&limit=200&from=' + iso(-BACK) + '&to=' + iso(AHEAD))
       .then((r) => setCal(r.map(normMatch)))
       .catch((e) => setErr(e.message))

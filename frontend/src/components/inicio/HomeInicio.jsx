@@ -19,6 +19,9 @@ const byStatus = (a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9) || byTi
 // Fecha del torneo sin la zona: la Fecha 1 junta los partidos de todas las zonas
 const phaseText = (m) => m.phase?.label ?? 'Sin fase'
 const tid = (m) => m.tournament?.id ?? 'none'
+const CAL_KEY = 'inicio-cal-v1'
+const readCal = () => { try { const r = JSON.parse(localStorage.getItem(CAL_KEY) || 'null'); return Array.isArray(r) && r.length ? r : null } catch { return null } }
+const saveCal = (rows) => { try { localStorage.setItem(CAL_KEY, JSON.stringify(rows)) } catch { /* sin espacio o bloqueado: no pasa nada */ } }
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 // Inicio de todos los roles: tira de días (por jornada) y tira de torneos, con la lista agrupada por torneo.
@@ -27,7 +30,7 @@ export default function HomeInicio({ byId, loading, error, children }) {
   const dPick = sp.get('d')
   const tPick = sp.get('t') || 'all'
   const [phasePick, setPhasePick] = useState('all')
-  const [cal, setCal] = useState(null)
+  const [cal, setCal] = useState(readCal) // lo último guardado se muestra al instante y se actualiza apenas llega lo nuevo
   const [calTry, setCalTry] = useState(0)
   const uid = useAuthStore((s) => s.user?.id)
   const { teams: favTeams, tournaments: favTours, loaded: favLoaded, load: loadFavs, clear: clearFavs } = useFavorites()
@@ -51,10 +54,10 @@ export default function HomeInicio({ byId, loading, error, children }) {
   // Jornadas pasadas y futuras (incluye finalizados). Reintenta si falla y vuelve a pedir al reconectar
   useEffect(() => {
     let alive = true
-    const iso = (d) => encodeURIComponent(new Date(Date.now() + d * 864e5).toISOString())
+    const iso = (d) => new Date(Date.now() + d * 864e5).toLocaleDateString('en-CA') // solo el día: la dirección se repite y el servidor puede reutilizar la respuesta
     const load = () =>
       api('GET', '/matches?status=LIVE,READY,SCHEDULED,SUSPENDED,FINISHED&includeUndated=true&limit=200&from=' + iso(-CAL_BACK) + '&to=' + iso(CAL_AHEAD))
-        .then((r) => { if (alive) setCal(r.map(normMatch)) })
+        .then((r) => { if (alive) { const rows = r.map(normMatch); setCal(rows); saveCal(rows) } })
         .catch(() => { if (alive && calTry < 3) setTimeout(() => alive && setCalTry((n) => n + 1), 2000) })
     load()
     socket.on('connect', load)
