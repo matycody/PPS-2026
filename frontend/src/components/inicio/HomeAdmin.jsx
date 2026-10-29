@@ -174,7 +174,7 @@ export default function HomeAdmin({ byId, loading, error, children }) {
                   ? <GoTo to={'/liga/' + g.id} className="min-w-0 truncate rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-extrabold text-accent">{g.name} ›</GoTo>
                   : <span className="min-w-0 truncate rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-extrabold">{g.name}</span>}
                 <span className="shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">
-                  {[MODALITY[g.modality], BRANCH[g.branch]].filter(Boolean).join(' · ')} · {g.list.length}
+                  {[MODALITY[g.modality], BRANCH[g.branch]].filter(Boolean).join(' · ')} · {g.list.length} {g.list.length === 1 ? 'partido' : 'partidos'}
                 </span>
               </div>
               <div className="space-y-2">
