@@ -14,7 +14,8 @@ const CAL_AHEAD = 180 // y hacia adelante
 const RANK = { LIVE: 0, READY: 1, SCHEDULED: 2, SUSPENDED: 3, FINISHED: 4 }
 const byTime = (a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b) || (a.court || 999) - (b.court || 999)
 const byStatus = (a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9) || byTime(a, b)
-const phaseText = (m) => (m.phase ? (m.phase.kind === 'LEAGUE' && m.phase.zone ? m.phase.zone + ' · ' : '') + m.phase.label : 'Sin fase')
+// Fecha del torneo sin la zona: la Fecha 1 junta los partidos de todas las zonas
+const phaseText = (m) => m.phase?.label ?? 'Sin fase'
 const tid = (m) => m.tournament?.id ?? 'none'
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
