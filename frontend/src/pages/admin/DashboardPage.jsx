@@ -14,7 +14,7 @@ import { matchInfo } from '../../lib/matchInfo'
 import { statusBorder } from '../../lib/statusStyle'
 import { usePipClock } from '../../hooks/usePipClock'
 
-const ORDER = { LIVE: 0, READY: 1, SCHEDULED: 2 }
+const ORDER = { LIVE: 0, READY: 1, SCHEDULED: 2, FINISHED: 3 }
 const pad = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
 
 // Partido de la cancha con acciones rápidas para la organización
@@ -127,8 +127,10 @@ export default function DashboardPage() {
       .forEach((m) => { (groups[m.court ?? 0] ??= []).push(m) })
     return Object.entries(groups)
       .map(([court, list]) => {
-        list.sort((a, b) => ORDER[a.status] - ORDER[b.status] || String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b))
-        return { court: Number(court), list }
+        const byTime = (a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b)
+        const active = list.filter((m) => m.status !== 'FINISHED').sort((a, b) => ORDER[a.status] - ORDER[b.status] || byTime(a, b))
+        const done = list.filter((m) => m.status === 'FINISHED').sort((a, b) => byTime(b, a))
+        return { court: Number(court), list: active, done }
       })
       .sort((a, b) => (a.court || 999) - (b.court || 999))
   }, [byId])
@@ -166,7 +168,7 @@ export default function DashboardPage() {
       {loading && <p className="text-muted">Cargando…</p>}
       {error && <p className="text-danger">{error}</p>}
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
-      {!loading && !error && courts.length === 0 && <p className="text-muted">No hay partidos activos.</p>}
+      {!loading && !error && courts.length === 0 && <p className="text-muted">No hay partidos.</p>}
 
       {courts.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -190,6 +192,12 @@ export default function DashboardPage() {
               <CourtMatch m={m} tick={ticks[m.id]} full={i === 0} run={run} busy={busy} />
             </div>
           ))}
+          {current.done.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Finalizados en {courtLabel(current.court)}</h2>
+              {current.done.map((m) => <CourtMatch key={m.id} m={m} full={false} run={run} busy={busy} />)}
+            </div>
+          )}
         </div>
       )}
     </div>
