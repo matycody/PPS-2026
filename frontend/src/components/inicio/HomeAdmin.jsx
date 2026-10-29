@@ -171,9 +171,9 @@ export default function HomeAdmin({ byId, loading, error, children }) {
             <section key={g.id} className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 {g.id !== 'none'
-                  ? <GoTo to={'/liga/' + g.id} className="min-w-0 truncate text-sm font-extrabold text-accent">{g.name} ›</GoTo>
-                  : <span className="min-w-0 truncate text-sm font-extrabold">{g.name}</span>}
-                <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted">
+                  ? <GoTo to={'/liga/' + g.id} className="min-w-0 truncate rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-extrabold text-accent">{g.name} ›</GoTo>
+                  : <span className="min-w-0 truncate rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-extrabold">{g.name}</span>}
+                <span className="shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">
                   {[MODALITY[g.modality], BRANCH[g.branch]].filter(Boolean).join(' · ')} · {g.list.length}
                 </span>
               </div>
