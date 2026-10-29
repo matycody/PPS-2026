@@ -1,7 +1,7 @@
 import { halfLabel } from '../lib/pipTime'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Eye, PictureInPicture2, Trophy, X } from 'lucide-react'
+import { Eye, Pin, PinOff, Trophy, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
 import { normMatch, MODALITY, BRANCH, courtLabel } from '../lib/format'
@@ -108,8 +108,20 @@ export default function MatchPage() {
         </button>
       )}
 
-      <div className="rounded-3xl border border-line bg-surface p-5">
+      <div className="relative rounded-3xl border border-line bg-surface p-5">
+        {pip.canPin && (
+          <button
+            type="button"
+            onClick={pip.toggle}
+            aria-label={pip.active ? 'Quitar reloj flotante' : 'Fijar reloj flotante'}
+            aria-pressed={pip.active}
+            className={'absolute right-1 top-1 grid h-11 w-11 place-items-center rounded-full ' + (pip.active ? 'text-live' : 'text-muted')}
+          >
+            {pip.active ? <PinOff size={18} /> : <Pin size={18} />}
+          </button>
+        )}
         <p className="mb-4 text-center text-xs font-bold uppercase tracking-widest text-muted">Marcador</p>
+        {pip.error && <p className="-mt-2 mb-3 text-center text-xs text-danger">{pip.error}</p>}
         {m.phase?.label && (
           <p className="-mt-2 mb-3 text-center text-xs font-bold uppercase tracking-widest text-accent">
             {m.phase.kind === 'LEAGUE' && m.phase.zone ? m.phase.zone + ' · ' : ''}{m.phase.label}
@@ -135,15 +147,6 @@ export default function MatchPage() {
 
       {tick?.recovered && (
         <p className="rounded-2xl bg-warn/15 px-4 py-3 text-center text-sm font-bold text-warn">Reloj recuperado tras un reinicio del servidor: puede que el tiempo no sea exacto hasta que la mesa lo reanude.</p>
-      )}
-
-      {pip.canPin && (
-        <div className="flex flex-col items-end gap-1">
-          <button type="button" onClick={pip.toggle} className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-line bg-surface px-3 text-sm font-bold">
-            <PictureInPicture2 size={16} /> {pip.active ? 'Quitar reloj flotante' : 'Fijar reloj'}
-          </button>
-          {pip.error && <p className="text-xs text-danger">{pip.error}</p>}
-        </div>
       )}
 
       <div className="grid grid-cols-2 gap-3">
