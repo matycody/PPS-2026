@@ -1,6 +1,6 @@
 // Reloj flotante para PC (Chrome / Edge): Document Picture-in-Picture, una ventanita real que queda siempre
 // encima de las demás aplicaciones, como la de Spotify o la de Meet. Se arma con HTML (texto nítido, escudos como imagen).
-import { fmt, nowSec } from './pipTime'
+import { fmt, nowSec, pipNotice } from './pipTime'
 
 const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
@@ -94,8 +94,9 @@ export async function startDocPip(getState, onClose) {
     const sPaused = tick?.isSetPaused ?? true
     const mLeft = nowSec(tick?.matchTime, !mPaused, at)
     const sLeft = nowSec(tick?.setTime, !sPaused, at)
-    // Finalizado: lo cerró la mesa, o los dos relojes llegaron a 00:00
-    const finished = m?.status === 'FINISHED' || !!tick?.matchEnded || (mLeft === 0 && sLeft === 0)
+    // Finalizado solo si la mesa/árbitro lo finalizó o cerró; llegar a 00:00 no termina el partido
+    const finished = m?.status === 'FINISHED' || !!tick?.matchEnded
+    const notice = pipNotice(cloth, mLeft, sLeft, finished)
     const to = tick?.timeoutTeam
     const toRunning = !!tick?.isTimeoutRunning
     const nameA = m?.teamA?.name ?? 'Equipo A'
@@ -126,6 +127,11 @@ export async function startDocPip(getState, onClose) {
       foot.style.color = to && !toRunning ? '#ff8a8a' : '#ffd27a'
       footL.textContent = 'Tiempo muerto · ' + (to === 'A' ? nameA : nameB)
       footR.textContent = fmt(nowSec(tick?.timeoutTime, toRunning, at))
+    } else if (notice) {
+      foot.style.background = '#4a1d1d'
+      foot.style.color = '#ff9d9d'
+      footL.textContent = notice
+      footR.textContent = ''
     } else {
       foot.style.background = 'transparent'
       foot.style.color = '#9aa4b2'

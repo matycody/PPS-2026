@@ -10,3 +10,8 @@ export const nowSec = (str, running, at) => {
   if (s == null) return null
   return running ? Math.max(0, s - Math.floor((Date.now() - at) / 1000)) : s
 }
+
+// Aviso del reloj según la modalidad (mismos textos que la web). El partido NO se da por terminado al llegar a 00:00:
+// eso lo decide la mesa/árbitro (finished = matchEnded o estado FINISHED).
+export const pipNotice = (cloth, mLeft, sLeft, finished) =>
+  finished || (mLeft !== 0 && sLeft !== 0) ? '' : cloth ? 'SET FINALIZADO' : 'MUERTE SÚBITA (NO HAY ESCUDO)'

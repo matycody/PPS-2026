@@ -4,7 +4,7 @@
 //  - iOS / Safari: video.webkitSetPresentationMode('picture-in-picture')
 // Los relojes avanzan solos entre un tick y otro (por si el navegador demora los eventos en segundo plano).
 
-import { fmt, nowSec } from './pipTime'
+import { fmt, nowSec, pipNotice } from './pipTime'
 import { startDocPip, docPipSupported } from './pipDocument'
 
 let flick = 0
@@ -99,8 +99,9 @@ function draw(ctx, { m, tick, at }) {
   const sPaused = tick?.isSetPaused ?? true
   const mLeft = nowSec(tick?.matchTime, !mPaused, at)
   const sLeft = nowSec(tick?.setTime, !sPaused, at)
-  // Finalizado: lo cerró la mesa, o los dos relojes llegaron a 00:00 (aunque el estado todavía no haya cambiado)
-  const finished = m?.status === 'FINISHED' || !!tick?.matchEnded || (mLeft === 0 && sLeft === 0)
+  // Finalizado solo si la mesa/árbitro lo finalizó o cerró; llegar a 00:00 no termina el partido
+  const finished = m?.status === 'FINISHED' || !!tick?.matchEnded
+  const notice = pipNotice(cloth, mLeft, sLeft, finished)
   const to = tick?.timeoutTeam
   const toRunning = !!tick?.isTimeoutRunning
 
@@ -171,6 +172,12 @@ function draw(ctx, { m, tick, at }) {
     ctx.font = '600 32px ' + MONO
     ctx.fillStyle = toRunning ? '#ffd27a' : '#ff8a8a'
     ctx.fillText(fmt(nowSec(tick?.timeoutTime, toRunning, at)), W - 44, 412)
+  } else if (notice) {
+    box(ctx, 24, 384, W - 48, 56, 14, '#4a1d1d')
+    ctx.fillStyle = '#ff9d9d'
+    ctx.font = '700 26px ' + SANS
+    ctx.textAlign = 'center'
+    ctx.fillText(fitText(ctx, notice, W - 72), W / 2, 412)
   } else if (m?.tournament?.name) {
     ctx.fillStyle = '#9aa4b2'
     ctx.font = '500 22px ' + SANS
