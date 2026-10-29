@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import MatchCard from '../components/MatchCard'
 import OrgMatches from '../components/inicio/OrgMatches'
 import Finalizados from '../components/inicio/Finalizados'
+import HomeAdmin from '../components/inicio/HomeAdmin'
 import { useMatchesFeed } from '../hooks/useMatchesFeed'
 import { useMatchesStore } from '../stores/matchesStore'
 import { socket } from '../sockets/socket'
@@ -101,9 +102,7 @@ export default function InicioPage() {
   const showLive = !orgView && !fin
   const showUpcoming = !orgView && !fin && filter !== 'live'
 
-  return (
-    <div className="space-y-5">
-      <PlayerRequestBanner />
+  const shortcuts = (
       <div className="flex gap-2">
         {[
           ...GENERAL.slice(0, 3),
@@ -117,7 +116,18 @@ export default function InicioPage() {
           </Link>
         ))}
       </div>
+  )
+  const newHome = !!user?.roles?.includes('ADMIN') // nuevo Inicio: por ahora solo la organización
 
+  return (
+    <div className="space-y-5">
+      <PlayerRequestBanner />
+      {!newHome && shortcuts}
+
+      {newHome ? (
+        <HomeAdmin byId={byId} loading={loading} error={error}>{shortcuts}</HomeAdmin>
+      ) : (
+        <>
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <button
@@ -170,6 +180,8 @@ export default function InicioPage() {
           <Link to="/liga" className="block rounded-2xl border border-line bg-surface py-3 text-center text-sm font-bold text-accent">
             Ver calendario completo{hiddenCount > 0 ? ` (+${hiddenCount} más)` : ''}
           </Link>
+        </>
+      )}
         </>
       )}
     </div>

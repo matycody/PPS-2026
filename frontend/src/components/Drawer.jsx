@@ -77,6 +77,7 @@ export default function Drawer({ open, onClose }) {
           )}
         </div>
 
+        {!user?.roles?.includes('ADMIN') && (
         <form onSubmit={search} className="relative mt-4">
           <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
           <input
@@ -87,6 +88,7 @@ export default function Drawer({ open, onClose }) {
             className="w-full rounded-xl border border-line bg-bg py-3 pl-10 pr-3 text-sm outline-none focus:border-accent"
           />
         </form>
+        )}
 
         <nav className="mt-3">
           <Item {...ITEMS.home} label="Menú principal" onClose={onClose} />

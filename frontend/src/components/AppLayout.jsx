@@ -1,6 +1,6 @@
 import { Link, Outlet } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { Menu } from 'lucide-react'
+import { Menu, Search } from 'lucide-react'
 import Drawer from './Drawer'
 import BottomNav from './BottomNav'
 import { useAuthStore } from '../stores/authStore'
@@ -33,6 +33,11 @@ export default function AppLayout() {
           <p className="text-xl font-extrabold leading-tight">Dodgeball</p>
           <div className="leading-none"><ServerClock /></div>
         </div>
+        {user?.roles?.includes('ADMIN') && (
+          <Link to="/buscar" aria-label="Buscar" className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-line bg-surface">
+            <Search size={20} />
+          </Link>
+        )}
         {user ? (
           <Link to="/perfil" className="shrink-0"><UserAvatar /></Link>
         ) : (
