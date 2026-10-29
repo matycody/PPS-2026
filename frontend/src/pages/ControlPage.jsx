@@ -11,6 +11,7 @@ import { MatchRosterToggle } from '../components/MatchRoster'
 import SoundToggle from '../components/SoundToggle'
 import { useMatchSound } from '../hooks/useMatchSound'
 import { useWakeLock } from '../hooks/useWakeLock'
+import { useConfirm } from '../components/ConfirmProvider'
 
 const ACTIONS = {
   START: 'Iniciado', PAUSE: 'Pausado', RESUME: 'Reanudado', RESET: 'Reiniciado',
@@ -212,6 +213,18 @@ export default function ControlPage() {
   const { modal: leaveModal, ask: askLeave } = useLeaveGuard(operating, roleText)
 
   const send = (event, extra = {}) => socket.emit(event, { matchId: id, ...extra })
+  const ask = useConfirm()
+  // Cambiar de tiempo pide confirmación: un toque sin querer altera los tiempos muertos y el reloj
+  const changeHalf = async (n) => {
+    if (Number(tick?.matchHalf) === n) return
+    const ok = await ask({
+      title: n === 2 ? 'Pasar al 2do tiempo' : 'Volver al 1er tiempo',
+      message: n === 2 ? '¿Pasar al 2do tiempo? Usá "Finalizar tiempo" si el primero ya terminó.' : '¿Volver al 1er tiempo?',
+      confirmText: n === 2 ? 'Pasar al 2do tiempo' : 'Volver al 1er tiempo',
+      danger: true,
+    })
+    if (ok) send('match:setHalf', { half: n })
+  }
   const pushNotice = (t) => setNotices((n) => [...n, { k: Date.now() + Math.random(), t }])
 
   useEffect(() => {
@@ -390,8 +403,8 @@ export default function ControlPage() {
       <div className="rounded-3xl border border-line bg-surface p-4">
         <p className="mb-3 text-xs font-bold uppercase tracking-widest text-muted">Tiempo del partido</p>
         <div className="grid grid-cols-2 gap-2">
-          <Btn disabled={!can} tone={half === 1 ? 'accent' : 'base'} onClick={() => send('match:setHalf', { half: 1 })}>1er tiempo</Btn>
-          <Btn disabled={!can} tone={half === 2 ? 'accent' : 'base'} onClick={() => send('match:setHalf', { half: 2 })}>2do tiempo</Btn>
+          <Btn disabled={!can} tone={half === 1 ? 'accent' : 'base'} onClick={() => changeHalf(1)}>1er tiempo</Btn>
+          <Btn disabled={!can} tone={half === 2 ? 'accent' : 'base'} onClick={() => changeHalf(2)}>2do tiempo</Btn>
           {(isCloth || matchAtZero) && (
             <Btn tone="danger" disabled={!can} onClick={() => send('match:finishHalf')} className="col-span-2 animate-pulse py-4 text-base ring-2 ring-danger/50">
               {half === 2 ? 'Fin del partido' : 'Finalizar tiempo'}
