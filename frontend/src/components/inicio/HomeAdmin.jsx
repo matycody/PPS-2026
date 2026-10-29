@@ -27,6 +27,7 @@ export default function HomeAdmin({ byId, loading, error, children }) {
   const [phasePick, setPhasePick] = useState('all')
   const [cal, setCal] = useState(null)
   const [calTry, setCalTry] = useState(0)
+  const [lock, setLock] = useState(null) // pestaña elegida al entrar: después no se mueve sola
 
   const setParams = (changes) => {
     const n = new URLSearchParams(sp)
@@ -63,7 +64,8 @@ export default function HomeAdmin({ byId, loading, error, children }) {
     const dayKeys = Object.keys(calDays).sort()
     const today = dayOf(new Date())
     // Hasta que llega el calendario completo no se elige día (evita saltar de la jornada pasada a la próxima)
-    const auto = cal === null && calTry < 3 ? null : dayKeys.includes(today) ? today : dayKeys.find((d) => d >= today) ?? dayKeys[dayKeys.length - 1] ?? (undated.length ? 'none' : null)
+    const autoRaw = cal === null && calTry < 3 ? null : live.length ? 'live' : dayKeys.includes(today) ? today : dayKeys.find((d) => d >= today) ?? dayKeys[dayKeys.length - 1] ?? (undated.length ? 'none' : null)
+    const auto = lock === 'live' && !live.length ? autoRaw : lock ?? autoRaw // si terminó el último en vivo, vuelve al día
     const sel = dPick === 'live' || dPick === 'none' || (dPick && DATE_RE.test(dPick)) ? dPick : auto
     const tabs = [...new Set([...dayKeys, ...(sel && DATE_RE.test(sel) ? [sel] : [])])].sort()
     const dayList = sel === 'live' ? live : sel === 'none' ? undated : sel ? calDays[sel] ?? [] : []
@@ -90,8 +92,10 @@ export default function HomeAdmin({ byId, loading, error, children }) {
       g.list.push(m)
     })
 
-    return { dayCount: dayList.length, live, calDays, tabs, sel, tournaments, tCur, phaseOpts, phaseCur, shown, groups, hasUndated: undated.length > 0 }
-  }, [all, cal, calTry, dPick, tPick, phasePick])
+    return { autoRaw, dayCount: dayList.length, live, calDays, tabs, sel, tournaments, tCur, phaseOpts, phaseCur, shown, groups, hasUndated: undated.length > 0 }
+  }, [all, cal, calTry, lock, dPick, tPick, phasePick])
+
+  useEffect(() => { if (lock === null && v.autoRaw) setLock(v.autoRaw) }, [lock, v.autoRaw])
 
   useEffect(() => {
     document.getElementById('daytab-' + v.sel)?.scrollIntoView({ inline: 'center', block: 'nearest' })
