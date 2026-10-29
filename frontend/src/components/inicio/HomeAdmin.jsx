@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom'
 import { CalendarDays } from 'lucide-react'
 import MatchCard from '../MatchCard'
 import MatchRow from '../MatchRow'
-import MatchStrip from './MatchStrip'
 import GoTo from '../GoTo'
 import { api } from '../../lib/api'
 import { normMatch, phaseCmp, BRANCH, MODALITY } from '../../lib/format'
@@ -89,11 +88,7 @@ export default function HomeAdmin({ byId, loading, error, children }) {
       g.list.push(m)
     })
 
-    // Tira chica: en vivo y los terminados en los últimos días (el más reciente primero)
-    const since = Date.now() - 2.5 * 864e5
-    const recent = all.filter((m) => m.status === 'FINISHED' && m.scheduledAt && new Date(m.scheduledAt).getTime() >= since)
-      .sort((a, b) => String(b.scheduledAt).localeCompare(String(a.scheduledAt)))
-    return { dayCount: dayList.length, live, calDays, tabs, sel, tournaments, tCur, phaseOpts, phaseCur, shown, groups, strip: [...live, ...recent].slice(0, 14), hasUndated: undated.length > 0 }
+    return { dayCount: dayList.length, live, calDays, tabs, sel, tournaments, tCur, phaseOpts, phaseCur, shown, groups, hasUndated: undated.length > 0 }
   }, [all, dPick, tPick, phasePick])
 
   useEffect(() => {
@@ -106,7 +101,6 @@ export default function HomeAdmin({ byId, loading, error, children }) {
 
   return (
     <div className="space-y-4">
-      <MatchStrip matches={v.strip} />
       {children}
 
       {/* Días */}
