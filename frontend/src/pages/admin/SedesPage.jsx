@@ -21,6 +21,8 @@ export default function SedesPage() {
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
   const [busy, setBusy] = useState(false)
+  const [reading, setReading] = useState(false)
+  const [readMsg, setReadMsg] = useState('')
 
   const load = () => api('GET', '/venues').then(setList).catch((e) => setErr(e.message))
   useEffect(() => { load() }, [])
@@ -37,6 +39,26 @@ export default function SedesPage() {
     setCoords(text)
     const c = parseCoords(text)
     setForm((f) => ({ ...f, latitude: c ? c.latitude : '', longitude: c ? c.longitude : '' }))
+  }
+
+  // Pegás el enlace de Google Maps y se completa el formulario (después se puede corregir a mano)
+  async function readLink(url) {
+    const link = (url ?? form.mapUrl).trim()
+    if (!/^https?:\/\//i.test(link)) return
+    setReading(true); setErr(''); setReadMsg('')
+    try {
+      const r = await api('POST', '/venues/resolve', { url: link })
+      setForm((f) => ({
+        ...f,
+        mapUrl: r.mapUrl,
+        name: r.name ?? f.name,
+        address: r.address ?? f.address,
+        latitude: r.latitude ?? f.latitude,
+        longitude: r.longitude ?? f.longitude,
+      }))
+      if (r.latitude != null) setCoords(r.latitude + ', ' + r.longitude)
+      setReadMsg(r.found ? 'Completé lo que pude leer del enlace. Revisá nombre y dirección y corregí lo que haga falta.' : 'El enlace es válido pero no trae datos del lugar: completá nombre y dirección a mano.')
+    } catch (e) { setErr(e.message) } finally { setReading(false) }
   }
 
   async function save(e) {
@@ -80,6 +102,16 @@ export default function SedesPage() {
             <span className="text-sm font-bold">{form.id ? 'Editar sede' : 'Nueva sede'}</span>
             <button type="button" aria-label="Cerrar" onClick={() => setForm(null)} className="grid h-8 w-8 place-items-center rounded-full bg-surface-2 text-muted"><X size={16} /></button>
           </div>
+          <div className="space-y-1.5 rounded-2xl bg-surface-2 p-3">
+            <label className="block text-xs font-bold text-muted">Pegá el enlace de Google Maps y se completa solo
+              <input className={inputCls} type="url" maxLength={300} placeholder="https://maps.app.goo.gl/…" value={form.mapUrl}
+                onChange={(e) => set('mapUrl', e.target.value)}
+                onPaste={(e) => { const t = e.clipboardData.getData('text'); if (/^https?:\/\//i.test(t.trim())) { e.preventDefault(); set('mapUrl', t.trim()); readLink(t) } }} />
+            </label>
+            <Btn type="button" disabled={reading || !/^https?:\/\//i.test(form.mapUrl.trim())} onClick={() => readLink()}>{reading ? 'Leyendo…' : 'Completar con el enlace'}</Btn>
+            {readMsg && <div className="text-xs text-muted">{readMsg}</div>}
+            <div className="text-xs text-muted">En Google Maps: abrí el lugar › Compartir › Copiar enlace.</div>
+          </div>
           <label className="block text-xs text-muted">Nombre
             <input className={inputCls} required maxLength={80} placeholder="Ej.: Polideportivo Municipal" value={form.name} onChange={(e) => set('name', e.target.value)} />
           </label>
@@ -88,10 +120,6 @@ export default function SedesPage() {
           </label>
           <label className="block text-xs text-muted">Coordenadas (opcional, para el punto exacto)
             <input className={inputCls} placeholder="-34.6037, -58.3816" value={coords} onChange={(e) => onCoords(e.target.value)} />
-            <span className="mt-1 block">En Google Maps: mantené apretado el lugar y copiá los números que aparecen arriba.</span>
-          </label>
-          <label className="block text-xs text-muted">Enlace de Google Maps (opcional)
-            <input className={inputCls} type="url" maxLength={300} placeholder="https://maps.app.goo.gl/…" value={form.mapUrl} onChange={(e) => set('mapUrl', e.target.value)} />
           </label>
           <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
             <label className="text-xs text-muted">Canchas habituales
