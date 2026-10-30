@@ -2,6 +2,7 @@ const express = require('express');
 const prisma = require('../db');
 const { matchResult } = require('../services/bracket');
 const { teamCareer } = require('../services/teamCareer');
+const { resolveChampions } = require('../services/champion');
 
 const router = express.Router();
 const TEAM_SELECT = { id: true, name: true, logo: true };
@@ -57,14 +58,21 @@ router.get('/champions', async (req, res) => {
   try {
     const f = tournamentFilter(req.query);
     if (f.error) return res.status(400).json({ error: f.error });
-    const list = await prisma.tournament.findMany({
-      where: { ...f.where, status: 'FINISHED', championId: { not: null } },
+    const rows = await prisma.tournament.findMany({
+      where: { ...f.where, status: 'FINISHED' },
       orderBy: [{ year: 'desc' }, { name: 'asc' }],
       select: {
-        id: true, name: true, year: true, edition: true, branch: true, modality: true,
+        id: true, name: true, year: true, edition: true, branch: true, modality: true, championId: true,
         champion: { select: TEAM_SELECT },
       },
     });
+    // Si el torneo se cerró sin guardar campeón, se deduce de la final
+    const missing = await resolveChampions(rows.filter((t) => !t.championId).map((t) => t.id));
+    const teams = missing.size ? await prisma.team.findMany({ where: { id: { in: [...new Set(missing.values())] } }, select: TEAM_SELECT }) : [];
+    const list = rows
+      .map((t) => ({ ...t, champion: t.champion ?? teams.find((x) => x.id === missing.get(t.id)) ?? null }))
+      .filter((t) => t.champion)
+      .map(({ championId, ...t }) => t);
     const titles = new Map();
     for (const t of list) {
       const e = titles.get(t.champion.id) || { team: t.champion, titles: 0 };
@@ -110,13 +118,20 @@ router.get('/teams/:id', async (req, res) => {
     ]);
 
     const career = await teamCareer(team.id, tournament).catch((e) => { console.error('[career]', e.message); return []; });
+    // Títulos: guardados al cerrar + deducidos de la final si el campeón no quedó guardado
+    const known = new Set(titles.map((x) => x.id));
+    const titlesAll = [
+      ...titles,
+      ...career.filter((c) => c.result?.kind === 'CHAMPION' && c.status === 'FINISHED' && !known.has(c.tournamentId))
+        .map((c) => ({ id: c.tournamentId, name: c.tournament, year: c.year, edition: c.edition })),
+    ];
 
     res.json({
       team,
       career,
       tournamentsPlayed: enrolled,
-      titles: titles.length,
-      titlesList: titles,
+      titles: titlesAll.length,
+      titlesList: titlesAll,
       record: tally(team.id, matches),
       history: standings
         .map((s) => ({

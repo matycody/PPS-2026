@@ -3,6 +3,7 @@ const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { computeStandings } = require('../services/standings');
 const { decide } = require('../services/bracket');
+const { knockoutChampion } = require('../services/champion');
 
 const router = express.Router();
 const admin = [authenticate, requireRole('ADMIN')];
@@ -47,20 +48,6 @@ router.post('/:id/activate', ...admin, async (req, res) => {
   }
 });
 
-function knockoutChampion(stages, matchesByStage) {
-  const ko = stages.filter((s) => s.type === 'KNOCKOUT');
-  if (!ko.length) return null;
-  const top = Math.max(...ko.map((s) => s.phase));
-  const last = ko.filter((s) => s.phase === top);
-  if (last.length !== 1) return null;
-  const ms = matchesByStage.get(last[0].id) || [];
-  if (!ms.length) return null;
-  const maxRound = Math.max(...ms.map((m) => m.round || 0));
-  const final = ms.find((m) => m.round === maxRound && m.slot === 1);
-  const res = final && final.status === 'FINISHED' ? decide(final) : null;
-  return res ? res.winnerTeamId : null;
-}
-
 // Cierra el torneo: congela las tablas de las zonas y registra el campeón.
 // Body: championId (opcional, para definirlo a mano), force (cerrar con partidos sin terminar)
 router.post('/:id/close', ...admin, async (req, res) => {
@@ -76,7 +63,7 @@ router.post('/:id/close', ...admin, async (req, res) => {
     const matches = await prisma.match.findMany({
       where: { tournamentId: t.id, hiddenAt: null },
       select: {
-        id: true, stageId: true, round: true, slot: true, status: true, teamAId: true, teamBId: true,
+        id: true, stageId: true, round: true, slot: true, status: true, teamAId: true, teamBId: true, loserMatchId: true,
         sets: { select: { winnerTeamId: true } },
       },
     });
