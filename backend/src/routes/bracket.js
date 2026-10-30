@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const express = require('express');
 const prisma = require('../db');
+const { openLeagueTournaments } = require('../services/leagueOpen');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { computeStandings } = require('../services/standings');
 const { decide, matchResult, shuffleWith, buildSpecs, standardEntrants, validateSpecs } = require('../services/bracket');
@@ -158,6 +159,7 @@ async function view(stageId) {
     orderBy: [{ round: 'asc' }, { slot: 'asc' }],
     select: {
       id: true,
+      tournamentId: true,
       round: true,
       slot: true,
       status: true,
@@ -178,6 +180,8 @@ async function view(stageId) {
       sets: { select: { number: true, winnerTeamId: true }, orderBy: { number: 'asc' } },
     },
   });
+  // Mientras la liga del torneo no termina, los cruces son probables aunque ya tengan equipos
+  const leagueOpen = await openLeagueTournaments(matches.map((m) => m.tournamentId));
   // Lugares de zona ("2° Zona A") y si esa zona ya terminó
   const fromIds = [...new Set(matches.flatMap((m) => [m.teamAFrom, m.teamBFrom]).filter(Boolean).map((f) => f.stageId))];
   const zoneInfo = new Map();
@@ -234,6 +238,7 @@ async function view(stageId) {
       feeds: { A: f.A || null, B: f.B || null },
       fromA: slotFrom(m.teamAFrom),
       fromB: slotFrom(m.teamBFrom),
+      provisional: leagueOpen.has(m.tournamentId) && ['SCHEDULED', 'READY'].includes(m.status),
     });
   }
   return { stageId, totalMatches: matches.length, rounds: [...rounds.values()] };

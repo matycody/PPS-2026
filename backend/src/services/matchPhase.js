@@ -1,5 +1,6 @@
 const prisma = require('../db');
 const { computeStandings } = require('./standings');
+const { openLeagueTournaments } = require('./leagueOpen');
 
 const TEAM = { id: true, name: true, logo: true };
 
@@ -94,6 +95,9 @@ async function phasesFor(ids) {
     return roundLabel(m.round, max) + (same.length > 1 ? ' ' + n : '');
   };
 
+  // Mientras la liga del torneo no termina, todo cruce de playoffs es provisorio aunque ya tenga equipos
+  const leagueOpen = await openLeagueTournaments(rows.filter((r) => r.stage.type === 'KNOCKOUT').map((r) => r.tournamentId));
+
   for (const r of rows) {
     if (r.stage.type === 'LEAGUE') {
       const slotA = !r.teamAId && r.teamAFrom ? zoneSlot(r.teamAFrom) : null;
@@ -123,6 +127,7 @@ async function phasesFor(ids) {
       label: third ? 'Tercer puesto' : roundLabel(m.round, max),
       slotA: slot('A', m.teamAId, m.teamAFrom),
       slotB: slot('B', m.teamBId, m.teamBFrom),
+      provisional: leagueOpen.has(r.tournamentId),
     });
   }
   return out;
