@@ -41,6 +41,11 @@ export default function SanctionsCard({ m, tick, items, control, nameA, nameB, a
     api('GET', '/teams/' + t.id).then((x) => setRoster((r) => ({ ...r, [pick.side]: (x.roster ?? []).filter((p) => p.branch === m.branch) }))).catch(() => setRoster((r) => ({ ...r, [pick.side]: [] })))
   }, [pick]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Vista de espectador: una sola lista, cada jugador con el color de su tarjeta y su tiempo o castigo
+  const activeById = new Map(active.map((a) => [a.id, a]))
+  const rows = items
+    .map((x) => ({ ...x, live: activeById.get(x.id) ?? null }))
+    .sort((a, b) => Number(!!b.live) - Number(!!a.live) || new Date(b.createdAt) - new Date(a.createdAt))
   const nothing = active.length === 0 && history.length === 0
   if (nothing && !control && !always) return null
 
@@ -68,7 +73,28 @@ export default function SanctionsCard({ m, tick, items, control, nameA, nameB, a
         ))}
       </div>
 
-      {active.length > 0 && (
+      {!control && rows.length > 0 && (
+        <div className="space-y-1.5">
+          {rows.map((s) => {
+            const name = s.player ? (s.player.number != null ? '#' + s.player.number + ' ' : '') + s.player.name : 'Jugador sin identificar'
+            let state = null
+            if (s.live) state = <span className="font-mono font-extrabold tabular-nums">{showTime(s.live.time)}{s.kind === 'BLUE' ? <span className="ml-1 text-[10px] font-bold text-muted">/{s.live.setsLeft} set{s.live.setsLeft === 1 ? '' : 's'}</span> : null}</span>
+            else if (s.kind === 'RED') state = <b className="text-danger">Expulsado</b>
+            else if (s.eliminates) state = <b className="text-danger">Eliminado</b>
+            else if (s.kind !== 'WARNING') state = <span className="text-muted">Cumplida</span>
+            return (
+              <div key={s.id} className="flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-2 text-sm">
+                <Chip kind={s.kind} />
+                <span className="min-w-0 flex-1 truncate font-semibold">{name} <span className="font-normal text-muted">· {names[s.side]}</span></span>
+                {state}
+              </div>
+            )
+          })}
+          <p className="text-[11px] text-muted">El tiempo de las tarjetas corre solo mientras corre el partido.</p>
+        </div>
+      )}
+
+      {control && active.length > 0 && (
         <div className="space-y-1.5">
           <p className="text-[11px] font-bold uppercase tracking-widest text-muted">Casilla de sancionados</p>
           {active.map((s) => (
@@ -83,7 +109,7 @@ export default function SanctionsCard({ m, tick, items, control, nameA, nameB, a
         </div>
       )}
 
-      {history.length > 0 && (
+      {control && history.length > 0 && (
         <div className="space-y-1.5">
           <p className="text-[11px] font-bold uppercase tracking-widest text-muted">Registro</p>
           {history.map((s) => (

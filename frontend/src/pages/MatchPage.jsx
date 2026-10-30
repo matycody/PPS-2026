@@ -12,7 +12,6 @@ import { normMatch, MODALITY, BRANCH, courtLabel } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import MatchNotice from '../components/MatchNotice'
 import Versus from '../components/Versus'
-import ScoreTimeline from '../components/ScoreTimeline'
 import MatchRoster from '../components/MatchRoster'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { usePipClock } from '../hooks/usePipClock'
@@ -156,7 +155,6 @@ export default function MatchPage() {
             </span>
           }
         />
-        <ScoreTimeline m={m} />
       </div>
 
       {tick?.recovered && (
