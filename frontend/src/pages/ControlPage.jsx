@@ -20,6 +20,18 @@ const ACTIONS = {
   ADJUST: 'Tiempo ajustado', SET_TIME: 'Tiempo fijado', SET_MODALITY: 'Modalidad cambiada',
   SET_HALF: 'Tiempo cambiado', FINISH_HALF: 'Tiempo finalizado',
   TIMEOUT_START: 'Tiempo muerto pedido', TIMEOUT_END: 'Tiempo muerto terminado', TIMEOUT_CANCEL: 'Tiempo muerto deshecho',
+  SANCTION_ADD: 'Sanción aplicada', SANCTION_REMOVE: 'Sanción deshecha',
+}
+const SANCTION_NAME = { WARNING: 'Advertencia', YELLOW: 'Tarjeta amarilla', BLUE: 'Tarjeta azul', RED: 'Tarjeta roja' }
+
+// Texto legible de la última acción (las sanciones dicen qué tarjeta y a qué equipo)
+function actionText(last, nameA, nameB) {
+  if (last.action === 'SANCTION_ADD' || last.action === 'SANCTION_REMOVE') {
+    const team = last.side === 'A' ? nameA : last.side === 'B' ? nameB : null
+    const kind = SANCTION_NAME[last.kind] ?? 'Sanción'
+    return last.action === 'SANCTION_ADD' ? kind + (team ? ' a ' + team : '') : kind + ' deshecha' + (team ? ' (' + team + ')' : '')
+  }
+  return ACTIONS[last.action] ?? last.action
 }
 
 // El backend manda "1:48"; se muestra "01:48"
@@ -357,7 +369,7 @@ export default function ControlPage() {
         />
         {last && (
           <p className="mt-3 text-center text-xs text-muted">
-            Última acción: {ACTIONS[last.action] ?? last.action} por {last.by}
+            Última acción: {actionText(last, a?.name ?? 'Equipo A', b?.name ?? 'Equipo B')} · {last.by}
           </p>
         )}
       </div>

@@ -25,9 +25,10 @@ export function PlayerSanctionTag({ s, live }) {
   else if (s.eliminates) state = 'Eliminado'
   else if (s.kind !== 'WARNING') state = 'Cumplida'
   return (
-    <span className={'inline-flex shrink-0 items-center gap-1 rounded-md bg-bg/60 px-1.5 py-0.5 text-[10px] font-extrabold ' + k.text}>
-      <span className={'h-2.5 w-2 rounded-[2px] ' + k.dot} />
-      {k.label}{state ? <span className="font-mono tabular-nums"> · {state}</span> : null}
+    <span className={'flex w-fit max-w-full items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-md bg-bg/60 px-1.5 py-1 text-[11px] font-extrabold leading-none ' + k.text}>
+      <span className={'h-3 w-2 shrink-0 rounded-[2px] ' + k.dot} />
+      <span className="truncate">{k.label}</span>
+      {state ? <span className={'shrink-0 font-bold tabular-nums ' + (live ? 'font-mono text-white' : s.kind === 'RED' || s.eliminates ? 'text-danger' : 'text-muted')}>{state}</span> : null}
     </span>
   )
 }
