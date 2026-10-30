@@ -4,6 +4,20 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { resolveMapsLink } = require('../lib/mapsLink');
 
 const router = express.Router();
+// Público (todos los roles y visitantes): dónde se juega durante el año
+router.get('/public', async (req, res) => {
+  try {
+    const venues = await prisma.venue.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, address: true, latitude: true, longitude: true, mapUrl: true, courts: true, notes: true },
+    });
+    res.json(venues);
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
 router.use(authenticate, requireRole('ADMIN'));
 
 function handleError(err, res) {
