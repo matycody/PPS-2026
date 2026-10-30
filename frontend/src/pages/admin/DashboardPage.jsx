@@ -1,7 +1,7 @@
 import { halfLabel } from '../../lib/pipTime'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Pin, PinOff, X } from 'lucide-react'
+import { Pin, PinOff } from 'lucide-react'
 import { socket } from '../../sockets/socket'
 import { api } from '../../lib/api'
 import { normMatch } from '../../lib/format'
@@ -9,6 +9,7 @@ import { useMatchesFeed } from '../../hooks/useMatchesFeed'
 import { useMatchesStore } from '../../stores/matchesStore'
 import { fmtWhen, courtLabel, phaseCmp } from '../../lib/format'
 import StatusPill from '../../components/StatusPill'
+import MatchRow from '../../components/MatchRow'
 import Versus from '../../components/Versus'
 import MatchNotice from '../../components/MatchNotice'
 import { Btn, Alert } from '../../components/ui'
@@ -26,7 +27,6 @@ function CourtMatch({ m, tick, full, run, busy }) {
   const paused = m.status === 'LIVE' && tick?.isMatchPaused
   const open = m.status === 'READY' || m.status === 'LIVE'
   const sets = m.sets ?? []
-  const isCloth = m.modality === 'CLOTH'
   const center = m.status === 'LIVE' || sets.length ? (
     <div className="flex flex-col items-center gap-1">
       <span className="font-mono text-4xl font-extrabold tabular-nums">{m.score?.teamA ?? 0} - {m.score?.teamB ?? 0}</span>
@@ -69,15 +69,6 @@ function CourtMatch({ m, tick, full, run, busy }) {
         {m.status === 'READY' && (
           <Btn className="col-span-2" disabled={busy} onClick={() => run(m.id, 'POST', '/unready')}>Deshabilitar partido</Btn>
         )}
-        {open && (
-          <>
-            <p className="col-span-2 -mb-1 text-sm font-semibold">Set ganado por</p>
-            {[m.teamA, m.teamB].map((t, i) => (
-              <Btn key={i} disabled={busy || !t} onClick={() => run(m.id, 'POST', '/sets', { winnerTeamId: t.id })}>{t?.name ?? 'Por definir'}</Btn>
-            ))}
-            {isCloth && <Btn className="col-span-2" disabled={busy} onClick={() => run(m.id, 'POST', '/sets', { draw: true })}>Empate</Btn>}
-          </>
-        )}
       </div>
 
       {open && sets.length > 0 && (
@@ -88,7 +79,6 @@ function CourtMatch({ m, tick, full, run, busy }) {
             return (
               <li key={s.number} className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2 text-sm">
                 <span>Set {s.number}: <b>{draw ? 'Empate' : (w?.name ?? '—')}</b></span>
-                <button aria-label="Quitar set" disabled={busy} onClick={() => run(m.id, 'DELETE', '/sets/' + s.number)} className="text-danger"><X size={16} /></button>
               </li>
             )
           })}
@@ -114,11 +104,77 @@ function CourtMatch({ m, tick, full, run, busy }) {
   )
 }
 
+const LEFT_WARN = 10 * 60 // segundos del 2do tiempo desde los que se prepara el partido que sigue en la cancha
+const secs = (t) => { const [m, s] = String(t ?? '').split(':').map(Number); return Number.isFinite(m) && Number.isFinite(s) ? m * 60 + s : null }
+const byTime = (a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b)
+
+// Una cancha: el partido en vivo en grande y, debajo, todos los que siguen en chiquito (por horario o, sin horario, por el orden del fixture).
+// Al 2do tiempo, con menos de 10 minutos, el que sigue muestra sus acciones para que la organización designe árbitros y lo habilite a tiempo.
+function CourtSection({ c, ticks, run, busy, title }) {
+  const live = c.list.filter((m) => m.status === 'LIVE')
+  const upcoming = c.list.filter((m) => m.status !== 'LIVE').sort(byTime)
+  const next = upcoming[0]
+  const tick = live[0] ? ticks[live[0].id] : null
+  const left = secs(tick?.matchTime)
+  // Se prepara el próximo si ya no hay partido en juego en la cancha o si al vivo le quedan menos de 10 minutos del 2do tiempo
+  const prepare = !!next && (!live.length || (tick?.matchHalf === 2 && left != null && left < LEFT_WARN))
+
+  return (
+    <section className="space-y-3">
+      {title && <h2 className="text-xs font-bold uppercase tracking-widest">{courtLabel(c.court)}</h2>}
+      {live.map((m) => <CourtMatch key={m.id} m={m} tick={ticks[m.id]} full run={run} busy={busy} />)}
+
+      {upcoming.length > 0 && (
+        <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+          <div className="flex items-center justify-between border-b border-line px-3 py-2">
+            <span className="text-xs font-bold uppercase tracking-widest">Próximos en {courtLabel(c.court)}</span>
+            <span className="text-[11px] font-bold uppercase tracking-wide">{upcoming.length} {upcoming.length === 1 ? 'partido' : 'partidos'}</span>
+          </div>
+          <div className="divide-y divide-line">
+            {upcoming.map((m, i) => (
+              <div key={m.id} className={i === 0 && prepare ? 'bg-warn/10' : ''}>
+                {i === 0 && prepare && (
+                  <p className="px-3 pt-2 text-[11px] font-extrabold uppercase tracking-widest text-warn">
+                    {live.length ? 'Sigue · menos de 10 min' : 'Sigue en la cancha'} · designá árbitros y habilitalo
+                  </p>
+                )}
+                <MatchRow
+                  m={m}
+                  flat
+                  to={'/admin/partidos/' + m.id}
+                  footer={i === 0 && prepare ? (
+                    <div className="grid grid-cols-2 gap-2 px-3 pb-3">
+                      {m.status === 'SCHEDULED' && <Btn tone="accent" disabled={busy} onClick={() => run(m.id, 'POST', '/ready')}>Habilitar</Btn>}
+                      {m.status === 'READY' && <Btn disabled={busy} onClick={() => run(m.id, 'POST', '/unready')}>Deshabilitar</Btn>}
+                      <Link to={'/admin/partidos/' + m.id} className="grid place-items-center rounded-2xl border border-line bg-surface-2 py-3 text-center text-sm font-extrabold">Designar árbitros</Link>
+                    </div>
+                  ) : null}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {live.length === 0 && upcoming.length === 0 && c.done.length === 0 && <p className="text-muted">Sin partidos en esta cancha.</p>}
+
+      {c.done.length > 0 && (
+        <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+          <div className="border-b border-line px-3 py-2 text-xs font-bold uppercase tracking-widest">Finalizados en {courtLabel(c.court)}</div>
+          <div className="divide-y divide-line">
+            {c.done.map((m) => <MatchRow key={m.id} m={m} flat to={'/admin/partidos/' + m.id} />)}
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 export default function DashboardPage() {
   useMatchesFeed()
   const { byId, loading, error, upsert } = useMatchesStore()
   const [ticks, setTicks] = useState({})
-  const [sel, setSel] = useState(null)
+  const [sel, setSel] = useState('all') // 'all' | número de cancha
   const [busy, setBusy] = useState(false)
   const [fin, setFin] = useState({}) // finalizados recientes (el feed general solo trae los activos)
   const [err, setErr] = useState('')
@@ -143,31 +199,31 @@ export default function DashboardPage() {
       .forEach((m) => { (groups[m.court ?? 0] ??= []).push(m) })
     return Object.entries(groups)
       .map(([court, list]) => {
-        const byTime = (a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b)
         const active = list.filter((m) => m.status !== 'FINISHED').sort((a, b) => ORDER[a.status] - ORDER[b.status] || byTime(a, b))
         const done = list.filter((m) => m.status === 'FINISHED').sort((a, b) => byTime(b, a))
         return { court: Number(court), list: active, done }
       })
-      .sort((a, b) => (a.court || 999) - (b.court || 999))
+      .sort((a, b) => (a.court || 999) - (b.court || 999)) // la Cancha 1 arriba de todo, sin cancha al final
   }, [byId, fin])
 
-  // Cancha elegida: la que el organizador tocó o, por defecto, la primera con partido en vivo
-  const current = courts.find((c) => c.court === sel) ?? courts.find((c) => c.list[0]?.status === 'LIVE') ?? courts[0]
+  const current = sel === 'all' ? null : courts.find((c) => c.court === sel)
+  const shown = sel === 'all' ? courts : current ? [current] : courts
 
-  // Relojes: solo el partido en vivo de la cancha elegida
-  const liveId = current?.list[0]?.status === 'LIVE' ? current.list[0].id : ''
+  // Relojes: los partidos en vivo de lo que se está viendo
+  const liveKey = shown.flatMap((c) => c.list.filter((m) => m.status === 'LIVE').map((m) => m.id)).sort().join(',')
   useEffect(() => {
-    const join = () => liveId && socket.emit('match:join', { matchId: liveId })
+    const ids = liveKey ? liveKey.split(',') : []
+    const join = () => ids.forEach((id) => socket.emit('match:join', { matchId: id }))
     const onTick = (p) => setTicks((t) => ({ ...t, [p.matchId]: p }))
     if (socket.connected) join()
     socket.on('connect', join)
     socket.on('match:tick', onTick)
     return () => {
-      if (liveId) socket.emit('match:leave', { matchId: liveId })
+      ids.forEach((id) => socket.emit('match:leave', { matchId: id }))
       socket.off('connect', join)
       socket.off('match:tick', onTick)
     }
-  }, [liveId])
+  }, [liveKey])
 
   // Ejecuta la acción y trae el partido actualizado (sets, marcador, estado)
   async function run(id, method, path, body) {
@@ -177,6 +233,8 @@ export default function DashboardPage() {
       upsert(await api('GET', '/matches/' + id))
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
+
+  const chip = (on) => 'rounded-full border px-3 py-1.5 text-xs font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
 
   return (
     <div className="space-y-4">
@@ -188,34 +246,18 @@ export default function DashboardPage() {
 
       {courts.length > 0 && (
         <div className="flex flex-wrap gap-2">
+          <button onClick={() => setSel('all')} className={chip(sel === 'all')}>Todas</button>
           {courts.map((c) => (
-            <button
-              key={c.court}
-              onClick={() => setSel(c.court)}
-              className={'rounded-full border px-3 py-1.5 text-xs font-bold ' + (current?.court === c.court ? 'border-accent bg-accent text-black' : 'border-line bg-surface')}
-            >
-              {courtLabel(c.court)}{c.list[0]?.status === 'LIVE' ? ' · En vivo' : ''}
+            <button key={c.court} onClick={() => setSel(c.court)} className={chip(sel === c.court)}>
+              {courtLabel(c.court)}{c.list.some((m) => m.status === 'LIVE') ? ' · En vivo' : ''}
             </button>
           ))}
         </div>
       )}
 
-      {current && (
-        <div className="space-y-4">
-          {current.list.map((m, i) => (
-            <div key={m.id} className="space-y-2">
-              {i === 1 && <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Próximos en {courtLabel(current.court)}</h2>}
-              <CourtMatch m={m} tick={ticks[m.id]} full={i === 0} run={run} busy={busy} />
-            </div>
-          ))}
-          {current.done.length > 0 && (
-            <div className="space-y-2">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Finalizados en {courtLabel(current.court)}</h2>
-              {current.done.map((m) => <CourtMatch key={m.id} m={m} full={false} run={run} busy={busy} />)}
-            </div>
-          )}
-        </div>
-      )}
+      <div className="space-y-6">
+        {shown.map((c) => <CourtSection key={c.court} c={c} ticks={ticks} run={run} busy={busy} title={sel === 'all'} />)}
+      </div>
     </div>
   )
 }

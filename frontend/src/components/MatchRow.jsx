@@ -11,7 +11,7 @@ const hour = (iso) => (iso ? new Date(iso).toLocaleTimeString('es-AR', { hour: '
 
 // Una fila de equipo. Tocar solo el escudo abre el banner del equipo; el nombre y el resto de la fila abren el partido.
 // Con "slot" el cruce todavía no está definido: se muestra el lugar (1.°, 2.°…) y quién lo ocupa ahora, como probable.
-function Side({ t, slot, form, rank }) {
+function Side({ t, slot, form, rank, score, live }) {
   if (slot) {
     const who = slot.current?.name ?? (slot.candidates?.length ? slot.candidates.map((c) => c.name).join(' / ') : 'A definir')
     return (
@@ -32,9 +32,10 @@ function Side({ t, slot, form, rank }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
       <GoTo to={'/equipo/' + t.id} className="shrink-0"><TeamBadge team={t} size="sm" /></GoTo>
-      <span className="min-w-0 truncate text-sm font-bold">{t.name}</span>
-      <span className="flex-1 self-stretch" />
-      {rank && <span className="shrink-0 text-[11px] font-bold text-muted">{rank}.º</span>}
+      <span className="min-w-0 flex-1 truncate text-sm font-bold">{t.name}</span>
+      {/* Con resultado (finalizado o en vivo) el marcador va pegado al nombre; la posición y la racha quedan a su derecha */}
+      {score != null && <span className={'w-6 shrink-0 text-right font-mono text-lg font-extrabold tabular-nums ' + (live ? 'text-live' : '')}>{score}</span>}
+      {rank && <span className="ml-1 shrink-0 text-[11px] font-bold text-muted">{rank}.º</span>}
       {form?.length > 0 && <span className="shrink-0"><Forma form={form.slice(-3)} size="sm" /></span>} {/* en la tarjeta chica solo los últimos 3 */}
     </div>
   )
@@ -47,6 +48,7 @@ export default function MatchRow({ m, to, action, footer, selecting, selected, o
   const pip = usePipClock(m)
   const done = m.status === 'FINISHED'
   const live = m.status === 'LIVE'
+  const hasScore = done || live
   const meta = [
     courtLabel(m.court),
     MODALITY[m.modality],
@@ -73,15 +75,11 @@ export default function MatchRow({ m, to, action, footer, selecting, selected, o
             </span>
           )}
           <div className="min-w-0 flex-1 space-y-1.5">
-            <Side t={m.teamA} slot={m.phase?.slotA} form={m.form?.A} rank={m.form?.rankA} />
-            <Side t={m.teamB} slot={m.phase?.slotB} form={m.form?.B} rank={m.form?.rankB} />
+            <Side t={m.teamA} slot={m.phase?.slotA} form={m.form?.A} rank={m.form?.rankA} score={hasScore ? m.score?.teamA ?? 0 : null} live={live} />
+            <Side t={m.teamB} slot={m.phase?.slotB} form={m.form?.B} rank={m.form?.rankB} score={hasScore ? m.score?.teamB ?? 0 : null} live={live} />
           </div>
           <div className="flex w-[72px] shrink-0 flex-col items-center justify-center border-l border-line pl-3 text-center">
-            {done || live ? (
-              <span className={'font-mono text-xl font-extrabold tabular-nums ' + (live ? 'text-live' : '')}>{m.score?.teamA ?? 0}-{m.score?.teamB ?? 0}</span>
-            ) : (
-              <span className="font-mono text-xl font-extrabold tabular-nums">{hour(m.scheduledAt)}</span>
-            )}
+            {!hasScore && <span className="font-mono text-xl font-extrabold tabular-nums">{hour(m.scheduledAt)}</span>}
             {live ? (
               <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-live px-2 py-0.5 text-[10px] font-extrabold uppercase leading-tight text-black">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-black" />En vivo

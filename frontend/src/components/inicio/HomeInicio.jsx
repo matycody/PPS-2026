@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { CalendarDays, Heart, Star, X } from 'lucide-react'
 import MatchCard from '../MatchCard'
 import MatchRow from '../MatchRow'
+import LiveWithNext from './LiveWithNext'
 import GoTo from '../GoTo'
 import { api } from '../../lib/api'
 import { normMatch, phaseCmp, BRANCH, MODALITY } from '../../lib/format'
@@ -112,8 +113,19 @@ export default function HomeInicio({ byId, loading, error, children }) {
     groups.sort((a, b) => favTours.has(b.id) - favTours.has(a.id))
     const mine = favTeams.size && sel && sel !== 'live' ? dayList.filter((m) => isFav(m) && (tCur === 'all' || tid(m) === tCur)).sort(byStatus) : []
     const favDays = new Set(Object.keys(calDays).filter((d) => calDays[d].some(isFav)))
-    const liveSorted = [...live].sort((a, b) => isFav(b) - isFav(a))
-    return { mine, favDays, liveSorted, autoRaw, dayCount: dayList.length, live, calDays, tabs, sel, tournaments, tCur, phaseOpts, phaseCur, shown, groups, hasUndated: undated.length > 0 }
+    // En vivo: por cancha (la 1 arriba de todo, sin cancha al final)
+    const liveSorted = [...live].sort((a, b) => (a.court || 999) - (b.court || 999) || byTime(a, b))
+    // Próximo de cada cancha: el Habilitado o Programado que sigue, del mismo día (o sin fecha), por horario o, sin horario, por el orden del fixture
+    const nextOnCourt = {}
+    live.forEach((m) => {
+      if (!m.court) return
+      const day = dayOf(m.scheduledAt)
+      const next = all
+        .filter((x) => x.id !== m.id && x.court === m.court && (x.status === 'READY' || x.status === 'SCHEDULED') && (!day || !x.scheduledAt || dayOf(x.scheduledAt) === day))
+        .sort(byStatus)[0]
+      if (next) nextOnCourt[m.id] = next
+    })
+    return { mine, favDays, liveSorted, nextOnCourt, autoRaw, dayCount: dayList.length, live, calDays, tabs, sel, tournaments, tCur, phaseOpts, phaseCur, shown, groups, hasUndated: undated.length > 0 }
   }, [all, cal, calTry, lock, dPick, tPick, phasePick, favTeams, favTours, favReady])
 
   useEffect(() => { if (lock === null && v.autoRaw) setLock(v.autoRaw) }, [lock, v.autoRaw])
@@ -198,7 +210,7 @@ export default function HomeInicio({ byId, loading, error, children }) {
       {cal === null && calTry < 3 && <p className="text-muted">Cargando…</p>}
 
       {v.sel === 'live' ? (
-        v.live.length ? <div className="space-y-4">{v.liveSorted.map((m) => <MatchCard key={m.id} m={m} featured />)}</div> : <p className="text-muted">No hay partidos en vivo.</p>
+        v.live.length ? <div className="space-y-4">{v.liveSorted.map((m) => <LiveWithNext key={m.id} m={m} next={v.nextOnCourt[m.id]} featured />)}</div> : <p className="text-muted">No hay partidos en vivo.</p>
       ) : (
         <>
           {showFavPrompt && (
