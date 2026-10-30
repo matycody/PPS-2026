@@ -13,6 +13,7 @@ import StatusPill from '../components/StatusPill'
 import MatchNotice from '../components/MatchNotice'
 import Versus from '../components/Versus'
 import MatchRoster from '../components/MatchRoster'
+import ScoreTimeline from '../components/ScoreTimeline'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { usePipClock } from '../hooks/usePipClock'
 
@@ -155,6 +156,7 @@ export default function MatchPage() {
             </span>
           }
         />
+        <ScoreTimeline m={m} />
       </div>
 
       {tick?.recovered && (
