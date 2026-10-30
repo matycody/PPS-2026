@@ -65,6 +65,7 @@ export default function JornadaPage() {
   const [venues, setVenues] = useState([])
   const [venueId, setVenueId] = useState('') // sede de la jornada
   const [baseVenue, setBaseVenue] = useState('')
+  const [baseCfg, setBaseCfg] = useState({ start: '10:00', turn: DEFAULT_TURN }) // hora de inicio y minutos por turno con que se guardó
   const [noBack, setNoBack] = useState(true) // el autoarmado evita partidos seguidos del mismo plantel
   const [grid, setGrid] = useState({}) // 'cancha|turno' -> id de partido (borrador)
   const [base, setBase] = useState({}) // lo que hay guardado
@@ -99,8 +100,8 @@ export default function JornadaPage() {
 
   const dirty = useMemo(() => {
     const ks = new Set([...Object.keys(grid), ...Object.keys(base)])
-    return [...ks].some((k) => grid[k] !== base[k]) || venueId !== baseVenue
-  }, [grid, base, venueId, baseVenue])
+    return [...ks].some((k) => grid[k] !== base[k]) || venueId !== baseVenue || start !== baseCfg.start || turn !== baseCfg.turn
+  }, [grid, base, venueId, baseVenue, start, turn, baseCfg])
 
   const { modal: leaveModal } = useLeaveGuard(dirty, '', {
     title: '¿Salir sin guardar?',
@@ -114,6 +115,7 @@ export default function JornadaPage() {
     const { grid: g, maxCourt, maxRow } = buildGrid(list, d, s, t)
     setGrid(g)
     setBase(g)
+    setBaseCfg({ start: s, turn: t })
     setSel(null)
     // sede de la jornada: la que más usan los partidos ya ubicados ese día
     const count = {}
@@ -128,8 +130,9 @@ export default function JornadaPage() {
 
   const confirmDiscard = async () => !dirty || (await ask({ title: 'Descartar cambios', message: 'Tenés cambios sin guardar. Si seguís, se pierden.', confirmText: 'Descartar', cancelText: 'Volver', danger: true }))
   const changeDay = async (d) => { if (d === day || !(await confirmDiscard())) return; setDay(d); rebuild(d, start, all ?? [], turn) }
-  const changeStart = async (s) => { if (!s || s === start || !(await confirmDiscard())) return; setStart(s); rebuild(day, s, all ?? [], turn) }
-  const changeTurn = async (t) => { if (t === turn || t < 10 || t > 240 || !(await confirmDiscard())) return; setTurn(t); rebuild(day, start, all ?? [], t) }
+  // La hora de inicio y los minutos por turno se cambian libremente: el borrador se conserva y se aplica al guardar
+  const changeStart = (s) => { if (s) setStart(s) }
+  const changeTurn = (t) => { if (t >= 10 && t <= 240) setTurn(t) }
 
   // Al elegir una sede se sugiere su cantidad de canchas (se puede ajustar: depende de lo disponible ese día)
   const changeVenue = (id) => {
@@ -253,7 +256,7 @@ export default function JornadaPage() {
 
   const save = async () => {
     const items = []
-    const venueChanged = venueId !== baseVenue
+    const venueChanged = venueId !== baseVenue || start !== baseCfg.start || turn !== baseCfg.turn // también cambia el horario de todos
     Object.entries(grid).forEach(([k, id]) => {
       if (base[k] === id && !venueChanged) return
       const [c, r] = k.split('|').map(Number)
@@ -387,8 +390,8 @@ export default function JornadaPage() {
           <Btn disabled={busy || !pool.length} onClick={autoFill}><Wand2 size={16} /> Autoarmar</Btn>
           <Btn disabled={busy || !Object.keys(grid).length} onClick={clearGrid}>Vaciar tablero</Btn>
         </div>
-        <div className="flex gap-2">
-          <Btn className="flex-1" disabled={busy || !dirty} onClick={() => rebuild(day, start, all, turn)}>Descartar</Btn>
+        <div className={'flex gap-2 ' + (dirty ? 'sticky bottom-20 z-20 rounded-2xl border border-line bg-surface p-2 shadow-lg' : '')}>
+          <Btn className="flex-1" disabled={busy || !dirty} onClick={() => { setStart(baseCfg.start); setTurn(baseCfg.turn); rebuild(day, baseCfg.start, all, baseCfg.turn) }}>Descartar</Btn>
           <Btn tone="accent" className="flex-1" disabled={busy || !dirty || badCount > 0} onClick={save}>{busy ? 'Guardando…' : 'Guardar jornada'}</Btn>
         </div>
       </section>
