@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { resolveMapsLink } = require('../lib/mapsLink');
 
 const router = express.Router();
 router.use(authenticate, requireRole('ADMIN'));
@@ -67,6 +68,21 @@ router.get('/', async (req, res) => {
       include: { _count: { select: { matches: true } } },
     });
     res.json(venues.map(({ _count, ...v }) => ({ ...v, matchCount: _count.matches })));
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+// Lee un enlace de Google Maps (largo o corto) y devuelve nombre, dirección y coordenadas para precargar el formulario
+router.post('/resolve', async (req, res) => {
+  try {
+    const url = String((req.body && req.body.url) || '').trim();
+    if (!/^https?:\/\//i.test(url) || url.length > 500) return res.status(400).json({ error: 'Pegá un enlace de Google Maps (empieza con https://)' });
+    try {
+      res.json(await resolveMapsLink(url));
+    } catch (e) {
+      res.status(422).json({ error: e.message === 'El enlace debe ser de Google Maps' ? e.message : 'No pude leer ese enlace. Completá los datos a mano.' });
+    }
   } catch (err) {
     handleError(err, res);
   }

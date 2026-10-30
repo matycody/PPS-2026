@@ -1,7 +1,7 @@
 const prisma = require('../db');
 
 // Se registran los cambios (no las lecturas) de estas secciones
-const PREFIXES = ['/users', '/profiles', '/player-requests', '/teams', '/tournaments', '/matches', '/me'];
+const PREFIXES = ['/users', '/profiles', '/player-requests', '/teams', '/tournaments', '/matches', '/me', '/venues'];
 const SECRET = /pass|token|secret/i;
 const ID = /\/(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|c[a-z0-9]{20,})(?=\/|$)/gi;
 
@@ -97,7 +97,7 @@ async function record(req, res, url) {
 function auditWrites(req, res, next) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
   const url = req.originalUrl.split('?')[0];
-  if (!PREFIXES.some((p) => url === p || url.startsWith(p + '/')) || url.includes('/photo')) return next();
+  if (!PREFIXES.some((p) => url === p || url.startsWith(p + '/')) || url.includes('/photo') || url === '/venues/resolve') return next();
   res.on('finish', () => {
     if (res.statusCode >= 400 || !req.user) return;
     record(req, res, url).catch((e) => console.error('[audit]', e.message));
