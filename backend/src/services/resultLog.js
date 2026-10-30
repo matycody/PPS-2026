@@ -71,6 +71,9 @@ function mmss(totalSeconds) {
   return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
 }
 
+const SANCTION_LABELS = { WARNING: 'una advertencia', YELLOW: 'una tarjeta amarilla', BLUE: 'una tarjeta azul', RED: 'una tarjeta roja' };
+const sanctionLabel = (k) => SANCTION_LABELS[k] || 'una sanción';
+
 function describeClockAction(action, detail) {
   const d = detail || {};
   const group = d.scope === 'group' ? ' (todos sus partidos asignados)' : '';
@@ -95,6 +98,10 @@ function describeClockAction(action, detail) {
       return 'Finalizó el tiempo actual';
     case 'TIMEOUT_CANCEL':
       return 'Deshizo un tiempo muerto pedido por error';
+    case 'SANCTION_ADD':
+      return 'Aplicó ' + sanctionLabel(d.kind) + (d.side ? ' al equipo ' + d.side : '') + (d.eliminates ? ' (jugador eliminado)' : '');
+    case 'SANCTION_REMOVE':
+      return 'Deshizo ' + sanctionLabel(d.kind) + (d.side ? ' del equipo ' + d.side : '');
     default:
       return action;
   }
