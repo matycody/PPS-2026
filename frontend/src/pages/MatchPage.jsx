@@ -93,9 +93,11 @@ export default function MatchPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-center gap-2 text-center">
-        <StatusPill status={m.status} />
-        <p className="text-sm text-muted">{courtLabel(m.court)} · {BRANCH[m.branch] ?? m.branch}</p>
-        {m.venue && !over && <VenueInfo venue={m.venue} className="w-full max-w-sm" />}
+        <div className="flex items-center gap-2">
+          <StatusPill status={m.status} />
+          <span className="text-sm text-muted">{courtLabel(m.court)} · {BRANCH[m.branch] ?? m.branch}</span>
+        </div>
+        {m.venue && !over && <VenueInfo venue={m.venue} compact={m.status === 'LIVE'} className="w-full max-w-sm" />}
         {m.tournament?.id && (
           <div className="flex items-center gap-2">
             <Link to={'/liga/' + m.tournament.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-bold text-accent">

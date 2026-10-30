@@ -185,11 +185,46 @@ function CourtSection({ c, ticks, run, busy, title }) {
   )
 }
 
+// Vista "En vivo": solo los partidos en juego. Cuando al 2do tiempo le faltan menos de 10 minutos, el que sigue en esa cancha
+// aparece en chiquito, con las acciones para designar árbitros y habilitarlo.
+function LiveCourt({ c, ticks, run, busy }) {
+  const upcoming = c.list.filter((m) => m.status !== 'LIVE').sort(byTime)
+  const next = upcoming[0]
+  return c.list.filter((m) => m.status === 'LIVE').map((m) => {
+    const tick = ticks[m.id]
+    const left = secs(tick?.matchTime)
+    const warn = !!next && tick?.matchHalf === 2 && left != null && left < LEFT_WARN
+    return (
+      <section key={m.id} className="space-y-2">
+        <h2 className="text-xs font-bold uppercase tracking-widest">{courtLabel(c.court)}</h2>
+        <CourtMatch m={m} tick={tick} full run={run} busy={busy} />
+        {warn && (
+          <div className="overflow-hidden rounded-2xl border border-warn/40 bg-warn/10">
+            <p className="px-3 pt-2 text-[11px] font-extrabold uppercase tracking-widest text-warn">Sigue en {courtLabel(c.court)} · menos de 10 min</p>
+            <MatchRow
+              m={next}
+              flat
+              to={'/admin/partidos/' + next.id}
+              footer={
+                <div className="grid grid-cols-2 gap-2 px-3 pb-3">
+                  {next.status === 'SCHEDULED' && <Btn tone="accent" disabled={busy} onClick={() => run(next.id, 'POST', '/ready')}>Habilitar</Btn>}
+                  {next.status === 'READY' && <Btn disabled={busy} onClick={() => run(next.id, 'POST', '/unready')}>Deshabilitar</Btn>}
+                  <Link to={'/admin/partidos/' + next.id} className="grid place-items-center rounded-2xl border border-line bg-surface-2 py-3 text-center text-sm font-extrabold">Designar árbitros</Link>
+                </div>
+              }
+            />
+          </div>
+        )}
+      </section>
+    )
+  })
+}
+
 export default function DashboardPage() {
   useMatchesFeed()
   const { byId, loading, error, upsert } = useMatchesStore()
   const [ticks, setTicks] = useState({})
-  const [sel, setSel] = useState('all') // 'all' | número de cancha
+  const [sel, setSel] = useState('live') // 'live' | número de cancha
   const [day, setDay] = useState(() => dayOf(new Date().toISOString())) // jornada que se ve
   const [busy, setBusy] = useState(false)
   const [fin, setFin] = useState({}) // finalizados recientes (el feed general solo trae los activos)
@@ -232,8 +267,11 @@ export default function DashboardPage() {
       .sort((a, b) => (a.court || 999) - (b.court || 999)) // la Cancha 1 arriba de todo, sin cancha al final
   }, [byId, fin, day])
 
-  const current = sel === 'all' ? null : courts.find((c) => c.court === sel)
-  const shown = sel === 'all' ? courts : current ? [current] : courts
+  // En vivo primero: las canchas con partido en juego van arriba (cada una ya viene ordenada por número)
+  const liveCourts = courts.filter((c) => c.list.some((m) => m.status === 'LIVE'))
+  const liveCount = liveCourts.reduce((n, c) => n + c.list.filter((m) => m.status === 'LIVE').length, 0)
+  const current = sel === 'live' ? null : courts.find((c) => c.court === sel)
+  const shown = sel === 'live' ? liveCourts : current ? [current] : liveCourts
 
   // Relojes: los partidos en vivo de lo que se está viendo
   const liveKey = shown.flatMap((c) => c.list.filter((m) => m.status === 'LIVE').map((m) => m.id)).sort().join(',')
@@ -286,7 +324,7 @@ export default function DashboardPage() {
 
       {courts.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => setSel('all')} className={chip(sel === 'all')}>Todas</button>
+          <button onClick={() => setSel('live')} className={chip(sel === 'live')}>En vivo{liveCount ? ' · ' + liveCount : ''}</button>
           {courts.map((c) => (
             <button key={c.court} onClick={() => setSel(c.court)} className={chip(sel === c.court)}>
               {courtLabel(c.court)}{c.list.some((m) => m.status === 'LIVE') ? ' · En vivo' : ''}
@@ -296,7 +334,12 @@ export default function DashboardPage() {
       )}
 
       <div className="space-y-6">
-        {shown.map((c) => <CourtSection key={c.court} c={c} ticks={ticks} run={run} busy={busy} title={sel === 'all'} />)}
+        {sel === 'live' && liveCourts.length === 0 && courts.length > 0 && (
+          <div className="rounded-2xl border border-line bg-surface p-6 text-center text-muted">No hay partidos en vivo. Elegí una cancha para ver los que siguen.</div>
+        )}
+        {sel === 'live'
+          ? liveCourts.map((c) => <LiveCourt key={c.court} c={c} ticks={ticks} run={run} busy={busy} />)
+          : shown.map((c) => <CourtSection key={c.court} c={c} ticks={ticks} run={run} busy={busy} title={false} />)}
       </div>
     </div>
   )

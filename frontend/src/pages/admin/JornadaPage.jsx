@@ -41,7 +41,8 @@ function inferCfg(matches, day, fallbackTurn) {
   let turn = fallbackTurn
   if (times.length > 1) {
     const g = times.slice(1).reduce((acc, t) => gcd(acc, Math.round((t - times[0]) / 60000)), 0)
-    if (g >= 10 && g <= 240) turn = g
+    // si los horarios son múltiplos del turno predefinido (hay filas vacías de por medio) se mantiene el predefinido: 120 ≠ turno de 2 horas
+    if (g >= 10 && g <= 240) turn = g % DEFAULT_TURN === 0 ? DEFAULT_TURN : g
   }
   return { start, turn }
 }
