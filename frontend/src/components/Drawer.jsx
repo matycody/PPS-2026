@@ -40,7 +40,7 @@ export default function Drawer({ open, onClose }) {
       />
       <aside
         className={
-          'absolute left-0 top-0 flex h-full w-80 max-w-[85%] flex-col overflow-y-auto menu-glass-drawer px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] transition-transform duration-200 ' +
+          'absolute left-0 top-0 flex h-full w-80 max-w-[88%] flex-col sm:w-96 overflow-y-auto menu-glass-drawer px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] transition-transform duration-200 ' +
           (open ? 'translate-x-0' : '-translate-x-full')
         }
       >
@@ -53,19 +53,22 @@ export default function Drawer({ open, onClose }) {
           </button>
         </div>
 
-        <div className="mt-5 flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
-          <UserAvatar />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold">{user ? <PersonName p={profile} fallback={user.email} /> : 'Visitante'}</p>
-            <p className="text-xs text-muted">{user ? 'Sesión iniciada' : 'Solo lectura'}</p>
+        <div className="mt-5 space-y-2.5 rounded-2xl border border-line bg-surface p-3">
+          <div className="flex items-center gap-3">
+            <UserAvatar />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold">{user ? <PersonName p={profile} fallback={user.email} /> : 'Visitante'}</p>
+              <p className="text-xs text-muted">{user ? 'Sesión iniciada' : 'Solo lectura'}</p>
+            </div>
           </div>
           {user && (
-            <span className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase" style={{ color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 16%, transparent)' }}>
-              {roleLabel(user, menu)}
-            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {roleLabel(user, menu).split(' / ').map((r) => (
+                <span key={r} className="rounded-full px-2.5 py-1 text-[11px] font-bold uppercase" style={{ color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 16%, transparent)' }}>{r}</span>
+              ))}
+            </div>
           )}
         </div>
-
 
         <nav className="mt-3">
           <Item {...ITEMS.home} label="Menú principal" onClose={onClose} />
