@@ -460,12 +460,20 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
 
   // SOLO PARA PRUEBAS Y DEMOS: se saca cuando el Product Owner lo indique (borrar este bloque, el botón y la ruta POST /tournaments/:id/reset)
   async function resetTournament() {
-    const keep = await ask({ title: 'Reiniciar torneo', message: '¿Querés mantener la estructura de "' + t.name + '"? Sí: queda el mismo fixture, equipos y llaves, solo en cero. No: el torneo se pausa para todos y podés cambiar equipos, estructura y fixture.', confirmText: 'Sí, mantener', cancelText: 'No, cambiar' })
+    // Primera confirmación: ¿de verdad quiere reiniciar?
+    if (!(await ask({ title: 'Reiniciar torneo', message: '¿Querés reiniciar "' + t.name + '"? Se borran los resultados, relojes, canchas y designaciones de todos sus partidos.', confirmText: 'Sí, reiniciar', cancelText: 'Volver', danger: true }))) return
+    // Segunda: estructura. true = mantener, false = cambiar (pausa), null = se arrepintió
+    const keep = await ask({ title: 'Mantener la estructura', message: '¿Querés mantener la estructura? Sí: queda el mismo fixture, equipos y llaves, solo en cero. No: el torneo se pausa para todos y podés cambiar equipos, estructura y fixture.', confirmText: 'Sí, mantener', cancelText: 'No, cambiar', neutral: 'Volver, no reiniciar' })
+    if (keep === null) return
     // Con estructura nueva los horarios no importan: el fixture se vuelve a armar
-    const clearSchedule = keep ? await ask({ title: 'Horarios', message: '¿Borrar también los horarios de los partidos? Si elegís mantener, quedan con su fecha y hora actuales.', confirmText: 'Borrar horarios', cancelText: 'Mantener horarios' }) : false
+    let clearSchedule = false
+    if (keep) {
+      clearSchedule = await ask({ title: 'Horarios', message: '¿Borrar también los horarios de los partidos? Si elegís mantener, quedan con su fecha y hora actuales.', confirmText: 'Borrar horarios', cancelText: 'Mantener horarios', neutral: 'Volver, no reiniciar' })
+      if (clearSchedule === null) return
+    }
     const detail = keep
-      ? 'Se borran los resultados, relojes, canchas y designaciones de TODOS los partidos y vuelven a Programado' + (clearSchedule ? ', sin horarios' : '') + '. Equipos, zonas, fechas y llaves se conservan.'
-      : 'Se borran los resultados, relojes, canchas y designaciones de TODOS los partidos' + (t.pausedAt ? '' : ' y el torneo se pausa para todos, menos la organización') + '. Después podés cambiar equipos, estructura y fixture.'
+      ? 'Todos los partidos vuelven a Programado' + (clearSchedule ? ', sin horarios' : '') + '. Equipos, zonas, fechas y llaves se conservan.'
+      : 'Todos los partidos vuelven a Programado' + (t.pausedAt ? '' : ' y el torneo se pausa para todos, menos la organización') + '. Después podés cambiar equipos, estructura y fixture.'
     if (!(await ask({ title: 'Confirmar reinicio', message: detail + ' No se puede deshacer.', confirmText: 'Reiniciar', cancelText: 'Volver', danger: true }))) return
     setPausing(true); setErr('')
     try {
@@ -546,7 +554,7 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
         {pausing ? '...' : t.pausedAt ? 'Reanudar torneo' : 'Pausar torneo'}
       </button>
       {t.status !== 'DRAFT' && (
-        <div className="space-y-2 rounded-3xl border border-danger p-4">
+        <div className="space-y-2 rounded-3xl border border-danger bg-surface p-4">
           <p className="text-sm font-bold text-danger">Reiniciar torneo (solo pruebas)</p>
           <p className="text-xs">Deja el fixture en cero: borra resultados, canchas y designaciones. Conserva equipos y estructura.</p>
           <Btn tone="danger" disabled={pausing} onClick={resetTournament} className="w-full">Reiniciar torneo</Btn>
