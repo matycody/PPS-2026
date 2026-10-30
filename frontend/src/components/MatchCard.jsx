@@ -5,6 +5,7 @@ import GoTo from './GoTo'
 import StatusPill from './StatusPill'
 import MatchNotice from './MatchNotice'
 import Versus from './Versus'
+import MatchRow from './MatchRow'
 import { fmtWhen, BRANCH, MODALITY, courtLabel } from '../lib/format'
 import { useLiveTick } from '../lib/liveTicks'
 import { statusBorder } from '../lib/statusStyle'
@@ -15,7 +16,12 @@ const clock = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
 
 const CTA = { LIVE: 'Ver en vivo', READY: 'Ver partido', SCHEDULED: 'Ver partido', FINISHED: 'Ver resultado' }
 
-export default function MatchCard({ m, featured = false, to, badge }) {
+// Solo los partidos en vivo usan la tarjeta grande; programados, habilitados y finalizados usan la tarjeta chica (MatchRow)
+export default function MatchCard(props) {
+  return props.m.status === 'LIVE' ? <LiveMatchCard {...props} /> : <MatchRow m={props.m} to={props.to} />
+}
+
+function LiveMatchCard({ m, featured = false, to, badge }) {
   const tick = useLiveTick(m.id, m.status === 'LIVE')
   const pip = usePipClock(m)
   const showScore = m.status === 'LIVE' || m.status === 'FINISHED'

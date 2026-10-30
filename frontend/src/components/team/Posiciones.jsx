@@ -100,8 +100,8 @@ export default function Posiciones({ teamId, mod, br }) {
   const shown = list.filter((it) => (mod === 'all' || it.tournament.modality === mod) && (br === 'all' || it.tournament.branch === br))
   if (!shown.length) return <p className="text-muted">No juega torneos con tabla de posiciones en esta categoría.</p>
 
-  const single = shown.length === 1
-  const isOpen = (it) => (openIds ? openIds.includes(it.tournament.id) : single || it.tournament.status === 'ACTIVE')
+  // Todas las tablas arrancan cerradas; se abre la que se toca
+  const isOpen = (it) => (openIds ? openIds.includes(it.tournament.id) : false)
   const toggle = (it) => setOpenIds((cur) => {
     const base = cur ?? shown.filter((x) => isOpen(x)).map((x) => x.tournament.id)
     return base.includes(it.tournament.id) ? base.filter((x) => x !== it.tournament.id) : [...base, it.tournament.id]

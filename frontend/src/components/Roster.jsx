@@ -1,4 +1,5 @@
-﻿import { Link } from 'react-router-dom'
+﻿import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { BRANCH } from '../lib/format'
 import PersonName from './PersonName'
 
@@ -6,9 +7,28 @@ const ORDER = ['MALE', 'MIXED', 'FEMALE']
 
 // Plantel masculino, mixto y femenino. En cada uno, la persona logueada aparece primero.
 export default function Roster({ roster = [], meProfileId, extra }) {
+  const count = (b) => roster.filter((r) => r.branch === b).length
+  const mine = roster.find((r) => r.profileId === meProfileId)?.branch
+  const [sel, setSel] = useState(null)
+  // Por defecto: la rama de la persona logueada, si no la primera con jugadores
+  const current = sel ?? mine ?? ORDER.find((b) => count(b) > 0) ?? ORDER[0]
   return (
-    <div className="space-y-5">
-      {ORDER.map((branch) => {
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2" role="tablist">
+        {ORDER.map((branch) => (
+          <button
+            key={branch}
+            role="tab"
+            aria-selected={current === branch}
+            onClick={() => setSel(branch)}
+            className={'flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold ' + (current === branch ? 'border-accent bg-accent text-black' : 'border-line bg-surface text-muted')}
+          >
+            {BRANCH[branch]}
+            <span className={'rounded-full px-1.5 text-xs font-extrabold ' + (current === branch ? 'bg-black/15' : 'bg-surface-2')}>{count(branch)}</span>
+          </button>
+        ))}
+      </div>
+      {ORDER.filter((branch) => branch === current).map((branch) => {
         const list = roster
           .filter((r) => r.branch === branch)
           .sort(
@@ -19,10 +39,6 @@ export default function Roster({ roster = [], meProfileId, extra }) {
           )
         return (
           <div key={branch} className="space-y-2">
-            <p className="flex items-center justify-between text-xs font-bold uppercase tracking-widest text-muted">
-              <span>Plantel {BRANCH[branch].toLowerCase()}</span>
-              <span>{list.length}</span>
-            </p>
             {list.length === 0 && <p className="text-sm text-muted">Sin jugadores.</p>}
             {list.map((r) => {
               const me = !!meProfileId && r.profileId === meProfileId
