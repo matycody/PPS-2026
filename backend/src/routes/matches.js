@@ -445,6 +445,108 @@ router.patch('/:id', ...admin, async (req, res) => {
   }
 });
 
+// Programación masiva de una jornada: cancha y horario de varios partidos de una sola vez (todo o nada).
+// Body: { items: [{ matchId, court (int | null), scheduledAt (ISO | null) }] }
+const TURN_MS = 40 * 60 * 1000; // cada partido ocupa 40 minutos (2 tiempos de 20)
+const MAX_BULK = 500;
+router.post('/bulk-schedule', ...admin, async (req, res) => {
+  try {
+    const items = req.body && req.body.items;
+    if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'No hay partidos para programar' });
+    if (items.length > MAX_BULK) return res.status(400).json({ error: 'Máximo ' + MAX_BULK + ' partidos por vez' });
+
+    const plan = new Map();
+    for (const it of items) {
+      const id = it && it.matchId ? String(it.matchId) : '';
+      if (!id || plan.has(id)) return res.status(400).json({ error: 'Partido repetido o inválido' });
+      const court = it.court === null || it.court === undefined || it.court === '' ? null : Number(it.court);
+      if (court !== null && (!Number.isInteger(court) || court < 1)) return res.status(400).json({ error: 'Cancha inválida' });
+      const at = parseDate(it.scheduledAt);
+      if (at === undefined) return res.status(400).json({ error: 'Fecha inválida' });
+      plan.set(id, { court, scheduledAt: at });
+    }
+
+    const matches = await prisma.match.findMany({
+      where: { id: { in: [...plan.keys()] } },
+      include: { teamA: { select: { id: true, name: true } }, teamB: { select: { id: true, name: true } } },
+    });
+    if (matches.length !== plan.size) return res.status(404).json({ error: 'Algún partido no existe' });
+    const blocked = matches.filter((m) => m.hiddenAt || !['SCHEDULED', 'READY'].includes(m.status));
+    if (blocked.length) {
+      return res.status(409).json({ error: 'Solo se programan partidos Programados o Habilitados (' + blocked.length + ' no cumplen)' });
+    }
+
+    // Estado final de los partidos tocados + los demás partidos activos de esos mismos días
+    const finalOf = (m) => ({ ...m, ...plan.get(m.id) });
+    const touched = matches.map(finalOf);
+    const times = touched.map((m) => m.scheduledAt).filter(Boolean).map((d) => d.getTime());
+    let others = [];
+    if (times.length) {
+      const lo = new Date(Math.min(...times) - TURN_MS);
+      const hi = new Date(Math.max(...times) + TURN_MS);
+      others = await prisma.match.findMany({
+        where: {
+          id: { notIn: [...plan.keys()] },
+          hiddenAt: null,
+          status: { in: ['SCHEDULED', 'READY', 'LIVE'] },
+          scheduledAt: { gte: lo, lte: hi },
+        },
+        include: { teamA: { select: { id: true, name: true } }, teamB: { select: { id: true, name: true } } },
+      });
+    }
+
+    const timed = touched.filter((m) => m.scheduledAt);
+    const pool = [...timed, ...others];
+    const label = (m) => (m.teamA ? m.teamA.name : '¿?') + ' vs ' + (m.teamB ? m.teamB.name : '¿?');
+    const problems = [];
+    for (const a of timed) {
+      for (const b of pool) {
+        if (a === b || (b.scheduledAt && plan.has(b.id) && b.id < a.id)) continue; // cada par una sola vez
+        if (!b.scheduledAt || Math.abs(a.scheduledAt.getTime() - b.scheduledAt.getTime()) >= TURN_MS) continue;
+        if (a.court && b.court && a.court === b.court) {
+          problems.push('Cancha ' + a.court + ' ocupada a las ' + fmtDate(a.scheduledAt) + ': ' + label(a) + ' y ' + label(b));
+        }
+        const ids = [a.teamAId, a.teamBId].filter(Boolean);
+        const shared = [b.teamAId, b.teamBId].filter((t) => t && ids.includes(t));
+        if (shared.length) {
+          const t = [a.teamA, a.teamB, b.teamA, b.teamB].find((x) => x && x.id === shared[0]);
+          problems.push((t ? t.name : 'Un equipo') + ' juega dos partidos a la vez (' + fmtDate(a.scheduledAt) + ')');
+        }
+      }
+    }
+    if (problems.length) {
+      return res.status(409).json({ error: 'Hay choques de horario', errors: [...new Set(problems)].slice(0, 20) });
+    }
+
+    const editorLbl = await editorLabel(req.user);
+    const changed = [];
+    const ops = [];
+    for (const m of matches) {
+      const next = plan.get(m.id);
+      const sameCourt = next.court === m.court;
+      const before = m.scheduledAt ? m.scheduledAt.getTime() : null;
+      const after = next.scheduledAt ? next.scheduledAt.getTime() : null;
+      if (sameCourt && before === after) continue;
+      const parts = [];
+      if (!sameCourt) parts.push('cancha: ' + (m.court ?? 'sin asignar') + ' → ' + (next.court ?? 'sin asignar'));
+      if (before !== after) parts.push('fecha: ' + fmtDate(m.scheduledAt) + ' → ' + fmtDate(next.scheduledAt));
+      ops.push(prisma.match.update({ where: { id: m.id }, data: { court: next.court, scheduledAt: next.scheduledAt } }));
+      ops.push(prisma.matchResultLog.create({
+        data: buildLogData(
+          { id: m.id, court: next.court, teamAId: m.teamAId, teamBId: m.teamBId, teamA: m.teamA, teamB: m.teamB },
+          req.user.id, editorLbl, 'MATCH_EDIT', 'Programó la jornada (' + parts.join(', ') + ')'
+        ),
+      }));
+      changed.push(m.id);
+    }
+    if (ops.length) await prisma.$transaction(ops);
+    for (const id of changed) await notifyMatch(req.app.get('io'), id);
+    res.json({ updated: changed.length, unchanged: matches.length - changed.length });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
 router.post('/:id/cancel', ...admin, async (req, res) => {
   try {
     const match = await prisma.match.findUnique({ where: { id: req.params.id } });
