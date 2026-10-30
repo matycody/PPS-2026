@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { MapPin, CalendarDays, Trophy } from 'lucide-react'
+import { MapPin, CalendarDays, Trophy, Flag } from 'lucide-react'
 import FavHeart from '../components/FavHeart'
 import { api } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
@@ -310,18 +310,26 @@ export default function TeamPage() {
           )}
           {st && (
             <div className="space-y-2">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Torneos</h2>
-              {st.history.length === 0 && <p className="text-muted">Todavía no tiene torneos con tabla de posiciones.</p>}
-              {st.history.map((h) => (
-                <GoTo key={h.tournamentId + h.stage} to={'/liga/' + h.tournamentId} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-2 font-mono text-sm font-extrabold">{h.position}.º</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-bold">{h.tournament}</p>
-                    <p className="truncate text-xs text-muted">{h.stage}{h.zone ? ' · ' + h.zone : ''} · {h.year}</p>
-                  </div>
-                  <span className="font-mono text-xs font-bold text-muted">{h.points} pts · {h.played} PJ</span>
-                </GoTo>
-              ))}
+              <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Torneos · {(st.career ?? []).length}</h2>
+              {(st.career ?? []).length === 0 && <p className="text-muted">Todavía no disputó torneos.</p>}
+              {(st.career ?? []).map((h) => {
+                const k = h.result?.kind
+                const ord = { RUNNER_UP: '2.º', THIRD: '3.º', FOURTH: '4.º' }[k]
+                const tone = k === 'CHAMPION' ? 'text-accent' : k === 'IN_PLAY' ? 'text-live' : ''
+                return (
+                  <GoTo key={h.tournamentId} to={'/liga/' + h.tournamentId} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
+                    <span className={'grid h-10 w-10 shrink-0 place-items-center rounded-full font-mono text-sm font-extrabold ' + (k === 'CHAMPION' ? 'bg-accent-soft text-accent' : 'bg-surface-2 text-muted')}>
+                      {k === 'CHAMPION' ? <Trophy size={18} /> : ord ?? <Flag size={16} />}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-bold">{h.tournament}{h.edition ? ' · ' + h.edition : ''}</p>
+                      {h.result && <p className={'truncate text-sm font-bold ' + tone}>{h.result.label}</p>}
+                      {h.zone && <p className="truncate text-xs text-muted">{h.zone.position}.º en {h.zone.name} · {h.zone.points} pts · {h.zone.played} PJ · {h.year}</p>}
+                    </div>
+                    {h.status === 'ACTIVE' && <span className="shrink-0 rounded-full bg-live/15 px-2 py-0.5 text-[11px] font-bold uppercase text-live">En curso</span>}
+                  </GoTo>
+                )
+              })}
             </div>
           )}
         </section>

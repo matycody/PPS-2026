@@ -46,17 +46,17 @@ export default function Roster({ roster = [], meProfileId, extra }) {
               return (
                 <div
                   key={r.profileId + r.branch}
-                  className={'flex items-center gap-3 rounded-xl px-3 py-2 text-sm ' + (me ? 'border border-accent/50 bg-accent-soft' : 'bg-surface-2')}
+                  className={'flex items-center gap-3 rounded-xl px-3 py-2 text-sm ' + (me ? 'bg-accent text-black' : 'bg-surface-2')}
                 >
-                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface text-sm font-extrabold text-muted">
+                  <div className={'grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-extrabold ' + (me ? 'bg-black/20 text-black' : 'bg-surface text-muted')}>
                     {(r.nickname?.trim() || r.name).charAt(0).toUpperCase()}
                   </div>
                   <span className="min-w-0 flex-1 truncate font-semibold">
-                    <Link to={'/jugador/' + r.profileId}><PersonName p={r} /></Link>
-                    {r.coach && <span className="ml-1.5 text-xs font-bold text-accent">(DT)</span>}
+                    <Link to={'/jugador/' + r.profileId}><PersonName p={r} className={me ? '[&_span]:!text-black/60' : ''} /></Link>
+                    {r.coach && <span className={'ml-1.5 text-xs font-bold ' + (me ? 'text-black/70' : 'text-accent')}>(DT)</span>}
                     {r.suspension && <span className="ml-1.5 rounded bg-danger/15 px-1.5 py-0.5 text-[10px] font-extrabold uppercase text-danger">Suspendido · {suspensionText(r.suspension)}</span>}
                   </span>
-                  {me && <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold uppercase text-black">Vos</span>}
+                  {me && <span className="rounded-full bg-black px-2 py-0.5 text-[10px] font-bold uppercase text-accent">Vos</span>}
                   {extra?.(r)}
                 </div>
               )
