@@ -255,7 +255,10 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Dashboard de canchas</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Dashboard de canchas</h1>
+        <Link to="/admin/jornada" className="rounded-full bg-accent px-4 py-1.5 text-xs font-extrabold text-black">Armar jornada</Link>
+      </div>
       <div className="flex items-center justify-between rounded-2xl border border-line bg-surface px-2 py-1.5">
         <button aria-label="Día anterior" onClick={() => setDay(shiftDay(day, -1))} className="grid h-9 w-9 place-items-center rounded-full bg-surface-2"><ChevronLeft size={18} /></button>
         <button onClick={() => setDay(dayOf(new Date().toISOString()))} className="text-sm font-extrabold">{dayTab(day)}</button>
