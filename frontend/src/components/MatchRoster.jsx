@@ -8,6 +8,14 @@ import FavHeart from './FavHeart'
 
 const ORDER = ['MALE', 'MIXED', 'FEMALE']
 
+// Nombre arriba y apellido abajo ("María José Gómez" → "María José" / "Gómez"); con apodo público, el apodo es el nombre
+function splitName(r) {
+  if (r.nickname) return { top: r.nickname, bottom: null }
+  const parts = String(r.name ?? '').trim().split(/\s+/)
+  if (parts.length < 2) return { top: parts[0] ?? '', bottom: null }
+  return { top: parts.slice(0, -1).join(' '), bottom: parts[parts.length - 1] }
+}
+
 // Con número primero (de menor a mayor), después los que no tienen, por nombre
 function byNumber(a, b) {
   const na = personNumber(a)
@@ -52,13 +60,15 @@ function TeamRoster({ team, matchBranch, noLink }) {
                 </p>
                 {list.map((r) => {
                   const n = personNumber(r)
+                  const nm = splitName(r)
                   return (
                     <div key={r.profileId + r.branch} className="flex items-center rounded-xl bg-surface-2 text-xs">
-                      <L to={'/jugador/' + r.profileId} className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-2">
+                      <L to={'/jugador/' + r.profileId} className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-2">
                         <span className="w-8 shrink-0 font-mono text-[11px] font-bold text-muted">{n != null ? '#' + n : ''}</span>
-                        <span className="min-w-0 flex-1 truncate font-semibold">
-                          {r.name}
+                        <span className="min-w-0 flex-1 break-words font-semibold leading-tight">
+                          {nm.top}
                           {r.coach && <span className="ml-1.5 text-[10px] font-bold text-accent">(DT)</span>}
+                          {nm.bottom && <span className="block font-normal text-muted">{nm.bottom}</span>}
                         </span>
                       </L>
                       {noLink ? <span className="w-2" /> : <FavHeart type="PLAYER" id={r.profileId} name={r.name} compact />}
