@@ -59,19 +59,28 @@ async function playerMatches(sus, { after } = {}) {
   return prisma.match.findMany({ where, select: { id: true, status: true, scheduledAt: true, teamAId: true, teamBId: true, modality: true, branch: true } });
 }
 
+// Secuencia de la sancion, partido por partido (una "fecha" = el siguiente partido del jugador dentro del alcance):
+// - sameDay: no juega el resto de los partidos del dia de la roja
+// - fechas: despues de eso, se pierde los proximos N partidos (si no hay sameDay, cuentan desde el siguiente partido, aunque sea del mismo dia)
+async function sequence(sus) {
+  const red = sus.sanction.match;
+  const redAt = new Date(red.scheduledAt || red.finishedAt || red.createdAt);
+  const redDay = dayKey(redAt);
+  const rows = (await playerMatches(sus))
+    .filter((m) => m.id !== red.id && new Date(m.scheduledAt) > redAt)
+    .sort((x, y) => new Date(x.scheduledAt) - new Date(y.scheduledAt) || x.id.localeCompare(y.id));
+  const sameDayList = sus.sameDay ? rows.filter((m) => dayKey(m.scheduledAt) === redDay) : [];
+  const lost = rows.filter((m) => !sameDayList.includes(m)).slice(0, sus.fechas);
+  return { sameDayList, lost, redDay };
+}
+
 // Estado vigente: fechas que le faltan cumplir y si le queda algo de la jornada de la roja
 async function suspensionState(sus) {
-  const red = sus.sanction.match;
-  const redAt = red.scheduledAt || red.finishedAt || red.createdAt;
-  const redDay = dayKey(redAt);
-  const rows = await playerMatches(sus);
-  const sameDayLeft = sus.sameDay && rows.some((m) => m.id !== red.id && dayKey(m.scheduledAt) === redDay && OPEN.includes(m.status));
-  // dias posteriores a la roja con partidos: los primeros `fechas` son los que se pierde
-  const days = [...new Set(rows.filter((m) => dayKey(m.scheduledAt) > redDay).map((m) => dayKey(m.scheduledAt)))].sort();
-  const lost = days.slice(0, sus.fechas);
-  const served = lost.filter((d) => rows.filter((m) => dayKey(m.scheduledAt) === d).every((m) => !OPEN.includes(m.status))).length;
+  const { sameDayList, lost, redDay } = await sequence(sus);
+  const sameDayLeft = sameDayList.some((m) => OPEN.includes(m.status));
+  const served = lost.filter((m) => !OPEN.includes(m.status)).length;
   const remaining = Math.max(0, sus.fechas - served);
-  return { remaining, sameDayLeft, active: remaining > 0 || sameDayLeft, lostDays: lost, redDay };
+  return { remaining, sameDayLeft, active: remaining > 0 || sameDayLeft, lostMatchIds: lost.map((m) => m.id), redDay };
 }
 
 // ¿Queda el jugador afuera de `match`? (no mira equipo: mira si el partido entra en el alcance de la suspension)
@@ -81,10 +90,9 @@ async function isBlocked(sus, match, memberships) {
   const inTeam = memberships.some((m) => m.branch === match.branch && (m.teamId === match.teamAId || m.teamId === match.teamBId));
   if (!inTeam) return false;
   if (sus.scope !== 'ALL' && match.modality !== red.modality) return false;
-  const st = await suspensionState(sus);
-  const day = dayKey(match.scheduledAt);
-  if (day === st.redDay) return sus.sameDay && OPEN.includes(match.status);
-  return st.lostDays.includes(day);
+  const { sameDayList, lost } = await sequence(sus);
+  if (sameDayList.some((m) => m.id === match.id)) return OPEN.includes(match.status);
+  return lost.some((m) => m.id === match.id);
 }
 
 const baseWhere = { revokedAt: null, OR: [{ fechas: { gt: 0 } }, { sameDay: true }], sanction: { revokedAt: null, kind: 'RED' } };
@@ -121,4 +129,4 @@ async function activeSuspensions(profileIds) {
   return out;
 }
 
-module.exports = { TEAM_SIZE, listSanctions, emitSanctions, publicName, suspendedForMatch, activeSuspensions, suspensionState, SUS_INCLUDE, baseWhere };
+module.exports = { isBlocked, TEAM_SIZE, listSanctions, emitSanctions, publicName, suspendedForMatch, activeSuspensions, suspensionState, SUS_INCLUDE, baseWhere };
