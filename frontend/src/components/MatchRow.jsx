@@ -61,6 +61,7 @@ export default function MatchRow({ m, to, action, footer, selecting, selected, o
 
   const showAction = !pip.canPin && !selecting && !!action
   return (
+    <div>
     <div className="relative">
       <Link
         to={to ?? '/partido/' + m.id}
@@ -105,6 +106,7 @@ export default function MatchRow({ m, to, action, footer, selecting, selected, o
         </button>
       )}
       {showAction && <div className="absolute bottom-0.5 right-0.5">{action}</div>}
+    </div>
       {footer}
     </div>
   )

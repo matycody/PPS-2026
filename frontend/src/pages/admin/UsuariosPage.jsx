@@ -40,14 +40,14 @@ export default function UsuariosPage() {
       <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Usuarios y roles</h1>
       <div className="flex gap-2 text-sm font-bold">
         <button onClick={() => setTab('users')} className={'rounded-full border px-4 py-1.5 ' + (tab === 'users' ? 'border-accent text-accent' : 'border-line text-muted')}>Usuarios</button>
-        <button onClick={() => setTab('req')} className={'rounded-full border px-4 py-1.5 ' + (tab === 'req' ? 'border-accent text-accent' : 'border-line text-muted')}>Solicitudes{pending ? ' (' + pending + ')' : ''}</button>
+        <button onClick={() => setTab('req')} className={'rounded-full border px-4 py-1.5 ' + (tab === 'req' ? 'border-accent text-accent' : 'border-line text-muted')}>Solicitudes{pending > 0 && <span className="ml-1.5 inline-block min-w-5 rounded-full bg-danger px-1.5 text-center text-xs font-extrabold leading-5 text-white">{pending}</span>}</button>
       </div>
       {tab === 'req' && <SolicitudesPanel onChange={() => { countPending(); load() }} />}
       {tab === 'users' && <>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
 
       <form onSubmit={(e) => { e.preventDefault(); load() }} className="flex gap-2">
-        <input className={inputCls} placeholder="Buscar por mail" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className={inputCls} placeholder="Buscar por mail, nombre, apodo o equipo" value={q} onChange={(e) => setQ(e.target.value)} />
         <Btn type="submit"><Search size={18} /></Btn>
       </form>
       <div className="flex items-center gap-4">
@@ -66,7 +66,9 @@ export default function UsuariosPage() {
           return (
             <div key={u.id} className="space-y-2 rounded-2xl border border-line bg-surface p-4">
               <p className="truncate font-bold">{u.email}</p>
+              {(u.name || u.nickname) && <p className="truncate text-sm">{u.name}{u.nickname ? <span className="text-muted"> · “{u.nickname}”</span> : null}</p>}
               {u.username && <p className="truncate text-xs text-muted">@{u.username}</p>}
+              {u.teams?.length > 0 && <p className="truncate text-xs text-muted">{u.teams.join(' · ')}</p>}
               <div className="flex flex-wrap gap-1.5">
                 {u.roles.length === 0 && <span className="text-xs text-muted">Registrado (sin rol)</span>}
                 {u.roles.map((r) => (

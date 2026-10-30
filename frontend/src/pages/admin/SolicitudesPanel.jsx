@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
+import { Mail, IdCard, Shirt, Check, X, TriangleAlert } from 'lucide-react'
 import { api } from '../../lib/api'
 import { Alert } from '../../components/ui'
 import { useConfirm } from '../../components/ConfirmProvider'
 
 const BRANCH = { MIXED: 'Mixto', MALE: 'Masculino', FEMALE: 'Femenino' }
 const STATUS = { PENDING: 'Pendientes', APPROVED: 'Aprobadas', REJECTED: 'Rechazadas' }
+
+const ST_STYLE = {
+  PENDING: { label: 'Pendiente', cls: 'bg-warn/15 text-warn' },
+  APPROVED: { label: 'Aprobada', cls: 'bg-live/15 text-live' },
+  REJECTED: { label: 'Rechazada', cls: 'bg-danger/15 text-danger' },
+}
 
 // Cola de solicitudes de alta de jugadores: se cotejan con la planilla y se aprueban o rechazan
 export default function SolicitudesPanel({ onChange }) {
@@ -40,26 +47,48 @@ export default function SolicitudesPanel({ onChange }) {
           <button key={k} onClick={() => setStatus(k)} className={'rounded-full border px-3 py-1.5 ' + (status === k ? 'border-accent text-accent' : 'border-line text-muted')}>{l}</button>
         ))}
       </div>
-      {list === null && <p className="text-muted">Cargando…</p>}
-      {list?.length === 0 && <p className="text-muted">No hay solicitudes.</p>}
+      {list === null && <div className="text-muted">Cargando…</div>}
+      {list?.length === 0 && <div className="rounded-2xl border border-line bg-surface p-6 text-center text-muted">No hay solicitudes {STATUS[status].toLowerCase()}.</div>}
       {(list ?? []).map((r) => {
         const blocked = (r.conflicts ?? []).some((c) => c.blocking)
+        const st = ST_STYLE[r.status]
         return (
-          <div key={r.id} className="space-y-2 rounded-2xl border border-line bg-surface p-4">
-            <div>
-              <p className="font-bold">{r.name}</p>
-              <p className="text-sm text-muted">DNI {r.dni} · {r.sex === 'M' ? 'Masculino' : 'Femenino'}{r.number != null ? ' · N° ' + r.number : ''}</p>
-              <p className="truncate text-sm text-muted">{r.user?.email}</p>
+          <div key={r.id} className="space-y-3 rounded-2xl border border-line bg-surface p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-accent/15 text-lg font-extrabold uppercase text-accent">{(r.name ?? '?').trim().charAt(0)}</div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-extrabold leading-tight">{r.name}</p>
+                  <span className={'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ' + st.cls}>{st.label}</span>
+                </div>
+                <div className="mt-1 flex items-center gap-1.5 text-xs text-muted"><Mail size={13} className="shrink-0" /><span className="truncate">{r.user?.email}</span></div>
+              </div>
             </div>
-            <p className="text-sm">{r.teams.map((t) => (t.name ?? '?') + ' (' + BRANCH[t.branch] + ')').join(' · ')}</p>
+            <div className="flex flex-wrap gap-1.5 text-xs font-bold">
+              <span className="flex items-center gap-1 rounded-full border border-line px-2.5 py-1"><IdCard size={13} /> DNI {r.dni}</span>
+              <span className="rounded-full border border-line px-2.5 py-1">{r.sex === 'M' ? 'Masculino' : 'Femenino'}</span>
+              {r.number != null && <span className="flex items-center gap-1 rounded-full border border-line px-2.5 py-1"><Shirt size={13} /> N° {r.number}</span>}
+            </div>
+            {r.teams.length > 0 && (
+              <div>
+                <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted">Equipos</div>
+                <div className="flex flex-wrap gap-1.5 text-xs font-bold">
+                  {r.teams.map((t, i) => (
+                    <span key={i} className="rounded-lg bg-surface-2 px-2.5 py-1">{(t.name ?? '?')} <span className="font-normal text-muted">· {BRANCH[t.branch]}</span></span>
+                  ))}
+                </div>
+              </div>
+            )}
             {(r.conflicts ?? []).map((c) => (
-              <p key={c.code} className={'rounded-xl px-3 py-2 text-xs font-bold ' + (c.blocking ? 'bg-danger/10 text-danger' : 'bg-warn/10 text-warn')}>{c.message}</p>
+              <div key={c.code} className={'flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-bold ' + (c.blocking ? 'bg-danger/10 text-danger' : 'bg-warn/10 text-warn')}>
+                <TriangleAlert size={14} className="mt-0.5 shrink-0" /><span>{c.message}</span>
+              </div>
             ))}
-            {r.status === 'REJECTED' && <p className="text-sm text-muted">Motivo: {r.rejectReason}</p>}
+            {r.status === 'REJECTED' && <div className="rounded-xl bg-danger/10 px-3 py-2 text-xs text-danger"><b>Motivo:</b> {r.rejectReason}</div>}
             {r.status === 'PENDING' && (
-              <div className="flex gap-4 pt-1 text-sm font-bold">
-                <button disabled={busy || blocked} className="text-live disabled:opacity-40" onClick={() => approve(r)}>Aprobar</button>
-                <button disabled={busy} className="text-danger" onClick={() => reject(r)}>Rechazar</button>
+              <div className="grid grid-cols-2 gap-2 pt-1 text-sm font-extrabold">
+                <button disabled={busy} onClick={() => reject(r)} className="flex items-center justify-center gap-1.5 rounded-xl border border-danger py-2.5 text-danger disabled:opacity-40"><X size={16} /> Rechazar</button>
+                <button disabled={busy || blocked} onClick={() => approve(r)} className="flex items-center justify-center gap-1.5 rounded-xl bg-live py-2.5 text-black disabled:opacity-40"><Check size={16} /> Aprobar</button>
               </div>
             )}
           </div>

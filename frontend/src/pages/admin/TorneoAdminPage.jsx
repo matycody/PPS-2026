@@ -25,7 +25,7 @@ function TeamsTab({ t, reload, setErr }) {
   const [sel, setSel] = useState(new Set(t.teams.map((x) => x.teamId)))
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
-  const draft = t.status === 'DRAFT'
+  const draft = t.status === 'DRAFT' || (!!t.pausedAt && t.status !== 'FINISHED')
 
   useEffect(() => {
     api('GET', '/tournaments/eligible-teams?branch=' + t.branch + '&modality=' + t.modality).then(setEligible).catch((e) => setErr(e.message))
@@ -43,7 +43,7 @@ function TeamsTab({ t, reload, setErr }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted">
-        Equipos habilitados para {BRANCH[t.branch]} · {MODALITY[t.modality]}. {draft ? 'Elegí los que participan.' : 'Solo se editan en borrador.'}
+        Equipos habilitados para {BRANCH[t.branch]} · {MODALITY[t.modality]}. {draft ? 'Elegí los que participan.' : 'Solo se editan en borrador o con el torneo pausado.'}
       </p>
       <input className={inputCls} placeholder="Buscar equipo" value={q} onChange={(e) => setQ(e.target.value)} />
       {draft && shown.length > 0 && (
@@ -68,7 +68,7 @@ function TeamsTab({ t, reload, setErr }) {
 
 // ───────────── Estructura ─────────────
 function StructureTab({ t, reload, setErr }) {
-  const draft = t.status === 'DRAFT'
+  const draft = t.status === 'DRAFT' || (!!t.pausedAt && t.status !== 'FINISHED')
   const [stages, setStages] = useState(() =>
     t.stages.map((s) => ({
       key: s.id, name: s.name, type: s.type, phase: s.phase, tier: s.tier ?? '', promotions: s.promotions, relegations: s.relegations,
@@ -123,7 +123,7 @@ function StructureTab({ t, reload, setErr }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">
-        Zonas de liga (con ascensos y descensos) y llaves de eliminación. {draft ? '' : 'La estructura solo se edita en borrador.'}
+        Zonas de liga (con ascensos y descensos) y llaves de eliminación. {draft ? '' : 'La estructura solo se edita en borrador o con el torneo pausado.'}
       </p>
       {draft && (
         <div className="flex flex-wrap items-end gap-2 rounded-2xl bg-surface-2 p-3">
@@ -604,7 +604,7 @@ export default function TorneoAdminPage() {
       </div>
       {t.pausedAt && (
         <div className="rounded-2xl border box-warn px-4 py-3 text-sm font-bold text-warn">
-          Torneo pausado: nadie lo ve salvo la organización. Mientras está pausado sus partidos no se muestran en la app; reanudalo para editarlos.
+          Torneo pausado: nadie lo ve salvo la organización. Mientras está pausado podés cambiar equipos, estructura y fixture (rehacer la estructura borra los partidos actuales). Al reanudar vuelve a ser visible.
         </div>
       )}
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}

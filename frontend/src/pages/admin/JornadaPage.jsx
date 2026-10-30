@@ -25,6 +25,10 @@ const rowLabel = (day, start, row, turn) => {
   return pad(d.getHours()) + ':' + pad(d.getMinutes())
 }
 const teamsOf = (m) => [m.teamA?.id, m.teamB?.id].filter(Boolean)
+// Plantel = equipo + rama. Dos partidos son "seguidos" si comparten plantel: misma rama, o alguno es Mixto (juega cualquiera)
+const squadsOf = (m) => [m.teamA?.id, m.teamB?.id].filter(Boolean).map((id) => ({ id, branch: m.branch }))
+const sameSquad = (a, b) => a.id === b.id && (a.branch === b.branch || a.branch === 'MIXED' || b.branch === 'MIXED')
+const sharesSquad = (ma, mb) => squadsOf(ma).some((x) => squadsOf(mb).some((y) => sameSquad(x, y)))
 const byFixture = (a, b) => (a.tournament?.name ?? '').localeCompare(b.tournament?.name ?? '') || phaseCmp(a, b) || String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? ''))
 
 // Grilla inicial: los partidos del día que ya tienen cancha y caen justo en un turno
@@ -58,6 +62,7 @@ export default function JornadaPage() {
   const [turn, setTurn] = useState(DEFAULT_TURN) // minutos entre el inicio de un partido y el siguiente
   const [courts, setCourts] = useState(2)
   const [turns, setTurns] = useState(8)
+  const [noBack, setNoBack] = useState(true) // el autoarmado evita partidos seguidos del mismo plantel
   const [grid, setGrid] = useState({}) // 'cancha|turno' -> id de partido (borrador)
   const [base, setBase] = useState({}) // lo que hay guardado
   const [sel, setSel] = useState(null)
@@ -133,12 +138,12 @@ export default function JornadaPage() {
     Object.entries(grid).forEach(([k, id]) => {
       const [c, r] = k.split('|').map(Number)
       if (c > courts || r >= turns || !byId[id]) return
-      ;(rowTeams[r] ??= []).push({ k, teams: teamsOf(byId[id]) })
+      ;(rowTeams[r] ??= []).push({ k, teams: teamsOf(byId[id]), m: byId[id] })
     })
     Object.entries(rowTeams).forEach(([r, list]) => {
       list.forEach((a) => {
         if (list.some((b) => b !== a && b.teams.some((t) => a.teams.includes(t)))) out[a.k] = 'bad'
-        else if ((rowTeams[Number(r) + 1] ?? []).some((b) => b.teams.some((t) => a.teams.includes(t)))) out[a.k] = 'warn'
+        else if ((rowTeams[Number(r) + 1] ?? []).some((b) => sharesSquad(a.m, b.m))) out[a.k] = 'warn'
       })
     })
     return out
@@ -192,21 +197,25 @@ export default function JornadaPage() {
 
   const autoFill = () => {
     const g = { ...grid }
-    const rowTeams = (r) => {
-      const s = new Set()
-      for (let c = 1; c <= courts; c++) { const m = byId[g[key(c, r)]]; if (m) teamsOf(m).forEach((t) => s.add(t)) }
-      return s
+    const rowMatches = (r) => {
+      const list = []
+      for (let c = 1; c <= courts; c++) { const m = byId[g[key(c, r)]]; if (m) list.push(m) }
+      return list
     }
+    const rowTeams = (r) => new Set(rowMatches(r).flatMap(teamsOf))
     const queue = [...pool]
     let placed = 0
     for (let r = 0; r < turns; r++) {
       for (let c = 1; c <= courts; c++) {
         if (g[key(c, r)] || !queue.length) continue
         const used = rowTeams(r)
-        const prev = r > 0 ? rowTeams(r - 1) : new Set()
+        const prev = r > 0 ? rowMatches(r - 1) : []
+        const next = rowMatches(r + 1)
+        const back = (m) => prev.some((p) => sharesSquad(m, p)) || next.some((p) => sharesSquad(m, p))
         // primero uno que no repita equipo en el turno ni juegue seguido; si no hay, solo que no se repita en el turno
-        let i = queue.findIndex((m) => teamsOf(m).every((t) => !used.has(t) && !prev.has(t)))
-        if (i < 0) i = queue.findIndex((m) => teamsOf(m).every((t) => !used.has(t)))
+        // (con "evitar seguidos" activado el lugar queda vacío para que lo resuelva el admin a mano)
+        let i = queue.findIndex((m) => teamsOf(m).every((t) => !used.has(t)) && !back(m))
+        if (i < 0 && !noBack) i = queue.findIndex((m) => teamsOf(m).every((t) => !used.has(t)))
         if (i < 0) continue
         g[key(c, r)] = queue[i].id
         queue.splice(i, 1)
@@ -345,6 +354,10 @@ export default function JornadaPage() {
         </div>
         {badCount > 0 && <p className="text-xs font-bold text-danger">Hay {badCount} partidos con un equipo repetido en el mismo turno. El servidor no deja guardar así.</p>}
 
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1" checked={noBack} onChange={(e) => setNoBack(e.target.checked)} />
+          <span>Evitar partidos seguidos al autoarmar <span className="block text-xs text-muted">Si no entra, el lugar queda vacío para completarlo a mano. Una misma rama o Mixto cuenta como el mismo plantel.</span></span>
+        </label>
         <div className="grid grid-cols-2 gap-2">
           <Btn disabled={busy || !pool.length} onClick={autoFill}><Wand2 size={16} /> Autoarmar</Btn>
           <Btn disabled={busy || !Object.keys(grid).length} onClick={clearGrid}>Vaciar tablero</Btn>
