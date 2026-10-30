@@ -58,12 +58,12 @@ export const BOTTOM_PRIORITY = [
 // Entradas de GENERAL que corresponden al menú de esta persona
 export const generalFor = (menu = []) => GENERAL.filter((g) => !g.bottomOnly && (!g.hideIf || !menu.includes(g.hideIf)) && (!g.showIf || menu.includes(g.showIf)))
 
-export function roleLabel(user, menu = []) {
+// "Mesa" no es un rol explícito: quien opera la mesa figura como Jugador (o lo que sea además)
+export function roleLabel(user) {
   const r = user?.roles ?? []
-  if (r.includes('ADMIN')) return 'Organizador'
-  if (r.includes('REFEREE')) return 'Árbitro'
-  if (menu.includes('control_mesa')) return 'Mesa'
-  if (r.includes('PLAYER')) return 'Jugador'
-  return 'Registrado'
+  const out = []
+  if (r.includes('ADMIN')) out.push('Organizador')
+  if (r.includes('REFEREE')) out.push('Árbitro')
+  if (r.includes('PLAYER') || user?.profileId) out.push('Jugador')
+  return out.length ? out.join(' / ') : 'Registrado'
 }
-

@@ -14,7 +14,7 @@ const ORG_DAYS = 30 // se carga más lejos para encontrar la próxima jornada
 
 export default function InicioPage() {
   const { user, menu } = useAuthStore()
-  const role = roleLabel(user, menu) // Organizador, Árbitro, Mesa, Jugador o Registrado
+  const role = roleLabel(user, menu) // ej.: Organizador, Árbitro / Jugador, Jugador o Registrado
   useMatchesFeed(ORG_DAYS)
   const navigate = useNavigate()
   const uid = user?.id
@@ -35,7 +35,7 @@ export default function InicioPage() {
       <div className="flex gap-2">
         {[
           ...GENERAL.slice(0, 3),
-          ...(role === 'Organizador' || role === 'Árbitro' || user?.roles?.includes('PLAYER') || menu.includes('control_mesa') ? [ITEMS.control_mesa] : []),
+          ...(role.includes('Organizador') || role.includes('Árbitro') || user?.roles?.includes('PLAYER') || menu.includes('control_mesa') ? [ITEMS.control_mesa] : []),
           ...(menu.includes('usuarios') ? [ITEMS.usuarios] : []),
         ].filter((c) => !(user?.roles?.includes('ADMIN') && c.to === '/estadisticas')).map(({ to, label, Icon, soon }) => (
           <Link key={to} to={to} className="flex min-w-0 flex-1 flex-col items-center justify-start gap-1.5 break-words rounded-2xl border border-line bg-surface px-1 py-3 text-center text-[10px] font-semibold leading-tight sm:text-sm">
