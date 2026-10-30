@@ -95,4 +95,37 @@ router.delete('/teams/:id', ...admin, async (req, res) => {
   }
 });
 
+// Admin: escudo propio de una rama del equipo (si no tiene, se usa el general)
+const BRANCHES = ['MIXED', 'MALE', 'FEMALE'];
+router.put('/teams/:id/branch/:branch', ...admin, storage.imageBody, async (req, res) => {
+  try {
+    const { id, branch } = req.params;
+    if (!BRANCHES.includes(branch)) return res.status(400).json({ error: 'Rama inválida' });
+    const tb = await prisma.teamBranch.findUnique({ where: { teamId_branch: { teamId: id, branch } } });
+    if (!tb) return res.status(404).json({ error: 'El equipo no tiene esa rama' });
+
+    const webp = await storage.processImage(req.body, 'logo');
+    const url = await storage.uploadLogo('teams/' + id + '-' + branch + '.webp', webp);
+    await prisma.teamBranch.update({ where: { teamId_branch: { teamId: id, branch } }, data: { logo: url } });
+    res.json({ logo: url });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+router.delete('/teams/:id/branch/:branch', ...admin, async (req, res) => {
+  try {
+    const { id, branch } = req.params;
+    if (!BRANCHES.includes(branch)) return res.status(400).json({ error: 'Rama inválida' });
+    const tb = await prisma.teamBranch.findUnique({ where: { teamId_branch: { teamId: id, branch } } });
+    if (!tb) return res.status(404).json({ error: 'El equipo no tiene esa rama' });
+
+    await prisma.teamBranch.update({ where: { teamId_branch: { teamId: id, branch } }, data: { logo: null } });
+    await storage.removeFile(storage.LOGOS_BUCKET, 'teams/' + id + '-' + branch + '.webp').catch(() => {});
+    res.json({ ok: true });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
 module.exports = router;

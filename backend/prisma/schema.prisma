@@ -127,6 +127,7 @@ model Team {
 model TeamBranch {
   teamId String
   branch Branch
+  logo   String? // escudo propio de esta rama (si no tiene, se usa Team.logo)
 
   team Team @relation(fields: [teamId], references: [id])
 

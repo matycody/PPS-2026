@@ -34,6 +34,9 @@ function handleDbError(err, res) {
   return res.status(500).json({ error: 'Error interno' });
 }
 
+// Escudos propios por rama: { MALE: url, FEMALE: url } (solo las que tienen)
+const branchLogos = (branches) => Object.fromEntries(branches.filter((b) => b.logo).map((b) => [b.branch, b.logo]));
+
 // Crear equipo
 router.post('/', ...admin, async (req, res) => {
   try {
@@ -71,6 +74,7 @@ router.get('/', async (req, res) => {
         id: t.id,
         name: t.name,
         logo: t.logo,
+        branchLogos: branchLogos(t.branches),
         branches: t.branches.map((b) => b.branch),
         modalities: t.modalities.map((m) => m.modality),
       }))
@@ -102,6 +106,7 @@ router.get('/:id', async (req, res) => {
       id: team.id,
       name: team.name,
       logo: team.logo,
+      branchLogos: branchLogos(team.branches),
       nickname: team.nickname,
       city: team.city,
       foundedYear: team.foundedYear,
