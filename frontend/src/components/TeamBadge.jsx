@@ -18,8 +18,8 @@ export default function TeamBadge({ team, size = 'md', branch = null }) {
   if (logo && !broken) {
     // El escudo se muestra completo (sin recortar): contenido dentro del círculo con un margen para que entren las esquinas
     return (
-      <div className={dim + ' grid shrink-0 place-items-center overflow-hidden rounded-full border border-line bg-surface-2 p-[10%]'}>
-        <img src={logo} alt="" onError={() => setBroken(true)} className="h-full w-full object-contain" />
+      <div className={dim + ' relative shrink-0 overflow-hidden rounded-full border border-line bg-surface-2'}>
+        <img src={logo} alt="" onError={() => setBroken(true)} className="absolute inset-[10%] h-[80%] w-[80%] object-contain" />
       </div>
     )
   }
