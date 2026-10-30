@@ -50,7 +50,7 @@ function MatchRow({ m, admin }) {
         <p className="truncate text-xs text-muted">
           {[m.tournament?.name ?? 'Amistoso', MODALITY[m.modality], BRANCH[m.branch]].join(' · ')}
         </p>
-        <p className="text-xs text-muted">{m.scheduledAt ? fmtWhen(m.scheduledAt) : 'Sin fecha'} · {courtLabel(m.court)}</p>
+        <p className="text-xs text-muted">{m.scheduledAt ? fmtWhen(m.scheduledAt) : 'Sin programación'} · {courtLabel(m.court)}</p>
       </div>
       <StatusPill status={m.status} />
     </Row>

@@ -13,7 +13,7 @@ const canHide = (status) => status === 'SCHEDULED' || status === 'FINISHED' || s
 
 const dayKey = (iso) => (iso ? new Date(iso).toLocaleDateString('en-CA') : 'none')
 const dayLabel = (iso) => {
-  if (!iso) return 'Sin fecha'
+  if (!iso) return 'Sin programación'
   const d = new Date(iso)
   const t = new Date(); t.setHours(0, 0, 0, 0)
   const diff = Math.round((new Date(d).setHours(0, 0, 0, 0) - t.getTime()) / 864e5)
@@ -53,7 +53,7 @@ const PERIODS = [
   { id: 'today', label: 'Hoy' },
   { id: 'week', label: 'Pr\u00f3ximos 7 d\u00edas' },
   { id: 'past', label: 'Anteriores' },
-  { id: 'all', label: 'Todos (incluye sin fecha)' },
+  { id: 'all', label: 'Todos (incluye sin programación)' },
 ]
 
 // readOnly: lo ven los demás roles (y quien no inició sesión): mismo listado y filtros, sin crear, eliminar ni restaurar

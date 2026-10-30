@@ -10,7 +10,7 @@ export function outcome(m, teamIds) {
 }
 
 const CLS = { G: 'bg-live/15 text-live', P: 'bg-danger/15 text-danger', E: 'bg-surface-2 text-muted' }
-const day = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : 'Sin fecha')
+const day = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : 'Sin programación')
 
 export default function ResultRow({ m, teamIds }) {
   const o = outcome(m, teamIds)

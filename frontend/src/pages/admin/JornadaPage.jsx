@@ -372,7 +372,7 @@ export default function JornadaPage() {
           </select>
         </div>
         <div className="flex gap-2">
-          {[['jornada', 'Esta jornada'], ['none', 'Sin horario'], ['all', 'Todos']].map(([v, l]) => (
+          {[['jornada', 'Esta jornada'], ['none', 'Sin programación'], ['all', 'Todos']].map(([v, l]) => (
             <button key={v} onClick={() => { setFWhen(v); setShown(POOL_STEP) }} className={'flex-1 rounded-full border px-3 py-1.5 text-xs font-bold ' + (fWhen === v ? 'border-accent bg-accent text-black' : 'border-line bg-surface-2')}>{l}</button>
           ))}
         </div>
@@ -391,7 +391,7 @@ export default function JornadaPage() {
                 </span>
               </span>
               <span className="shrink-0 text-right text-[11px] font-bold uppercase text-muted">
-                {m.scheduledAt ? new Date(m.scheduledAt).toLocaleString('es-AR', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Sin horario'}
+                {m.scheduledAt ? new Date(m.scheduledAt).toLocaleString('es-AR', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Sin programación'}
                 {m.court ? <span className="block">Cancha {m.court}</span> : null}
               </span>
             </button>

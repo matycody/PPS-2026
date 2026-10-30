@@ -18,7 +18,7 @@ export const phaseCmp = (a, b) =>
 export const normMatch = (m) => ({ ...m, id: m.id ?? m.matchId })
 
 export function fmtWhen(iso) {
-  if (!iso) return 'Sin fecha'
+  if (!iso) return 'Sin programación'
   const d = new Date(iso)
   const day = d.toLocaleDateString('es-AR', { weekday: 'long' })
   const time = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })

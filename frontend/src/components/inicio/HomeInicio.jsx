@@ -166,7 +166,7 @@ export default function HomeInicio({ byId, loading, error, children }) {
             ))}
             {liveBefore === null && liveTab}
             {v.hasUndated && (
-              <button id="daytab-none" onClick={() => setParams({ d: 'none', t: null })} aria-pressed={v.sel === 'none'} className={pill(v.sel === 'none')}>Sin fecha</button>
+              <button id="daytab-none" onClick={() => setParams({ d: 'none', t: null })} aria-pressed={v.sel === 'none'} className={pill(v.sel === 'none')}>Sin programación</button>
             )}
           </div>
         </div>

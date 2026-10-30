@@ -59,7 +59,7 @@ function Torneo({ t, onBack }) {
 const HIST_DAYS = 365 // cuánto hacia atrás se buscan partidos terminados por jornada
 const dayKey = (iso) => (iso ? new Date(iso).toLocaleDateString('en-CA') : 'none')
 const dayTitle = (k) =>
-  k === 'none' ? 'Sin fecha' : new Date(k + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  k === 'none' ? 'Sin programación' : new Date(k + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
 // Partidos terminados agrupados por jornada (día), de todos los torneos y modalidades juntos
 function PorJornada() {

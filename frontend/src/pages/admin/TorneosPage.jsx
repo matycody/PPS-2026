@@ -28,14 +28,15 @@ export default function TorneosPage() {
   const [editId, setEditId] = useState(null)
   const [editDraft, setEditDraft] = useState(true) // rama, modalidad, año y formato solo se editan en borrador
   const [yearFilter, setYearFilter] = useState('')
+  const [view, setView] = useState('active') // active | deleted (papelera)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  const load = () => api('GET', '/tournaments?limit=200' + (yearFilter ? '&year=' + yearFilter : ''))
+  const load = () => api('GET', '/tournaments?limit=200' + (yearFilter ? '&year=' + yearFilter : '') + (view === 'deleted' ? '&deleted=true' : ''))
     .then(setList).catch((e) => setErr(e.message))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { load() }, [yearFilter])
+  useEffect(() => { setList(null); load() }, [yearFilter, view])
   useTournamentLive(() => load())
 
   function move(i, d) {
@@ -73,9 +74,21 @@ export default function TorneosPage() {
   }
 
   async function remove(t) {
-    if (!(await ask({ title: 'Eliminar torneo', message: t.status === 'DRAFT' ? '¿Eliminar "' + t.name + '"?' : '¿Eliminar "' + t.name + '"? Se borran también todos sus partidos, resultados y estadísticas. No se puede deshacer.', confirmText: 'Eliminar', danger: true }))) return
+    if (!(await ask({ title: 'Eliminar torneo', message: '¿Eliminar "' + t.name + '"? Deja de verse para todos, también para la organización. Lo encontrás en "Eliminados" para restaurarlo o borrarlo definitivamente.', confirmText: 'Eliminar', danger: true }))) return
     setErr('')
     try { await api('DELETE', '/tournaments/' + t.id); await load() } catch (e) { setErr(e.message) }
+  }
+
+  async function restore(t) {
+    setErr('')
+    try { await api('POST', '/tournaments/' + t.id + '/restore'); await load() } catch (e) { setErr(e.message) }
+  }
+
+  async function purge(t) {
+    if (!(await ask({ title: 'Borrar definitivamente', message: '¿Borrar "' + t.name + '" para siempre? Se borran también todos sus partidos, resultados y estadísticas. No se puede deshacer.', confirmText: 'Borrar', cancelText: 'Volver', danger: true }))) return
+    if (!(await ask({ title: 'Confirmar borrado', message: 'Última confirmación: "' + t.name + '" se elimina para siempre.', confirmText: 'Borrar para siempre', cancelText: 'Volver', danger: true }))) return
+    setErr('')
+    try { await api('DELETE', '/tournaments/' + t.id + '/purge'); await load() } catch (e) { setErr(e.message) }
   }
 
   async function edit(t) {
@@ -99,7 +112,13 @@ export default function TorneosPage() {
       <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Torneos</h1>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
 
-      <form onSubmit={save} className="space-y-3 rounded-3xl border border-line bg-surface p-5">
+      <div className="flex gap-2">
+        {[['active', 'Torneos'], ['deleted', 'Eliminados']].map(([k, label]) => (
+          <button key={k} onClick={() => setView(k)} className={'flex-1 rounded-full border px-4 py-2 text-sm font-bold ' + (view === k ? 'border-accent bg-accent text-black' : 'border-line bg-surface')}>{label}</button>
+        ))}
+      </div>
+
+      <form onSubmit={save} className={(view === 'deleted' ? 'hidden ' : '') + 'space-y-3 rounded-3xl border border-line bg-surface p-5'}>
         <p className="text-sm font-bold">{editId ? 'Editar torneo' : 'Nuevo torneo'}</p>
         {editId && !editDraft && <p className="text-xs text-muted">El torneo ya está en curso: el formato no se puede cambiar.</p>}
         <input className={inputCls} placeholder="Nombre" required value={form.name} onChange={(e) => set('name', e.target.value)} />
@@ -169,9 +188,25 @@ export default function TorneosPage() {
       </label>
 
       {list === null && <p className="text-muted">Cargando…</p>}
-      {list?.length === 0 && <p className="text-muted">No hay torneos.</p>}
+      {list?.length === 0 && <p className="text-muted">{view === 'deleted' ? 'No hay torneos eliminados.' : 'No hay torneos.'}</p>}
+      {view === 'deleted' && list?.length > 0 && <p className="text-xs">Los torneos eliminados no los ve nadie. Restauralos para que vuelvan, o borralos definitivamente.</p>}
       <div className="space-y-2">
-        {(list ?? []).map((t) => (
+        {view === 'deleted' && (list ?? []).map((t) => (
+          <div key={t.id} className="space-y-3 rounded-2xl border border-line bg-surface p-4">
+            <div className="min-w-0">
+              <p className="truncate font-bold">{t.name}{t.edition ? ' · ' + t.edition : ''}</p>
+              <p className="text-sm text-muted">
+                {t.year} · {FORMAT[t.format]} · {BRANCH[t.branch]} · {MODALITY[t.modality]} · {t._count?.teams ?? 0} equipos
+              </p>
+              <p className="text-xs text-muted">Eliminado el {t.deletedAt ? new Date(t.deletedAt).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Btn tone="accent" onClick={() => restore(t)}>Restaurar</Btn>
+              <Btn tone="danger" onClick={() => purge(t)}>Borrar definitivamente</Btn>
+            </div>
+          </div>
+        ))}
+        {view === 'active' && (list ?? []).map((t) => (
           <div key={t.id} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4">
             <Link to={'/admin/torneos/' + t.id} className="min-w-0 flex-1">
               <p className="truncate font-bold">{t.name}{t.edition ? ' · ' + t.edition : ''}</p>

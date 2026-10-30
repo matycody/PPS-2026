@@ -457,6 +457,7 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
   const [busy, setBusy] = useState(false)
   const [warn, setWarn] = useState('')
   const [pausing, setPausing] = useState(false)
+  const [resetDone, setResetDone] = useState('') // confirmación a la vista, junto al botón
 
   // SOLO PARA PRUEBAS Y DEMOS: se saca cuando el Product Owner lo indique (borrar este bloque, el botón y la ruta POST /tournaments/:id/reset)
   async function resetTournament() {
@@ -475,11 +476,13 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
       ? 'Todos los partidos vuelven a Programado' + (clearSchedule ? ', sin horarios' : '') + '. Equipos, zonas, fechas y llaves se conservan.'
       : 'Todos los partidos vuelven a Programado' + (t.pausedAt ? '' : ' y el torneo se pausa para todos, menos la organización') + '. Después podés cambiar equipos, estructura y fixture.'
     if (!(await ask({ title: 'Confirmar reinicio', message: detail + ' No se puede deshacer.', confirmText: 'Reiniciar', cancelText: 'Volver', danger: true }))) return
-    setPausing(true); setErr('')
+    setPausing(true); setErr(''); setResetDone('')
     try {
       const r = await api('POST', '/tournaments/' + t.id + '/reset', { clearSchedule: !!clearSchedule })
       if (!keep && !t.pausedAt) await api('POST', '/tournaments/' + t.id + '/pause')
-      setMsg('Torneo reiniciado: ' + r.matches + ' partidos en cero' + (keep ? (r.clearedSchedule ? ' y sin horarios' : '') : ' y pausado para editar la estructura'))
+      const done = 'Torneo reiniciado: ' + r.matches + ' partidos en cero' + (keep ? (r.clearedSchedule ? ' y sin horarios' : '') : ' y pausado para editar la estructura')
+      setMsg(done)
+      setResetDone(done)
       await reload()
     } catch (e) { setErr(e.message) } finally { setPausing(false) }
   }
@@ -557,7 +560,8 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
         <div className="space-y-2 rounded-3xl border border-danger bg-surface p-4">
           <p className="text-sm font-bold text-danger">Reiniciar torneo (solo pruebas)</p>
           <p className="text-xs">Deja el fixture en cero: borra resultados, canchas y designaciones. Conserva equipos y estructura.</p>
-          <Btn tone="danger" disabled={pausing} onClick={resetTournament} className="w-full">Reiniciar torneo</Btn>
+          {resetDone && <div className="rounded-2xl border box-live px-4 py-3 text-sm font-bold text-live">✔ {resetDone}</div>}
+          <Btn tone="danger" disabled={pausing} onClick={resetTournament} className="w-full">{pausing ? 'Reiniciando…' : 'Reiniciar torneo'}</Btn>
         </div>
       )}
       {t.status === 'ACTIVE' && (

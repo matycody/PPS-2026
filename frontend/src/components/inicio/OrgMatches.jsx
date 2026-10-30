@@ -161,7 +161,7 @@ export default function OrgMatches({ byId, filter }) {
               className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-line bg-surface px-4 py-2.5 text-left text-xs font-bold uppercase tracking-widest text-muted"
             >
               <span className="min-w-0 truncate">
-                {phaseCur !== 'all' ? phaseCur + ' · ' + listed.length + (listed.length === 1 ? ' partido' : ' partidos') : curDay || listed.length ? (curDay ? dayShort(curDay) : 'Sin fecha') + ' · ' + listed.length + (listed.length === 1 ? ' partido' : ' partidos') : sched ? 'Sin partidos programados' : 'Sin partidos'}
+                {phaseCur !== 'all' ? phaseCur + ' · ' + listed.length + (listed.length === 1 ? ' partido' : ' partidos') : curDay || listed.length ? (curDay ? dayShort(curDay) : 'Sin programación') + ' · ' + listed.length + (listed.length === 1 ? ' partido' : ' partidos') : sched ? 'Sin partidos programados' : 'Sin partidos'}
               </span>
               <ChevronDown size={18} className={'shrink-0 transition-transform ' + (dayOpen ? 'rotate-180' : '')} />
             </button>

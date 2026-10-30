@@ -16,7 +16,7 @@ const dayTitle = (day, withYear) =>
   day === 'live'
     ? 'En vivo'
     : day === 'none'
-    ? 'Sin fecha'
+    ? 'Sin programación'
     : new Date(day + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', ...(withYear ? { year: 'numeric' } : {}) })
 
 const plain = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
