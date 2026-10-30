@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { BRANCH } from '../lib/format'
 import { personNumber } from '../lib/person'
 import FavHeart from './FavHeart'
+import { PlayerSanctionTag, playing } from './SanctionsCard'
 
 const ORDER = ['MALE', 'MIXED', 'FEMALE']
 
@@ -26,7 +27,10 @@ function byNumber(a, b) {
   return a.name.localeCompare(b.name, 'es')
 }
 
-function TeamRoster({ team, matchBranch, noLink, suspended }) {
+function TeamRoster({ team, side, matchBranch, noLink, suspended, sanctions }) {
+  const items = sanctions?.items ?? []
+  const liveById = new Map((sanctions?.tick?.sanctions ?? []).map((x) => [x.id, x]))
+  const left = sanctions ? playing(side, sanctions.tick, items) : 6
   // noLink: en la pantalla de control no se navega a los banners
   const L = ({ to, className, children }) => (noLink ? <span className={className}>{children}</span> : <Link to={to} className={className}>{children}</Link>)
   const [roster, setRoster] = useState(null)
@@ -43,6 +47,7 @@ function TeamRoster({ team, matchBranch, noLink, suspended }) {
   return (
     <section className="min-w-0 rounded-3xl border border-line bg-surface p-3">
       <h3 className="mb-3 truncate text-sm font-extrabold">{team?.id ? <L to={'/equipo/' + team.id}>{team.name}</L> : 'Por definir'}</h3>
+      {left < 6 && <p className="-mt-2 mb-3 text-[11px] font-bold text-warn">Juega con {left}</p>}
       {!team?.id && <p className="text-sm text-muted">Equipo todavía sin definir.</p>}
       {err && <p className="text-sm text-danger">{err}</p>}
       {team?.id && !roster && !err && <p className="text-sm text-muted">Cargando…</p>}
@@ -70,6 +75,9 @@ function TeamRoster({ team, matchBranch, noLink, suspended }) {
                           {r.coach && <span className="ml-1.5 text-[10px] font-bold text-accent">(DT)</span>}
                           {suspended?.has(r.profileId) && <span className="ml-1.5 rounded bg-danger/15 px-1 text-[10px] font-bold text-danger">SUSPENDIDO</span>}
                           {nm.bottom && <span className="block font-normal text-muted">{nm.bottom}</span>}
+                          {items.filter((s) => s.player?.id === r.profileId).sort((x, y) => Number(!!liveById.get(y.id)) - Number(!!liveById.get(x.id))).map((s) => (
+                            <span key={s.id} className="mt-1 block"><PlayerSanctionTag s={s} live={liveById.get(s.id)} /></span>
+                          ))}
                         </span>
                       </L>
                       {noLink ? <span className="w-2" /> : <FavHeart type="PLAYER" id={r.profileId} name={r.name} compact />}
@@ -85,7 +93,7 @@ function TeamRoster({ team, matchBranch, noLink, suspended }) {
   )
 }
 
-export default function MatchRoster({ teamA, teamB, branch, hideTitle, noLink, matchId }) {
+export default function MatchRoster({ teamA, teamB, branch, hideTitle, noLink, matchId, sanctions }) {
   const [suspended, setSuspended] = useState(null)
   useEffect(() => {
     if (!matchId) return
@@ -95,8 +103,8 @@ export default function MatchRoster({ teamA, teamB, branch, hideTitle, noLink, m
     <div className="space-y-4">
       {!hideTitle && <p className="text-xs font-bold uppercase tracking-widest text-muted">Jugadores disponibles</p>}
       <div className="grid grid-cols-2 items-start gap-3">
-        <TeamRoster team={teamA} matchBranch={branch} noLink={noLink} suspended={suspended} />
-        <TeamRoster team={teamB} matchBranch={branch} noLink={noLink} suspended={suspended} />
+        <TeamRoster team={teamA} side="A" sanctions={sanctions} matchBranch={branch} noLink={noLink} suspended={suspended} />
+        <TeamRoster team={teamB} side="B" sanctions={sanctions} matchBranch={branch} noLink={noLink} suspended={suspended} />
       </div>
     </div>
   )

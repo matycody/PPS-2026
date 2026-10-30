@@ -6,7 +6,6 @@ import { Eye, Pin, PinOff, Trophy, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
 import VenueInfo from '../components/VenueInfo'
-import SanctionsCard from '../components/SanctionsCard'
 import { useSanctions } from '../hooks/useSanctions'
 import { normMatch, MODALITY, BRANCH, courtLabel } from '../lib/format'
 import StatusPill from '../components/StatusPill'
@@ -156,8 +155,9 @@ export default function MatchPage() {
             </span>
           }
         />
-        <ScoreTimeline m={m} />
       </div>
+
+      <ScoreTimeline m={m} />
 
       {tick?.recovered && (
         <p className="rounded-2xl bg-warn/15 px-4 py-3 text-center text-sm font-bold text-warn">Reloj recuperado tras un reinicio del servidor: puede que el tiempo no sea exacto hasta que la mesa lo reanude.</p>
@@ -169,7 +169,6 @@ export default function MatchPage() {
       </div>
 
       <TimeoutBanner tick={tick} nameA={m.teamA?.name ?? 'Equipo A'} nameB={m.teamB?.name ?? 'Equipo B'} />
-      <SanctionsCard m={m} tick={tick} items={sanctions} nameA={m.teamA?.name} nameB={m.teamB?.name} />
 
 
       <div className="rounded-3xl border border-line bg-surface p-5 text-center">
@@ -188,7 +187,7 @@ export default function MatchPage() {
         <Eye size={14} /> Vista en vivo · solo lectura
       </p>
 
-      <MatchRoster teamA={m.teamA} teamB={m.teamB} branch={m.branch} matchId={m.id} />
+      <MatchRoster teamA={m.teamA} teamB={m.teamB} branch={m.branch} matchId={m.id} sanctions={{ items: sanctions, tick }} />
     </div>
   )
 }

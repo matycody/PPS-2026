@@ -16,6 +16,22 @@ function Chip({ kind }) {
   return <span className={'inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase ' + k.text}><span className={'h-2.5 w-2.5 rounded-sm ' + k.dot} />{k.label}</span>
 }
 
+// Etiqueta chica para el jugador (vista de espectador): color de la tarjeta + tiempo restante o castigo
+export function PlayerSanctionTag({ s, live }) {
+  const k = KIND[s.kind]
+  let state = null
+  if (live) state = showTime(live.time) + (s.kind === 'BLUE' ? ' · ' + live.setsLeft + (live.setsLeft === 1 ? ' set' : ' sets') : '')
+  else if (s.kind === 'RED') state = 'Expulsado'
+  else if (s.eliminates) state = 'Eliminado'
+  else if (s.kind !== 'WARNING') state = 'Cumplida'
+  return (
+    <span className={'inline-flex shrink-0 items-center gap-1 rounded-md bg-bg/60 px-1.5 py-0.5 text-[10px] font-extrabold ' + k.text}>
+      <span className={'h-2.5 w-2 rounded-[2px] ' + k.dot} />
+      {k.label}{state ? <span className="font-mono tabular-nums"> · {state}</span> : null}
+    </span>
+  )
+}
+
 // Cuántos juegan hoy: 6 menos quienes cumplen tiempo afuera y los eliminados por advertencias (Foam). La roja no resta: se puede reemplazar.
 export function playing(side, tick, items) {
   const out = (tick?.sanctions ?? []).filter((x) => x.side === side).length
