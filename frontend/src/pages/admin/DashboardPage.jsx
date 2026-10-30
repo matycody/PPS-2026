@@ -148,7 +148,12 @@ function CourtSection({ c, ticks, run, busy, title }) {
                       {m.status === 'READY' && <Btn disabled={busy} onClick={() => run(m.id, 'POST', '/unready')}>Deshabilitar</Btn>}
                       <Link to={'/admin/partidos/' + m.id} className="grid place-items-center rounded-2xl border border-line bg-surface-2 py-3 text-center text-sm font-extrabold">Designar árbitros</Link>
                     </div>
-                  ) : null}
+                  ) : (
+                    // Los que siguen más adelante también se administran desde acá: horario, mesa, árbitros, etc.
+                    <div className="flex justify-end px-3 pb-3">
+                      <Link to={'/admin/partidos/' + m.id} className="rounded-full border border-line bg-surface-2 px-4 py-1.5 text-xs font-extrabold">Administrar ›</Link>
+                    </div>
+                  )}
                 />
               </div>
             ))}

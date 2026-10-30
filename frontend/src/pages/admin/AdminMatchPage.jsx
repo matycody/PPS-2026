@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import BackLink from '../../components/BackLink'
-import { ChevronLeft, X } from 'lucide-react'
+import { ChevronLeft, Pencil, X } from 'lucide-react'
 import { api } from '../../lib/api'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import MatchForm from '../../components/MatchForm'
@@ -12,6 +12,7 @@ import { matchInfo } from '../../lib/matchInfo'
 import { statusBorder } from '../../lib/statusStyle'
 import { personNumber } from '../../lib/person'
 import { useConfirm } from '../../components/ConfirmProvider'
+import { useLeaveGuard } from '../../hooks/useLeaveGuard'
 
 const FN = { REFEREE: 'Árbitro', TABLE: 'Mesa' }
 const CONFLICT_MSG = 'No seleccionable: pertenece a un equipo de este partido'
@@ -97,6 +98,18 @@ export default function AdminMatchPage() {
   const [busy, setBusy] = useState(false)
   const [reason, setReason] = useState('')
   const [newDate, setNewDate] = useState('')
+  const [editing, setEditing] = useState(false)
+  // Cambios de asignaciones sin guardar: quitar (ids) y sumar (pendientes)
+  const [delIds, setDelIds] = useState([])
+  const [adds, setAdds] = useState([])
+  const dirty = delIds.length > 0 || adds.length > 0
+  const { modal: leaveModal } = useLeaveGuard(dirty, '', {
+    title: '¿Salir sin guardar?',
+    message: 'Tenés cambios en las asignaciones sin guardar. Si salís, se pierden.',
+    stay: 'Quedarme',
+    leave: 'Salir',
+  })
+  useEffect(() => { setDelIds([]); setAdds([]) }, [id])
 
   const load = () => api('GET', '/matches/' + id).then(setM).catch((e) => setErr(e.message))
   useEffect(() => {
@@ -118,7 +131,9 @@ export default function AdminMatchPage() {
 
   const editable = m.status === 'SCHEDULED' || m.status === 'READY'
   const assignments = m.assignments ?? []
+  const shown = [...assignments.filter((a) => !delIds.includes(a.id)), ...adds]
   const label = (a) => {
+    if (a._label) return a._label
     if (a.profile) return (a.profile.nickname || a.profile.name) + (a.function === 'TABLE' ? ' · ' + roleTag(a.profile) : '')
     if (a.team) return a.team.name + ' (equipo)'
     if (a.user) return a.user.email + ' (admin)'
@@ -154,16 +169,31 @@ export default function AdminMatchPage() {
       })
   )
 
-  const existingTeamMesa = assignments.find((a) => a.function === 'TABLE' && a.team)
+  const existingTeamMesa = shown.find((a) => a.function === 'TABLE' && a.team)
 
-  const assign = (body) => run(async () => { await api('POST', '/matches/' + id + '/assignments', { function: 'TABLE', ...body }) })
+  const sameTarget = (a, fn, body) => a.function === fn && ((body.profileId && (a.profileId ?? a.profile?.id) === body.profileId) || (body.teamId && (a.teamId ?? a.team?.id) === body.teamId) || (body.userId && (a.userId ?? a.user?.id) === body.userId))
+  const addDraft = (fn, body, text) => {
+    if (shown.some((a) => sameTarget(a, fn, body))) return setErr('Ya está asignado')
+    setErr('')
+    setAdds((l) => [...l, { id: 'new-' + Date.now() + '-' + l.length, _new: true, _label: text, function: fn, body }])
+  }
+  const removeDraft = (a) => (a._new ? setAdds((l) => l.filter((x) => x.id !== a.id)) : setDelIds((l) => [...l, a.id]))
+  const discard = () => { setDelIds([]); setAdds([]) }
+  const saveAssignments = () => run(async () => {
+    const left = [...adds]
+    try {
+      for (const d of [...delIds]) { await api('DELETE', '/matches/' + id + '/assignments/' + d); setDelIds((l) => l.filter((x) => x !== d)) }
+      for (const a of [...left]) { await api('POST', '/matches/' + id + '/assignments', { function: a.function, ...a.body }); setAdds((l) => l.filter((x) => x.id !== a.id)) }
+    } catch (e) { throw e }
+  }, 'Asignaciones guardadas')
   const pickMesa = (o, body) => {
     if (o.conflict) return setErr(CONFLICT_MSG)
-    assign(body)
+    addDraft('TABLE', body, o.label + (body.teamId ? ' (equipo)' : body.userId ? ' (admin)' : ''))
   }
 
   return (
     <div className="space-y-4">
+      {leaveModal}
       <BackLink to="/admin/partidos" className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
         <ChevronLeft size={16} /> Partidos
       </BackLink>
@@ -182,6 +212,126 @@ export default function AdminMatchPage() {
         {m.status === 'SCHEDULED' && <Btn tone="accent" className="col-span-2" disabled={busy} onClick={() => run(() => api('POST', '/matches/' + id + '/ready'), 'Partido habilitado')}>Habilitar partido</Btn>}
         {m.status === 'READY' && <Btn className="col-span-2" disabled={busy} onClick={() => run(() => api('POST', '/matches/' + id + '/unready'), 'Habilitación revertida')}>Deshabilitar partido</Btn>}
       </div>
+
+      <section className="space-y-3 rounded-3xl border border-line bg-surface p-5">
+        <p className="text-sm font-bold">Asignaciones</p>
+        {shown.length === 0 && <p className="text-sm text-muted">Sin asignaciones.</p>}
+        {shown.map((a) => (
+          <div key={a.id} className="flex items-center gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm">
+            <span className="w-14 shrink-0 text-[11px] font-bold uppercase text-accent">{FN[a.function] ?? a.function}</span>
+            <span className="flex-1 truncate font-semibold">{label(a)}</span>
+            {a._new && <span className="shrink-0 rounded-full bg-accent/20 px-2 text-[10px] font-bold uppercase text-accent">nuevo</span>}
+            <button aria-label="Quitar" disabled={busy} onClick={() => removeDraft(a)}>
+              <X size={16} className="text-danger" />
+            </button>
+          </div>
+        ))}
+
+        <div className="space-y-2 border-t border-line pt-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted">Asignar árbitro</p>
+          <div className="flex gap-2">
+            <select className={inputCls} value={refPick} onChange={(e) => {
+              const opt = refOptions.find((o) => o.id === e.target.value)
+              if (opt?.conflict) return setErr(CONFLICT_MSG)
+              setRefPick(e.target.value)
+            }}>
+              <option value="">Árbitro…</option>
+              {refOptions.map((o) => (
+                <option key={o.id} value={o.id} style={o.conflict ? { color: '#f43f5e' } : undefined}>{o.label}</option>
+              ))}
+            </select>
+            <Btn tone="accent" disabled={busy || !refPick} onClick={() => { addDraft('REFEREE', { profileId: refPick }, refOptions.find((o) => o.id === refPick)?.label ?? 'Árbitro'); setRefPick('') }}>Asignar</Btn>
+          </div>
+        </div>
+
+        <div className="space-y-3 border-t border-line pt-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted">Asignar mesa</p>
+          <div className="flex gap-2">
+            <Btn tone={mesaTab === 'profile' ? 'accent' : 'base'} onClick={() => setMesaTab('profile')} className="flex-1 py-2 text-xs">Persona</Btn>
+            <Btn tone={mesaTab === 'team' ? 'accent' : 'base'} onClick={() => setMesaTab('team')} className="flex-1 py-2 text-xs">Equipo</Btn>
+            <Btn tone={mesaTab === 'admin' ? 'accent' : 'base'} onClick={() => setMesaTab('admin')} className="flex-1 py-2 text-xs">Cuenta admin</Btn>
+          </div>
+
+          {mesaTab === 'profile' && (
+            <PickList
+              query={profileQ}
+              onQuery={setProfileQ}
+              options={mesaByProfile}
+              placeholder="Nombre, apodo o DNI"
+              emptyText="Sin resultados"
+              onPick={(o) => pickMesa(o, { profileId: o.id })}
+            />
+          )}
+
+          {mesaTab === 'team' && (
+            existingTeamMesa ? (
+              <div className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2 text-sm">
+                <span>Ya hay un equipo de mesa: <b>{existingTeamMesa.team?.name}</b></span>
+                <button disabled={busy} onClick={() => removeDraft(existingTeamMesa)} className="text-danger">
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <PickList
+                query={teamQ}
+                onQuery={setTeamQ}
+                options={mesaByTeam}
+                placeholder="Nombre del equipo"
+                emptyText="Sin resultados"
+                onPick={(o) => pickMesa(o, { teamId: o.id })}
+              />
+            )
+          )}
+
+          {mesaTab === 'admin' && (
+            <PickList
+              query={adminQ}
+              onQuery={setAdminQ}
+              options={mesaByAdmin}
+              placeholder="Mail del admin"
+              emptyText="Sin resultados"
+              onPick={(o) => pickMesa(o, { userId: o.id })}
+            />
+          )}
+        </div>
+
+        {dirty && (
+          <div className="flex gap-2 border-t border-line pt-3">
+            <Btn className="flex-1" disabled={busy} onClick={discard}>Descartar</Btn>
+            <Btn tone="accent" className="flex-1" disabled={busy} onClick={saveAssignments}>Guardar cambios</Btn>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-3xl border border-line bg-surface p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-bold">Datos del partido</p>
+          {editable && (
+            <button aria-label={editing ? 'Cancelar edición' : 'Editar datos'} onClick={() => setEditing((v) => !v)} className="grid h-8 w-8 place-items-center rounded-full bg-surface-2 text-muted">
+              {editing ? <X size={16} /> : <Pencil size={16} />}
+            </button>
+          )}
+        </div>
+        {editable && editing ? (
+          <MatchForm
+            key={m.status + m.scheduledAt + m.teamA?.id + m.teamB?.id}
+            initial={m}
+            tournaments={tournaments}
+            teams={teams}
+            busy={busy}
+            label="Guardar cambios"
+            onSubmit={(body) => run(async () => { await api('PATCH', '/matches/' + id, body); setEditing(false) }, 'Cambios guardados')}
+          />
+        ) : (
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between"><span className="text-muted">Torneo</span><b>{m.tournament?.name ?? 'Amistoso'}</b></div>
+            <div className="flex justify-between"><span className="text-muted">Equipos</span><b>{m.teamA?.name} vs {m.teamB?.name}</b></div>
+            <div className="flex justify-between"><span className="text-muted">Cancha</span><b>{m.court ?? '—'}</b></div>
+            <div className="flex justify-between"><span className="text-muted">Fecha y hora</span><b>{m.scheduledAt ? new Date(m.scheduledAt).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Sin horario'}</b></div>
+            {!editable && <p className="pt-1 text-xs">Solo se edita con el partido Programado o Habilitado.</p>}
+          </div>
+        )}
+      </section>
 
       {m.status !== 'FINISHED' && (
         <section className="space-y-3 rounded-3xl border border-line bg-surface p-5">
@@ -211,105 +361,6 @@ export default function AdminMatchPage() {
           </div>
         </section>
       )}
-
-      <section className="rounded-3xl border border-line bg-surface p-5">
-        <p className="mb-3 text-sm font-bold">Datos del partido</p>
-        {editable ? (
-          <MatchForm
-            key={m.status + m.scheduledAt + m.teamA?.id + m.teamB?.id}
-            initial={m}
-            tournaments={tournaments}
-            teams={teams}
-            busy={busy}
-            label="Guardar cambios"
-            onSubmit={(body) => run(() => api('PATCH', '/matches/' + id, body), 'Cambios guardados')}
-          />
-        ) : (
-          <p className="text-sm text-muted">Solo se edita con el partido Programado o Habilitado.</p>
-        )}
-      </section>
-
-      <section className="space-y-3 rounded-3xl border border-line bg-surface p-5">
-        <p className="text-sm font-bold">Asignaciones</p>
-        {assignments.length === 0 && <p className="text-sm text-muted">Sin asignaciones.</p>}
-        {assignments.map((a) => (
-          <div key={a.id} className="flex items-center gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm">
-            <span className="w-14 shrink-0 text-[11px] font-bold uppercase text-accent">{FN[a.function] ?? a.function}</span>
-            <span className="flex-1 truncate font-semibold">{label(a)}</span>
-            <button aria-label="Quitar" disabled={busy} onClick={() => run(() => api('DELETE', '/matches/' + id + '/assignments/' + a.id))}>
-              <X size={16} className="text-danger" />
-            </button>
-          </div>
-        ))}
-
-        <div className="space-y-2 border-t border-line pt-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted">Asignar árbitro</p>
-          <div className="flex gap-2">
-            <select className={inputCls} value={refPick} onChange={(e) => {
-              const opt = refOptions.find((o) => o.id === e.target.value)
-              if (opt?.conflict) return setErr(CONFLICT_MSG)
-              setRefPick(e.target.value)
-            }}>
-              <option value="">Árbitro…</option>
-              {refOptions.map((o) => (
-                <option key={o.id} value={o.id} style={o.conflict ? { color: '#f43f5e' } : undefined}>{o.label}</option>
-              ))}
-            </select>
-            <Btn tone="accent" disabled={busy || !refPick} onClick={() => run(async () => { await api('POST', '/matches/' + id + '/assignments', { function: 'REFEREE', profileId: refPick }); setRefPick('') })}>Asignar</Btn>
-          </div>
-        </div>
-
-        <div className="space-y-3 border-t border-line pt-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted">Asignar mesa</p>
-          <div className="flex gap-2">
-            <Btn tone={mesaTab === 'profile' ? 'accent' : 'base'} onClick={() => setMesaTab('profile')} className="flex-1 py-2 text-xs">Persona</Btn>
-            <Btn tone={mesaTab === 'team' ? 'accent' : 'base'} onClick={() => setMesaTab('team')} className="flex-1 py-2 text-xs">Equipo</Btn>
-            <Btn tone={mesaTab === 'admin' ? 'accent' : 'base'} onClick={() => setMesaTab('admin')} className="flex-1 py-2 text-xs">Cuenta admin</Btn>
-          </div>
-
-          {mesaTab === 'profile' && (
-            <PickList
-              query={profileQ}
-              onQuery={setProfileQ}
-              options={mesaByProfile}
-              placeholder="Nombre, apodo o DNI"
-              emptyText="Sin resultados"
-              onPick={(o) => pickMesa(o, { profileId: o.id })}
-            />
-          )}
-
-          {mesaTab === 'team' && (
-            existingTeamMesa ? (
-              <div className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2 text-sm">
-                <span>Ya hay un equipo de mesa: <b>{existingTeamMesa.team?.name}</b></span>
-                <button disabled={busy} onClick={() => run(() => api('DELETE', '/matches/' + id + '/assignments/' + existingTeamMesa.id))} className="text-danger">
-                  <X size={16} />
-                </button>
-              </div>
-            ) : (
-              <PickList
-                query={teamQ}
-                onQuery={setTeamQ}
-                options={mesaByTeam}
-                placeholder="Nombre del equipo"
-                emptyText="Sin resultados"
-                onPick={(o) => pickMesa(o, { teamId: o.id })}
-              />
-            )
-          )}
-
-          {mesaTab === 'admin' && (
-            <PickList
-              query={adminQ}
-              onQuery={setAdminQ}
-              options={mesaByAdmin}
-              placeholder="Mail del admin"
-              emptyText="Sin resultados"
-              onPick={(o) => pickMesa(o, { userId: o.id })}
-            />
-          )}
-        </div>
-      </section>
     </div>
   )
 }
