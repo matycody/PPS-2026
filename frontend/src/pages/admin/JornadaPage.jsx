@@ -8,7 +8,7 @@ import { dayOf, dayTab } from '../../lib/days'
 import { useLeaveGuard } from '../../hooks/useLeaveGuard'
 import { useConfirm } from '../../components/ConfirmProvider'
 
-const DEFAULT_TURN = 40 // por defecto un partido ocupa 40 minutos (2 tiempos de 20); la organización lo puede cambiar
+const DEFAULT_TURN = 60 // por defecto un partido ocupa 1 hora; la organización lo puede cambiar
 const TURN_STEP = 5
 const MAX_COURTS = 8
 const MAX_TURNS = 30
@@ -30,6 +30,21 @@ const squadsOf = (m) => [m.teamA?.id, m.teamB?.id].filter(Boolean).map((id) => (
 const sameSquad = (a, b) => a.id === b.id && (a.branch === b.branch || a.branch === 'MIXED' || b.branch === 'MIXED')
 const sharesSquad = (ma, mb) => squadsOf(ma).some((x) => squadsOf(mb).some((y) => sameSquad(x, y)))
 const byFixture = (a, b) => (a.tournament?.name ?? '').localeCompare(b.tournament?.name ?? '') || phaseCmp(a, b) || String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? ''))
+
+// Deduce con qué hora de inicio y minutos por turno se armó la jornada de ese día (a partir de los partidos ya ubicados)
+const gcd = (a, b) => (b ? gcd(b, a % b) : a)
+function inferCfg(matches, day, fallbackTurn) {
+  const times = [...new Set(matches.filter((m) => m.scheduledAt && m.court && dayOf(m.scheduledAt) === day).map((m) => new Date(m.scheduledAt).getTime()))].sort((a, b) => a - b)
+  if (!times.length) return null
+  const d = new Date(times[0])
+  const start = pad(d.getHours()) + ':' + pad(d.getMinutes())
+  let turn = fallbackTurn
+  if (times.length > 1) {
+    const g = times.slice(1).reduce((acc, t) => gcd(acc, Math.round((t - times[0]) / 60000)), 0)
+    if (g >= 10 && g <= 240) turn = g
+  }
+  return { start, turn }
+}
 
 // Grilla inicial: los partidos del día que ya tienen cancha y caen justo en un turno
 function buildGrid(matches, day, start, turn) {
@@ -126,10 +141,16 @@ export default function JornadaPage() {
     setCourts((c) => Math.max(c, maxCourt))
     setTurns((t) => Math.max(t, maxRow + 1))
   }, [])
-  useEffect(() => { if (all) rebuild(day, start, all, turn) }, [all]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Al abrir (o cambiar de día) se recupera la jornada guardada con el inicio y el turno con que se armó
+  const loadDay = useCallback((d, list, s, t) => {
+    const cfg = inferCfg(list, d, t)
+    if (cfg) { setStart(cfg.start); setTurn(cfg.turn) }
+    rebuild(d, cfg ? cfg.start : s, list, cfg ? cfg.turn : t)
+  }, [rebuild])
+  useEffect(() => { if (all) loadDay(day, all, start, turn) }, [all]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const confirmDiscard = async () => !dirty || (await ask({ title: 'Descartar cambios', message: 'Tenés cambios sin guardar. Si seguís, se pierden.', confirmText: 'Descartar', cancelText: 'Volver', danger: true }))
-  const changeDay = async (d) => { if (d === day || !(await confirmDiscard())) return; setDay(d); rebuild(d, start, all ?? [], turn) }
+  const changeDay = async (d) => { if (d === day || !(await confirmDiscard())) return; setDay(d); loadDay(d, all ?? [], start, turn) }
   // La hora de inicio y los minutos por turno se cambian libremente: el borrador se conserva y se aplica al guardar
   const changeStart = (s) => { if (s) setStart(s) }
   const changeTurn = (t) => { if (t >= 10 && t <= 240) setTurn(t) }
