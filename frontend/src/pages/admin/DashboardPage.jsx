@@ -1,5 +1,7 @@
 import { halfLabel } from '../../lib/pipTime'
 import { useEffect, useMemo, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { dayOf, dayTab } from '../../lib/days'
 import { Link } from 'react-router-dom'
 import { Pin, PinOff } from 'lucide-react'
 import { socket } from '../../sockets/socket'
@@ -17,6 +19,8 @@ import { matchInfo } from '../../lib/matchInfo'
 import { statusBorder } from '../../lib/statusStyle'
 import { usePipClock } from '../../hooks/usePipClock'
 
+const shiftDay = (d, n) => dayOf(new Date(new Date(d + 'T12:00:00').getTime() + n * 864e5).toISOString())
+const SHOW_UPCOMING = 8 // próximos que se ven por cancha antes de "Ver más"
 const ORDER = { LIVE: 0, READY: 1, SCHEDULED: 2, FINISHED: 3 }
 const pad = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
 
@@ -111,6 +115,7 @@ const byTime = (a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.sche
 // Una cancha: el partido en vivo en grande y, debajo, todos los que siguen en chiquito (por horario o, sin horario, por el orden del fixture).
 // Al 2do tiempo, con menos de 10 minutos, el que sigue muestra sus acciones para que la organización designe árbitros y lo habilite a tiempo.
 function CourtSection({ c, ticks, run, busy, title }) {
+  const [more, setMore] = useState(false)
   const live = c.list.filter((m) => m.status === 'LIVE')
   const upcoming = c.list.filter((m) => m.status !== 'LIVE').sort(byTime)
   const next = upcoming[0]
@@ -131,7 +136,7 @@ function CourtSection({ c, ticks, run, busy, title }) {
             <span className="text-[11px] font-bold uppercase tracking-wide">{upcoming.length} {upcoming.length === 1 ? 'partido' : 'partidos'}</span>
           </div>
           <div className="divide-y divide-line">
-            {upcoming.map((m, i) => (
+            {(more ? upcoming : upcoming.slice(0, SHOW_UPCOMING)).map((m, i) => (
               <div key={m.id} className={i === 0 && prepare ? 'bg-warn/10' : ''}>
                 {i === 0 && prepare && (
                   <p className="px-3 pt-2 text-[11px] font-extrabold uppercase tracking-widest text-warn">
@@ -158,6 +163,11 @@ function CourtSection({ c, ticks, run, busy, title }) {
               </div>
             ))}
           </div>
+          {upcoming.length > SHOW_UPCOMING && (
+            <button onClick={() => setMore((v) => !v)} className="w-full border-t border-line py-2.5 text-xs font-extrabold uppercase tracking-wide text-accent">
+              {more ? 'Ver menos' : 'Ver ' + (upcoming.length - SHOW_UPCOMING) + ' más'}
+            </button>
+          )}
         </div>
       )}
 
@@ -180,6 +190,7 @@ export default function DashboardPage() {
   const { byId, loading, error, upsert } = useMatchesStore()
   const [ticks, setTicks] = useState({})
   const [sel, setSel] = useState('all') // 'all' | número de cancha
+  const [day, setDay] = useState(() => dayOf(new Date().toISOString())) // jornada que se ve
   const [busy, setBusy] = useState(false)
   const [fin, setFin] = useState({}) // finalizados recientes (el feed general solo trae los activos)
   const [err, setErr] = useState('')
@@ -200,7 +211,8 @@ export default function DashboardPage() {
     const groups = {}
     const all = { ...fin, ...byId }
     Object.values(all)
-      .filter((m) => m.status in ORDER)
+      // Solo la jornada elegida y con horario cargado (el que está en vivo se ve siempre); la cancha puede faltar
+      .filter((m) => m.status in ORDER && (m.status === 'LIVE' || (m.scheduledAt && dayOf(m.scheduledAt) === day)))
       .forEach((m) => { (groups[m.court ?? 0] ??= []).push(m) })
     return Object.entries(groups)
       .map(([court, list]) => {
@@ -209,7 +221,7 @@ export default function DashboardPage() {
         return { court: Number(court), list: active, done }
       })
       .sort((a, b) => (a.court || 999) - (b.court || 999)) // la Cancha 1 arriba de todo, sin cancha al final
-  }, [byId, fin])
+  }, [byId, fin, day])
 
   const current = sel === 'all' ? null : courts.find((c) => c.court === sel)
   const shown = sel === 'all' ? courts : current ? [current] : courts
@@ -244,10 +256,15 @@ export default function DashboardPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Dashboard de canchas</h1>
+      <div className="flex items-center justify-between rounded-2xl border border-line bg-surface px-2 py-1.5">
+        <button aria-label="Día anterior" onClick={() => setDay(shiftDay(day, -1))} className="grid h-9 w-9 place-items-center rounded-full bg-surface-2"><ChevronLeft size={18} /></button>
+        <button onClick={() => setDay(dayOf(new Date().toISOString()))} className="text-sm font-extrabold">{dayTab(day)}</button>
+        <button aria-label="Día siguiente" onClick={() => setDay(shiftDay(day, 1))} className="grid h-9 w-9 place-items-center rounded-full bg-surface-2"><ChevronRight size={18} /></button>
+      </div>
       {loading && <p className="text-muted">Cargando…</p>}
       {error && <p className="text-danger">{error}</p>}
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
-      {!loading && !error && courts.length === 0 && <p className="text-muted">No hay partidos.</p>}
+      {!loading && !error && courts.length === 0 && <p className="text-muted">No hay partidos con horario para este día.</p>}
 
       {courts.length > 0 && (
         <div className="flex flex-wrap gap-2">
