@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../db');
 const { matchResult } = require('../services/bracket');
+const { teamCareer } = require('../services/teamCareer');
 
 const router = express.Router();
 const TEAM_SELECT = { id: true, name: true, logo: true };
@@ -108,8 +109,11 @@ router.get('/teams/:id', async (req, res) => {
       prisma.tournamentTeam.count({ where: { teamId: team.id, tournament } }),
     ]);
 
+    const career = await teamCareer(team.id, tournament).catch((e) => { console.error('[career]', e.message); return []; });
+
     res.json({
       team,
+      career,
       tournamentsPlayed: enrolled,
       titles: titles.length,
       titlesList: titles,
