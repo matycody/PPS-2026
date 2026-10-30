@@ -17,7 +17,7 @@ const MENU = {
   REFEREE: ['mis_partidos_asignados'],
   TABLE: ['control_mesa'], // quien no es jugador lo recibe solo si tiene una mesa asignada en un partido activo
   ADMIN: [
-    'dashboard_canchas', 'torneos', 'partidos', 'equipos', 'sedes',
+    'dashboard_canchas', 'torneos', 'partidos', 'equipos', 'sedes', 'sanciones',
     'personas', 'importar_excel', 'usuarios', 'registro_ediciones',
   ],
 };

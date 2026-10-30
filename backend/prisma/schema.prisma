@@ -95,6 +95,8 @@ model Profile {
   user        User?
   teams       PlayerTeam[]
   assignments MatchAssignment[]
+  sanctions   MatchSanction[]
+  suspensions PlayerSuspension[]
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Equipos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -217,6 +219,7 @@ model Match {
   sets         MatchSet[]
   clockActions ClockAction[]
   clock        MatchClock?
+  sanctions    MatchSanction[]
 
   stageId    String?
   matchdayId String?
@@ -538,4 +541,55 @@ model Venue {
   matches Match[]
 
   @@index([deletedAt])
+}
+
+
+enum SanctionKind {
+  WARNING // advertencia (solo Foam): la 2.ª del mismo jugador lo elimina
+  YELLOW // 5 minutos afuera (Foam y Cloth)
+  BLUE // solo Cloth: 3 minutos o 2 sets afuera, lo que ocurra primero
+  RED // expulsión del jugador: queda para el departamento de sanciones
+}
+
+// Sanciones de un partido (quedan registradas para siempre; deshacer = revokedAt)
+model MatchSanction {
+  id          String       @id @default(uuid())
+  matchId     String
+  side        MatchSide // equipo sancionado
+  profileId   String? // jugador (opcional: se puede sancionar sin identificarlo)
+  kind        SanctionKind
+  eliminates  Boolean      @default(false) // advertencia que eliminó al jugador (2.ª en Foam)
+  reason      String?      @db.VarChar(200)
+  half        Int? // tiempo (1 o 2)
+  setNumber   Int? // set en juego al sancionar
+  matchSecond Int? // segundos jugados de ese tiempo
+  createdById String?
+  createdAt   DateTime     @default(now())
+  endedAt     DateTime? // la amarilla o azul terminó sola
+  revokedAt   DateTime? // la mesa la deshizo
+
+  match   Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  profile Profile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  suspension PlayerSuspension?
+
+  @@index([matchId])
+  @@index([profileId])
+}
+
+// Decision del departamento de sanciones sobre una roja (fechas=0 y sameDay=false: evaluada sin suspension)
+model PlayerSuspension {
+  id          String   @id @default(uuid())
+  sanctionId  String   @unique
+  profileId   String
+  fechas      Int      @default(0) // fechas completas posteriores a la roja
+  sameDay     Boolean  @default(false) // tambien queda afuera lo que resta de la misma jornada
+  note        String?  @db.VarChar(300)
+  decidedById String?
+  createdAt   DateTime @default(now())
+  revokedAt   DateTime?
+
+  sanction MatchSanction @relation(fields: [sanctionId], references: [id], onDelete: Cascade)
+  profile  Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
 }

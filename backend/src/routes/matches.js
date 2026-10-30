@@ -30,6 +30,7 @@ function parseReason(v) {
 }
 
 const { VENUE_SELECT } = require('../lib/venue');
+const { listSanctions, suspendedForMatch } = require('../services/sanctions');
 const teamSelect = { id: true, name: true, logo: true };
 const baseInclude = {
   tournament: { select: { id: true, name: true } },
@@ -298,6 +299,30 @@ router.get('/', optionalAuth, async (req, res) => {
     const rows = matches.map((m) => ({ ...serialize(m, false), phase: phases.get(m.id) ?? null }));
     const forms = await formsFor(rows).catch((e) => { console.error('[form]', e.message); return new Map(); });
     res.json(rows.map((m) => ({ ...m, form: forms.get(m.id) ?? null })));
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+// Sanciones del partido (público): advertencias, tarjetas y expulsiones
+router.get('/:id/sanctions', optionalAuth, async (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && req.user.roles.includes('ADMIN'));
+    const match = await prisma.match.findUnique({ where: { id: req.params.id }, select: { id: true, hiddenAt: true } });
+    if (!match || (match.hiddenAt && !isAdmin)) return res.status(404).json({ error: 'Partido no encontrado' });
+    res.json({ items: await listSanctions(match.id) });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+// Jugadores suspendidos para este partido (por decision del departamento de sanciones)
+router.get('/:id/suspended', optionalAuth, async (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && req.user.roles.includes('ADMIN'));
+    const match = await prisma.match.findUnique({ where: { id: req.params.id }, select: { id: true, hiddenAt: true } });
+    if (!match || (match.hiddenAt && !isAdmin)) return res.status(404).json({ error: 'Partido no encontrado' });
+    res.json({ items: await suspendedForMatch(match.id) });
   } catch (err) {
     handleError(err, res);
   }
@@ -978,7 +1003,7 @@ router.post('/:id/sets', authenticate, async (req, res) => {
     ]);
     // Al cargar el ganador del set, el reloj de set vuelve a 3:00 y queda en pausa
     // hasta que el árbitro o la mesa inicie el set siguiente (no toca el reloj del partido)
-    if (engine) engine.reset('set');
+    if (engine) { engine.reset('set'); engine.sanctionSetEnded(); }
     await notifyMatch(req.app.get('io'), req.params.id);
     res.status(201).json(set);
   } catch (err) {

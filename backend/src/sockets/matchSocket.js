@@ -8,6 +8,7 @@ const tableLock = require('../services/tableLock');
 const { CLIENT_EVENTS, SERVER_EVENTS } = require('../timers/timerEvents');
 const { getOrCreateMatch, getMatch, pauseMatch, resumeMatch } = require('../timers/matchManager');
 const clockStore = require('../timers/clockStore');
+const { listSanctions, emitSanctions, publicName } = require('../services/sanctions');
 
 const MAX_ROOMS = 12;
 // Valores que espera TimerEngine.setModality (verificado contra TimerEngine.js)
@@ -22,10 +23,16 @@ const lastTick = new Map();
 function buildCallbacks(io, matchId) {
   return {
     onPersist: (state, opts) => clockStore.persist(matchId, state, opts),
-    onTick: ({ matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed, recovered, matchEnded }) => {
-      const payload = { matchId, matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed, recovered, matchEnded };
+    onTick: ({ matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed, recovered, matchEnded, sanctions }) => {
+      const payload = { matchId, matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed, recovered, matchEnded, sanctions };
       lastTick.set(matchId, payload);
       io.to(publicRoom(matchId)).emit(SERVER_EVENTS.MATCH_TICK, payload);
+    },
+    // La amarilla o la azul terminó (por tiempo, por sets o porque se cerró el partido): queda anotado
+    onSanctionEnd: ({ id }) => {
+      prisma.matchSanction.updateMany({ where: { id, endedAt: null }, data: { endedAt: new Date() } })
+        .then(() => emitSanctions(io, matchId))
+        .catch((e) => console.error('[sanction]', e.message));
     },
     onSetExpired: ({ action, message, source }) => {
       const engine = getMatch(matchId);
@@ -456,6 +463,65 @@ function registerMatchHandlers(io, socket) {
     if (!engine) return;
     engine.finishHalf();
     await logAction(io, socket, match.id, 'FINISH_HALF');
+  });
+
+  // ── Sanciones: advertencia (solo Foam), amarilla, azul (solo Cloth) y roja ──
+  const KINDS = ['WARNING', 'YELLOW', 'BLUE', 'RED'];
+  on(CLIENT_EVENTS.MATCH_SANCTION_ADD, 'canControlClock', async ({ match }, p) => {
+    const engine = requireEngine(match);
+    if (!engine) return;
+    if (p.side !== 'A' && p.side !== 'B') return emitError(socket, match.id, 'Equipo inválido');
+    if (!KINDS.includes(p.kind)) return emitError(socket, match.id, 'Tipo de sanción inválido');
+    if (p.kind === 'BLUE' && match.modality !== 'CLOTH') return emitError(socket, match.id, 'La tarjeta azul es solo de Cloth');
+    const reason = typeof p.reason === 'string' && p.reason.trim() ? p.reason.trim().slice(0, 200) : null;
+
+    let player = null;
+    if (p.profileId) {
+      const teamId = p.side === 'A' ? match.teamAId : match.teamBId;
+      const inTeam = teamId && await prisma.playerTeam.findFirst({ where: { profileId: String(p.profileId), teamId, to: null }, select: { id: true } });
+      if (!inTeam) return emitError(socket, match.id, 'Ese jugador no pertenece al equipo');
+      player = await prisma.profile.findUnique({ where: { id: String(p.profileId) }, select: { id: true, name: true, nickname: true, showNickname: true } });
+    }
+    if (p.kind === 'WARNING' && !player) return emitError(socket, match.id, 'Elegí al jugador que recibe la advertencia');
+
+    // Foam: la 2.ª advertencia del mismo jugador lo elimina y el equipo pasa a jugar con 5 (en Cloth la advertencia no elimina)
+    let eliminates = false;
+    if (p.kind === 'WARNING' && match.modality === 'FOAM') {
+      const prev = await prisma.matchSanction.count({ where: { matchId: match.id, profileId: player.id, kind: 'WARNING', revokedAt: null } });
+      eliminates = prev >= 1;
+    }
+    const lastSet = await prisma.matchSet.aggregate({ where: { matchId: match.id }, _max: { number: true } });
+    const row = await prisma.matchSanction.create({
+      data: {
+        matchId: match.id,
+        side: p.side,
+        profileId: player ? player.id : null,
+        kind: p.kind,
+        eliminates,
+        reason,
+        half: engine.matchHalf,
+        setNumber: (lastSet._max.number || 0) + 1,
+        matchSecond: Math.max(0, 20 * 60 - engine.matchTimeLeft),
+        createdById: socket.data.user.id,
+      },
+    });
+    if (p.kind === 'YELLOW' || p.kind === 'BLUE') {
+      engine.addSanction({ id: row.id, side: p.side, kind: p.kind, label: player ? publicName(player) : 'Sin identificar' });
+    }
+    await emitSanctions(io, match.id);
+    await logAction(io, socket, match.id, 'SANCTION_ADD', { side: p.side, kind: p.kind, profileId: player ? player.id : null, eliminates });
+  });
+
+  // Deshacer una sanción cargada por error (queda registrada como deshecha)
+  on(CLIENT_EVENTS.MATCH_SANCTION_REMOVE, 'canControlClock', async ({ match }, p) => {
+    const engine = requireEngine(match);
+    if (!engine) return;
+    const row = typeof p.sanctionId === 'string' ? await prisma.matchSanction.findUnique({ where: { id: p.sanctionId } }) : null;
+    if (!row || row.matchId !== match.id || row.revokedAt) return emitError(socket, match.id, 'Sanción no encontrada');
+    await prisma.matchSanction.update({ where: { id: row.id }, data: { revokedAt: new Date() } });
+    engine.removeSanction(row.id);
+    await emitSanctions(io, match.id);
+    await logAction(io, socket, match.id, 'SANCTION_REMOVE', { side: row.side, kind: row.kind });
   });
 }
 

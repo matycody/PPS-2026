@@ -3,6 +3,9 @@
 const MATCH_DURATION_SECONDS = 20 * 60;
 const SET_DURATION_SECONDS = 3 * 60;
 const TIMEOUT_DURATION_SECONDS = 60;
+const YELLOW_SECONDS = 5 * 60; // amarilla: 5 minutos afuera
+const BLUE_SECONDS = 3 * 60; // azul (Cloth): 3 minutos o 2 sets afuera
+const BLUE_SETS = 2;
 const newTimeoutsUsed = () => ({ A: { 1: false, 2: false }, B: { 1: false, 2: false } });
 
 function formatTime(totalSeconds) {
@@ -27,6 +30,8 @@ class TimerEngine {
     this.setTimeLeft = SET_DURATION_SECONDS;
     this.matchHalf = 1;
     this.clothAutoResetUsed = false;
+    // Sancionados que cumplen tiempo afuera: [{ id, side, kind, label, left, setsLeft }]. Corren con el reloj del partido
+    this.sanctions = [];
     // true cuando terminó el 2° tiempo y la mesa finalizó el partido (aún sin cerrarlo)
     this.matchEnded = false;
 
@@ -51,6 +56,7 @@ class TimerEngine {
       matchHalf: this.matchHalf,
       clothAutoResetUsed: this.clothAutoResetUsed,
       matchEnded: this.matchEnded,
+      sanctions: this.sanctions.map((x) => ({ ...x })),
       timeoutTeam: this.timeoutTeam,
       timeoutHalf: this._timeoutHalf,
       timeoutsUsed: JSON.parse(JSON.stringify(this.timeoutsUsed)),
@@ -71,6 +77,12 @@ class TimerEngine {
     this.matchHalf = s.matchHalf === 2 ? 2 : 1;
     this.clothAutoResetUsed = Boolean(s.clothAutoResetUsed);
     this.matchEnded = Boolean(s.matchEnded);
+    this.sanctions = Array.isArray(s.sanctions)
+      ? s.sanctions
+          .filter((x) => x && typeof x.id === "string" && (x.side === "A" || x.side === "B") && (x.kind === "YELLOW" || x.kind === "BLUE"))
+          .map((x) => ({ id: x.id, side: x.side, kind: x.kind, label: String(x.label ?? "").slice(0, 60), left: int(x.left, 0, 0, YELLOW_SECONDS), setsLeft: x.kind === "BLUE" ? int(x.setsLeft, BLUE_SETS, 0, BLUE_SETS) : null }))
+          .filter((x) => x.left > 0)
+      : [];
     this.timeoutsUsed = { A: used("A"), B: used("B") };
 
     const hasTimeout = s.timeoutTeam === "A" || s.timeoutTeam === "B";
@@ -125,6 +137,8 @@ class TimerEngine {
     } else {
       this.matchHalf = 1;
       this.matchEnded = true;
+      this.sanctions.forEach((x) => this.callbacks.onSanctionEnd && this.callbacks.onSanctionEnd({ id: x.id, reason: "match" }));
+      this.sanctions = [];
       this._emitState();
 
       if (this.callbacks.onMatchFinished) {
@@ -132,6 +146,45 @@ class TimerEngine {
       }
       return { matchEnded: true };
     }
+  }
+
+  // ---- Sanciones con tiempo afuera (amarilla y azul): corren con el reloj del partido ----
+  addSanction({ id, side, kind, label }) {
+    if (side !== "A" && side !== "B") return { ok: false, message: "Equipo inválido" };
+    if (kind !== "YELLOW" && kind !== "BLUE") return { ok: false, message: "Esa sanción no tiene tiempo afuera" };
+    this.sanctions.push({
+      id,
+      side,
+      kind,
+      label: String(label ?? "").slice(0, 60),
+      left: kind === "YELLOW" ? YELLOW_SECONDS : BLUE_SECONDS,
+      setsLeft: kind === "BLUE" ? BLUE_SETS : null,
+    });
+    this._emitState();
+    return { ok: true };
+  }
+
+  removeSanction(id) {
+    const before = this.sanctions.length;
+    this.sanctions = this.sanctions.filter((x) => x.id !== id);
+    if (this.sanctions.length !== before) this._emitState();
+    return this.sanctions.length !== before;
+  }
+
+  // Se cargó el resultado de un set: a la azul le queda un set menos (se levanta a los 2 o a los 3 minutos, lo que ocurra primero)
+  sanctionSetEnded() {
+    const ended = [];
+    this.sanctions.forEach((x) => {
+      if (x.kind === "BLUE") x.setsLeft -= 1;
+    });
+    this.sanctions = this.sanctions.filter((x) => {
+      if (x.kind === "BLUE" && x.setsLeft <= 0) { ended.push({ id: x.id, reason: "sets" }); return false; }
+      return true;
+    });
+    if (ended.length) {
+      ended.forEach((e) => this.callbacks.onSanctionEnd && this.callbacks.onSanctionEnd(e));
+    }
+    this._emitState();
   }
 
   start(target = "both") {
@@ -303,7 +356,17 @@ class TimerEngine {
 
   _tick() {
     if (this.isTimeoutRunning && this.timeoutTimeLeft > 0) this.timeoutTimeLeft--;
-    if (!this.isMatchPaused && this.matchTimeLeft > 0) this.matchTimeLeft--;
+    if (!this.isMatchPaused && this.matchTimeLeft > 0) {
+      this.matchTimeLeft--;
+      // las sanciones cumplen su tiempo solo mientras corre el partido
+      const done = [];
+      this.sanctions.forEach((x) => { x.left -= 1; });
+      this.sanctions = this.sanctions.filter((x) => {
+        if (x.left <= 0) { done.push({ id: x.id, reason: "time" }); return false; }
+        return true;
+      });
+      done.forEach((e) => this.callbacks.onSanctionEnd && this.callbacks.onSanctionEnd(e));
+    }
     if (!this.isSetPaused && this.setTimeLeft > 0) this.setTimeLeft--;
 
     let timeoutJustExpired = false;
@@ -366,6 +429,7 @@ class TimerEngine {
         timeoutsUsed: JSON.parse(JSON.stringify(this.timeoutsUsed)),
         recovered: this.recovered,
         matchEnded: this.matchEnded,
+        sanctions: this.sanctions.map((x) => ({ id: x.id, side: x.side, kind: x.kind, label: x.label, left: x.left, time: formatTime(x.left), setsLeft: x.setsLeft })),
       });
     }
   }
