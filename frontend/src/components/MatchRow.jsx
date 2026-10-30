@@ -11,7 +11,7 @@ const hour = (iso) => (iso ? new Date(iso).toLocaleTimeString('es-AR', { hour: '
 
 // Una fila de equipo. Tocar solo el escudo abre el banner del equipo; el nombre y el resto de la fila abren el partido.
 // Con "slot" el cruce todavía no está definido: se muestra el lugar (1.°, 2.°…) y quién lo ocupa ahora, como probable.
-function Side({ t, slot, form, rank, score, live }) {
+function Side({ t, slot, form, rank, score, live, branch }) {
   if (slot) {
     const who = slot.current?.name ?? (slot.candidates?.length ? slot.candidates.map((c) => c.name).join(' / ') : 'A definir')
     return (
@@ -31,7 +31,7 @@ function Side({ t, slot, form, rank, score, live }) {
   }
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <GoTo to={'/equipo/' + t.id} className="shrink-0"><TeamBadge team={t} size="sm" /></GoTo>
+      <GoTo to={'/equipo/' + t.id} className="shrink-0"><TeamBadge team={t} size="sm" branch={branch} /></GoTo>
       <span className="min-w-0 flex-1 truncate text-sm font-bold">{t.name}</span>
       {/* Con resultado (finalizado o en vivo) el marcador va pegado al nombre; la posición y la racha quedan a su derecha */}
       {score != null && <span className={'w-6 shrink-0 text-right font-mono text-lg font-extrabold tabular-nums ' + (live ? 'text-live' : '')}>{score}</span>}
@@ -77,8 +77,8 @@ export default function MatchRow({ m, to, action, footer, selecting, selected, o
             </span>
           )}
           <div className="min-w-0 flex-1 space-y-1.5">
-            <Side t={m.teamA} slot={m.phase?.slotA} form={m.form?.A} rank={m.form?.rankA} score={hasScore ? m.score?.teamA ?? 0 : null} live={live} />
-            <Side t={m.teamB} slot={m.phase?.slotB} form={m.form?.B} rank={m.form?.rankB} score={hasScore ? m.score?.teamB ?? 0 : null} live={live} />
+            <Side branch={m.branch} t={m.teamA} slot={m.phase?.slotA} form={m.form?.A} rank={m.form?.rankA} score={hasScore ? m.score?.teamA ?? 0 : null} live={live} />
+            <Side branch={m.branch} t={m.teamB} slot={m.phase?.slotB} form={m.form?.B} rank={m.form?.rankB} score={hasScore ? m.score?.teamB ?? 0 : null} live={live} />
           </div>
           <div className="flex w-[72px] shrink-0 flex-col items-center justify-center border-l border-line pl-3 text-center">
             {!hasScore && <span className="font-mono text-xl font-extrabold tabular-nums">{hour(m.scheduledAt)}</span>}

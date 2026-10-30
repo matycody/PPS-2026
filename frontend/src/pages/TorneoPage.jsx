@@ -184,12 +184,12 @@ export default function TorneoPage() {
         </div>
       )}
 
-      {tab === 'tabla' && <StandingsView tournamentId={t.id} finished={t.status === 'FINISHED'} />}
+      {tab === 'tabla' && <StandingsView branch={t.branch} tournamentId={t.id} finished={t.status === 'FINISHED'} />}
 
       {tab === 'llave' && knockouts.map((s) => (
         <div key={s.id} className="space-y-2">
           <div className="text-xs font-bold uppercase tracking-widest text-muted">{s.name}</div>
-          <BracketView tournamentId={t.id} stageId={s.id} />
+          <BracketView branch={t.branch} tournamentId={t.id} stageId={s.id} />
         </div>
       ))}
 
@@ -200,7 +200,7 @@ export default function TorneoPage() {
             {t.teams.map(({ team }) => (
               <div key={team.id} className="flex items-center gap-3 px-3 py-2.5">
                 <Link to={'/equipo/' + team.id} className="flex min-w-0 flex-1 items-center gap-3">
-                  <TeamBadge team={team} size="sm" />
+                  <TeamBadge team={team} size="sm" branch={t.branch} />
                   <span className="truncate font-bold">{team.name}</span>
                 </Link>
                 <FavHeart type="TEAM" id={team.id} name={team.name} compact />

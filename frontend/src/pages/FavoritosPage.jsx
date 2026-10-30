@@ -186,7 +186,7 @@ export default function FavoritosPage() {
                 </button>
                 {open && (
                   <div className="space-y-3 border-t border-line p-4">
-                    <StandingsView tournamentId={t.id} finished={t.status === 'FINISHED'} />
+                    <StandingsView branch={t.branch} tournamentId={t.id} finished={t.status === 'FINISHED'} />
                     <Link to={'/liga/' + t.id} className="block text-center text-sm font-bold text-accent">Ver torneo completo ›</Link>
                   </div>
                 )}

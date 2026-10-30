@@ -34,7 +34,7 @@ function Card({ m }) {
         <StatusPill status={m.status} />
         <span className="text-sm text-muted">{courtLabel(m.court)}</span>
       </div>
-      <div className="mt-4"><Versus a={m.teamA} b={m.teamB} /></div>
+      <div className="mt-4"><Versus branch={m.branch} a={m.teamA} b={m.teamB} /></div>
       <p className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-muted">{matchInfo(m)}</p>
       <p className="mt-1 text-center text-sm text-muted">{fmtWhen(m.scheduledAt)}</p>
       {!isPast(m.status) && (

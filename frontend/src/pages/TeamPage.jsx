@@ -165,7 +165,7 @@ export default function TeamPage() {
         <div className="relative flex min-h-16 flex-wrap items-center gap-1.5 bg-accent-soft py-3 pl-5 pr-28">
           {brs.map((b) => <span key={b} className="rounded-full bg-bg/60 px-2.5 py-1 text-[11px] font-bold uppercase">{BRANCH[b] ?? b}</span>)}
           {mods.map((m) => <span key={m} className="rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold uppercase text-black">{MODALITY[m] ?? m}</span>)}
-          <div className="absolute -top-12 right-4"><TeamBadge team={team} size="xl" /></div>
+          <div className="absolute -top-12 right-4"><TeamBadge team={team} size="xl" branch={br !== 'all' ? br : null} /></div>
         </div>
         <div className="flex overflow-x-auto border-t border-line" role="tablist">
           {[['resumen', 'Resumen'], ['partidos', 'Partidos'], ['posiciones', 'Posiciones'], ['estadisticas', 'Estadísticas'], ['plantel', 'Plantel'], ['historial', 'Historial']].map(([k, label]) => (

@@ -9,13 +9,13 @@ import StatusPill from '../StatusPill'
 import BracketCanvas from './BracketCanvas'
 import BracketFullscreen from './BracketFullscreen'
 
-function Side({ team, from, sets, won, placeholder }) {
+function Side({ team, from, sets, won, placeholder, branch }) {
   // Hasta que termina la zona se muestra el lugar ("2° Zona A") y no el equipo
   const pending = !!from && !from.done
   const shown = pending ? null : team
   const who = (
     <>
-      {shown ? <TeamBadge team={shown} size="sm" /> : <span className="h-8 w-8 shrink-0 rounded-full border border-dashed border-line" />}
+      {shown ? <TeamBadge team={shown} size="sm" branch={branch} /> : <span className="h-8 w-8 shrink-0 rounded-full border border-dashed border-line" />}
       <span className={'min-w-0 flex-1 truncate ' + (shown ? '' : pending ? 'text-sm font-bold' : 'text-sm italic text-muted')}>{shown ? shown.name : pending ? from.label : placeholder}</span>
     </>
   )
@@ -33,7 +33,7 @@ function sourceLabel(f) {
 }
 
 // base: prefijo del enlace al partido (público o de admin)
-export default function BracketView({ tournamentId, stageId, base = '/partido/', reloadKey }) {
+export default function BracketView({ tournamentId, stageId, base = '/partido/', reloadKey, branch = null }) {
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
   const [full, setFull] = useState(false)
@@ -61,9 +61,9 @@ export default function BracketView({ tournamentId, stageId, base = '/partido/',
               {[m.kind === 'THIRD_PLACE' ? 'Tercer puesto' : null, m.provisional ? 'Probable cruce' : null].filter(Boolean).join(' · ')}
             </p>
           )}
-          <Side team={m.teamA} from={m.fromA} sets={m.setsA} won={m.winnerTeamId && m.winnerTeamId === m.teamA?.id} placeholder={sourceLabel(m.feeds.A)} />
+          <Side branch={branch} team={m.teamA} from={m.fromA} sets={m.setsA} won={m.winnerTeamId && m.winnerTeamId === m.teamA?.id} placeholder={sourceLabel(m.feeds.A)} />
           <div className="border-t border-line" />
-          <Side team={m.teamB} from={m.fromB} sets={m.setsB} won={m.winnerTeamId && m.winnerTeamId === m.teamB?.id} placeholder={sourceLabel(m.feeds.B)} />
+          <Side branch={branch} team={m.teamB} from={m.fromB} sets={m.setsB} won={m.winnerTeamId && m.winnerTeamId === m.teamB?.id} placeholder={sourceLabel(m.feeds.B)} />
           <div className="flex items-center justify-between gap-2 border-t border-line bg-surface-2 px-3 py-1.5 text-[11px] text-muted">
             <span className="truncate">{m.scheduledAt ? fmtWhen(m.scheduledAt) : 'Sin programación'} · {m.venue ? m.venue.name + ' · ' : ''}{courtLabel(m.court)}</span>
             <StatusPill status={m.status} />
@@ -71,7 +71,7 @@ export default function BracketView({ tournamentId, stageId, base = '/partido/',
         </Link>
       ),
     })),
-  })), [data, base])
+  })), [data, base, branch])
 
   if (err) return <p className="text-danger">{err}</p>
   if (!data) return <p className="text-muted">Cargando…</p>

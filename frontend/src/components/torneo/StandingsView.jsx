@@ -11,7 +11,7 @@ const ZONE_CLS = {
 }
 
 // Tabla en vivo (calculada) o congelada, según el estado del torneo
-export default function StandingsView({ tournamentId, finished }) {
+export default function StandingsView({ tournamentId, finished, branch = null }) {
   const [stages, setStages] = useState(null)
   const [err, setErr] = useState('')
   const [tick, setTick] = useState(0) // sube cuando cambia un partido: la tabla en vivo se recalcula sola
@@ -79,7 +79,7 @@ export default function StandingsView({ tournamentId, finished }) {
                     <td className="px-3 py-2 text-left font-bold">{i + 1}</td>
                     <td className="px-2 py-2 text-left">
                       <Link to={'/equipo/' + r.team.id} className="flex items-center gap-2">
-                        <TeamBadge team={r.team} size="sm" />
+                        <TeamBadge team={r.team} size="sm" branch={branch} />
                         <span className="truncate font-semibold">{r.team.name}</span>
                       </Link>
                     </td>

@@ -425,7 +425,7 @@ function BracketsSection({ t, setErr }) {
                   </details>
                 </>
               )}
-              <BracketView tournamentId={t.id} stageId={s.id} base="/admin/partidos/" reloadKey={tick} />
+              <BracketView branch={t.branch} tournamentId={t.id} stageId={s.id} base="/admin/partidos/" reloadKey={tick} />
             </>
           )}
         </div>
@@ -442,7 +442,7 @@ function BracketTab({ t, goStructure }) {
       {knockouts.map((s) => (
         <div key={s.id} className="space-y-3">
           <p className="text-xs font-bold uppercase tracking-widest text-muted">{s.name}</p>
-          <BracketView tournamentId={t.id} stageId={s.id} base="/admin/partidos/" />
+          <BracketView branch={t.branch} tournamentId={t.id} stageId={s.id} base="/admin/partidos/" />
         </div>
       ))}
       <button onClick={goStructure} className="text-sm font-bold text-accent">Editar cruces en Estructura</button>
@@ -624,7 +624,7 @@ export default function TorneoAdminPage() {
       )}
       {tab === 'fixture' && <FixtureTab t={t} setErr={setErr} />}
       {tab === 'llave' && <BracketTab t={t} goStructure={() => setTab('estructura')} />}
-      {tab === 'tabla' && <StandingsView tournamentId={t.id} finished={t.status === 'FINISHED'} />}
+      {tab === 'tabla' && <StandingsView branch={t.branch} tournamentId={t.id} finished={t.status === 'FINISHED'} />}
     </div>
   )
 }

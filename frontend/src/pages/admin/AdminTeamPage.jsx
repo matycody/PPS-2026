@@ -6,6 +6,7 @@ import { api, apiUpload } from '../../lib/api'
 import LogoPicker from '../../components/LogoPicker'
 import { BRANCH, MODALITY } from '../../lib/format'
 import { useAuthStore } from '../../stores/authStore'
+import { useTeamLogos } from '../../stores/teamLogosStore'
 import Roster from '../../components/Roster'
 import PersonName from '../../components/PersonName'
 import { Btn, Alert, inputCls } from '../../components/ui'
@@ -41,8 +42,13 @@ export default function AdminTeamPage() {
   const toggle = (b) => setBranches((cur) => (cur.includes(b) ? cur.filter((x) => x !== b) : [...cur, b]))
   const toggleModality = (m) => setModalities((cur) => (cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m]))
 
+  const refreshLogos = useTeamLogos((s) => s.refresh)
   const uploadLogo = (file) =>
-    run(async () => { await apiUpload('/photos/teams/' + id, file); await load() }, 'Escudo actualizado')
+    run(async () => { await apiUpload('/photos/teams/' + id, file); await load(); refreshLogos() }, 'Escudo actualizado')
+  const uploadBranchLogo = (branch, file) =>
+    run(async () => { await apiUpload('/photos/teams/' + id + '/branch/' + branch, file); await load(); refreshLogos() }, 'Escudo de ' + BRANCH[branch] + ' actualizado')
+  const clearBranchLogo = (branch) =>
+    run(async () => { await api('DELETE', '/photos/teams/' + id + '/branch/' + branch); await load(); refreshLogos() }, 'Escudo de ' + BRANCH[branch] + ' quitado')
 
   const saveTeam = () =>
     run(async () => { await api('PATCH', '/teams/' + id, { name: name.trim(), nickname: nickname.trim() || null, city: city.trim() || null, foundedYear: founded ? Number(founded) : null, branches, modalities }); await load() }, 'Equipo actualizado')
@@ -89,7 +95,16 @@ export default function AdminTeamPage() {
 
       <section className="space-y-3 rounded-3xl border border-line bg-surface p-5">
         <p className="text-sm font-bold">Datos del equipo</p>
-        <LogoPicker name={team.name} src={team.logo} onPick={uploadLogo} onError={setErr} disabled={busy} />
+        <LogoPicker name={team.name} src={team.logo} onPick={uploadLogo} onError={setErr} disabled={busy} label={(team.branches ?? []).length > 1 ? 'Escudo general' : 'Escudo'} />
+        {(team.branches ?? []).length > 1 && (
+          <div className="space-y-3 rounded-2xl bg-surface-2 p-3">
+            <p className="text-xs text-muted">Si una rama tiene un escudo distinto, cargalo acá. Las que no tengan usan el general.</p>
+            {team.branches.map((b) => (
+              <LogoPicker key={b} label={'Escudo ' + BRANCH[b]} name={team.name} src={team.branchLogos?.[b] ?? null}
+                onPick={(f) => uploadBranchLogo(b, f)} onClear={() => clearBranchLogo(b)} onError={setErr} disabled={busy} />
+            ))}
+          </div>
+        )}
         <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} />
         <input className={inputCls} placeholder="Apodo del equipo (opcional)" maxLength={40} value={nickname} onChange={(e) => setNickname(e.target.value)} />
         <div className="grid grid-cols-2 gap-2">

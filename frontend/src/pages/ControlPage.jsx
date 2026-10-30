@@ -370,6 +370,7 @@ export default function ControlPage() {
 
       <div className="hidden rounded-3xl border border-line bg-surface p-5 sm:block">
         <Versus
+          branch={m?.branch}
           a={a}
           b={b}
           size="lg"

@@ -139,6 +139,7 @@ export default function MatchPage() {
           </p>
         )}
         <Versus
+          branch={m.branch}
           a={m.teamA}
           b={m.teamB}
           slotA={m.phase?.slotA}

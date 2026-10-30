@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from 'react'
+import { useTeamLogos } from '../stores/teamLogosStore'
 
 const SIZES = {
   sm: 'h-8 w-8 text-xs',
@@ -7,19 +8,19 @@ const SIZES = {
   xl: 'h-20 w-20 text-2xl',
 }
 
-export default function TeamBadge({ team, size = 'md' }) {
+export default function TeamBadge({ team, size = 'md', branch = null }) {
   const [broken, setBroken] = useState(false)
-  useEffect(() => setBroken(false), [team?.logo])
+  const own = useTeamLogos((s) => (branch && team?.id ? s.map[team.id]?.[branch] : null))
+  const logo = (branch && team?.branchLogos?.[branch]) || own || team?.logo // escudo de la rama, si tiene; si no, el general
+  useEffect(() => setBroken(false), [logo])
   const dim = SIZES[size] ?? SIZES.md
 
-  if (team?.logo && !broken) {
+  if (logo && !broken) {
+    // El escudo se muestra completo (sin recortar): contenido dentro del círculo con un margen para que entren las esquinas
     return (
-      <img
-        src={team.logo}
-        alt=""
-        onError={() => setBroken(true)}
-        className={dim + ' shrink-0 rounded-full border border-line bg-surface-2 object-cover'}
-      />
+      <div className={dim + ' grid shrink-0 place-items-center overflow-hidden rounded-full border border-line bg-surface-2 p-[10%]'}>
+        <img src={logo} alt="" onError={() => setBroken(true)} className="h-full w-full object-contain" />
+      </div>
     )
   }
   return (

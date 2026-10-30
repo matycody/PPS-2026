@@ -19,7 +19,7 @@ function TeamCard({ t, next }) {
       </div>
       <div className="relative flex min-h-14 items-center bg-accent-soft py-3 pl-5 pr-28">
         <span className="rounded-full bg-accent px-3 py-1 text-[11px] font-extrabold uppercase text-black">{BRANCH[t.branch] ?? t.branch}</span>
-        <div className="absolute -top-10 right-4"><TeamBadge team={t} size="lg" /></div>
+        <div className="absolute -top-10 right-4"><TeamBadge team={{ ...t, id: t.teamId }} size="lg" branch={t.branch} /></div>
       </div>
       <div className="flex items-center gap-2 px-5 py-3 text-sm">
         <CalendarDays size={16} className="shrink-0 text-muted" />

@@ -17,12 +17,12 @@ function SlotSide({ slot }) {
   )
 }
 
-export default function Versus({ a, b, center, size = 'lg', noLink = false, slotA = null, slotB = null, formA = null, formB = null, rankA = null, rankB = null, fav = false }) {
+export default function Versus({ a, b, center, size = 'lg', noLink = false, slotA = null, slotB = null, formA = null, formB = null, rankA = null, rankB = null, fav = false, branch = null }) {
   const side = (t, slot, form, rank) => {
     if (slot) return <SlotSide slot={slot} /> // el backend manda el lugar solo si todavía no está definido
     const body = (
       <>
-        <TeamBadge team={t} size={size} />
+        <TeamBadge team={t} size={size} branch={branch} />
         <span className="w-full break-words text-sm font-bold leading-tight">{t?.name ?? 'Por definir'}</span>
         {t && rank && <span className="text-[11px] font-bold leading-none text-muted">{rank}.º</span>}
         {t && form?.length > 0 && <Forma form={form} size="sm" />}
