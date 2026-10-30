@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { fmtWhen, courtLabel, BRANCH, MODALITY, TSTATUS } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import TeamBadge from '../components/TeamBadge'
+import GoTo from '../components/GoTo'
 import { inputCls } from '../components/ui'
 import { useAuthStore } from '../stores/authStore'
 import { getRecent, addRecent, removeRecent, clearRecent } from '../lib/recentSearches'
@@ -139,7 +140,8 @@ export default function BuscarPage() {
             {res.teams.map((t) => (
               <Row key={t.id} to={(admin ? '/admin/equipos/' : '/equipo/') + t.id}>
                 <TeamBadge team={t} size="sm" />
-                <span className="font-bold">{t.name}</span>
+                <span className="min-w-0 flex-1 truncate font-bold">{t.name}</span>
+                {admin && <GoTo to={'/equipo/' + t.id} className="shrink-0 rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-accent">Ver banner</GoTo>}
               </Row>
             ))}
           </Section>

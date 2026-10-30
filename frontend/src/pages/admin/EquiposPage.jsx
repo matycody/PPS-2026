@@ -115,6 +115,7 @@ export default function EquiposPage() {
               </div>
               <ChevronRight size={18} className="text-muted" />
             </Link>
+            <Link to={'/equipo/' + t.id} className="shrink-0 rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-accent">Ver banner</Link>
             <button aria-label="Eliminar" onClick={() => remove(t)}><Trash2 size={18} className="text-danger" /></button>
           </div>
         ))}
