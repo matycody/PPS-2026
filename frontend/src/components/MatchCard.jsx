@@ -45,6 +45,7 @@ export default function MatchCard({ m, featured = false, to, badge }) {
         </p>
       )}
       {badge && <p className="mt-2 text-center text-xs font-bold uppercase tracking-widest text-warn">{badge}</p>}
+      {!badge && m.phase?.provisional && ['SCHEDULED', 'READY'].includes(m.status) && <p className="mt-2 text-center text-xs font-bold uppercase tracking-widest text-warn">Probable cruce</p>}
       <div className="mt-4">
         <Versus a={m.teamA} b={m.teamB} slotA={m.phase?.slotA} slotB={m.phase?.slotB} formA={m.form?.A} formB={m.form?.B} rankA={m.form?.rankA} rankB={m.form?.rankB} size={featured ? 'xl' : 'lg'} center={center} />
       </div>

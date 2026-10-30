@@ -56,7 +56,8 @@ export default function MatchRow({ m, to, action, footer, selecting, selected, o
     m.phase?.label ? (m.phase.kind === 'LEAGUE' && m.phase.zone ? m.phase.zone + ' · ' : '') + m.phase.label : null,
   ].filter(Boolean).join(' · ')
   const s = STATUS[m.status] ?? STATUS.SCHEDULED
-  const probable = !done && !!(m.phase?.slotA || m.phase?.slotB) // cruce todavía no definido
+  // Cruce todavía no definido: falta un lugar de zona o ganador, o la liga del torneo no terminó (playoffs provisorios)
+  const probable = !done && (!!(m.phase?.slotA || m.phase?.slotB) || (!!m.phase?.provisional && ['SCHEDULED', 'READY'].includes(m.status)))
 
   const showAction = !pip.canPin && !selecting && !!action
   return (
