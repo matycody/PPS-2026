@@ -467,7 +467,7 @@ router.patch('/:id', ...admin, async (req, res) => {
 
 // Programación masiva de una jornada: cancha y horario de varios partidos de una sola vez (todo o nada).
 // Body: { turnMinutes (10 a 240, opcional), items: [{ matchId, court (int | null), scheduledAt (ISO | null) }] }
-const DEFAULT_TURN_MIN = 40; // por defecto cada partido ocupa 40 minutos (2 tiempos de 20); la organización puede cambiarlo
+const DEFAULT_TURN_MIN = 60; // por defecto cada partido ocupa 1 hora; la organización puede cambiarlo
 const MAX_BULK = 500;
 router.post('/bulk-schedule', ...admin, async (req, res) => {
   try {
