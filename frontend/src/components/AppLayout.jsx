@@ -8,6 +8,7 @@ import UserAvatar from './UserAvatar'
 import { useMenuPrefs } from '../stores/menuPrefsStore'
 import ServerClock from './ServerClock'
 import { useTeamLogos } from '../stores/teamLogosStore'
+import { installDragScroll } from '../lib/dragScroll'
 
 // Pantallas que ya traen su propio "volver" con el nombre de la lista a la que vuelven
 const OWN_BACK = /^\/(liga|admin\/(torneos|equipos|partidos))\/[^/]+$/
@@ -31,6 +32,7 @@ export default function AppLayout() {
   const [open, setOpen] = useState(false)
   const user = useAuthStore((s) => s.user)
   const look = useMenuPrefs((s) => s.look)
+  useEffect(() => { installDragScroll() }, [])
   const loadLogos = useTeamLogos((s) => s.load)
   useEffect(() => { loadLogos() }, [loadLogos])
   useEffect(() => {
