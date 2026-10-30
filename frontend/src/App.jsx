@@ -27,6 +27,7 @@ import TorneoPage from './pages/TorneoPage'
 import EstadisticasPage from './pages/EstadisticasPage'
 import EquiposPage from './pages/admin/EquiposPage'
 import SedesPage from './pages/admin/SedesPage'
+import SedesPublicPage from './pages/SedesPublicPage'
 import SancionesPage from './pages/admin/SancionesPage'
 import AdminTeamPage from './pages/admin/AdminTeamPage'
 import PartidosPage from './pages/admin/PartidosPage'
@@ -95,7 +96,8 @@ function App() {
             <Route path="/liga/:id" element={<TorneoPage />} />
             <Route path="/estadisticas" element={<EstadisticasPage />} />
             <Route path="/equipos" element={<EquiposListPage />} />
-            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos', '/partidos'].includes(g.to)).map((g) => (
+            <Route path="/sedes" element={<SedesPublicPage />} />
+            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos', '/partidos', '/sedes'].includes(g.to)).map((g) => (
               <Route key={g.to} path={g.to} element={<Placeholder title={g.label} />} />
             ))}
 
