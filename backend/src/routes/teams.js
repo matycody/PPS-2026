@@ -2,6 +2,7 @@ const express = require('express');
 const prisma = require('../db');
 const { VENUE_SELECT } = require('../lib/venue');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { activeSuspensions } = require('../services/sanctions');
 
 const router = express.Router();
 const admin = [authenticate, requireRole('ADMIN')];
@@ -95,6 +96,8 @@ router.get('/:id', async (req, res) => {
     });
     if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
 
+    const sus = await activeSuspensions(team.players.map((p) => p.profile.id)).catch(() => new Map());
+
     res.json({
       id: team.id,
       name: team.name,
@@ -111,6 +114,7 @@ router.get('/:id', async (req, res) => {
         number: p.profile.showNumber ? p.profile.number : null,
         branch: p.branch,
         coach: p.isCoach,
+        suspension: sus.get(p.profile.id) || null,
       })),
     });
   } catch (err) {

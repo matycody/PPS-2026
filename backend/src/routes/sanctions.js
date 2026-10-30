@@ -1,7 +1,7 @@
 const express = require('express');
 const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { publicName } = require('../services/sanctions');
+const { publicName, activeSuspensions } = require('../services/sanctions');
 
 // Departamento de sanciones: evaluacion de rojas y suspensiones (solo ADMIN)
 const router = express.Router();
@@ -29,7 +29,7 @@ const shape = (r) => ({
     tournament: r.match.tournament?.name || null,
   },
   suspension: r.suspension && !r.suspension.revokedAt
-    ? { id: r.suspension.id, fechas: r.suspension.fechas, sameDay: r.suspension.sameDay, note: r.suspension.note, createdAt: r.suspension.createdAt }
+    ? { id: r.suspension.id, fechas: r.suspension.fechas, sameDay: r.suspension.sameDay, scope: r.suspension.scope, note: r.suspension.note, createdAt: r.suspension.createdAt }
     : null,
 });
 
@@ -70,23 +70,39 @@ router.get('/reds/count', async (_req, res) => {
   }
 });
 
-// Cargar la decision: { fechas: 0..20, sameDay: bool, note? } (0 y false = sin suspension)
+// Suspendidos vigentes (admin): quién está afuera, por cuántas fechas y con qué alcance
+router.get('/active', async (_req, res) => {
+  try {
+    const rows = await prisma.playerSuspension.findMany({
+      where: { revokedAt: null, OR: [{ fechas: { gt: 0 } }, { sameDay: true }], sanction: { revokedAt: null, kind: 'RED' } },
+      include: { profile: { select: { id: true, name: true, nickname: true, showNickname: true, number: true } }, sanction: { include: include } },
+    });
+    const state = await activeSuspensions(rows.map((r) => r.profileId));
+    const items = rows.filter((r) => state.has(r.profileId)).map((r) => ({ ...shape({ ...r.sanction, profile: r.profile, suspension: r }), state: state.get(r.profileId) }));
+    res.json({ items });
+  } catch (err) {
+    handle(err, res);
+  }
+});
+
+// Cargar la decision: { fechas: 0..20, sameDay: bool, scope: 'MODALITY'|'ALL', note? } (0 y false = sin suspension)
 router.put('/:id/suspension', async (req, res) => {
   try {
     const fechas = Number(req.body.fechas ?? 0);
     const sameDay = Boolean(req.body.sameDay);
+    const scope = req.body.scope === 'ALL' ? 'ALL' : 'MODALITY';
     const note = req.body.note ? String(req.body.note).trim().slice(0, 300) : null;
     if (!Number.isInteger(fechas) || fechas < 0 || fechas > 20) return res.status(400).json({ error: 'Fechas inválidas (0 a 20)' });
     const sanction = await prisma.matchSanction.findUnique({ where: { id: req.params.id } });
     if (!sanction || sanction.kind !== 'RED' || sanction.revokedAt) return res.status(404).json({ error: 'Roja no encontrada' });
     if (!sanction.profileId) return res.status(400).json({ error: 'La roja no tiene jugador identificado' });
-    const data = { fechas, sameDay, note, decidedById: req.user.id, revokedAt: null };
+    const data = { fechas, sameDay, scope, note, decidedById: req.user.id, revokedAt: null };
     const row = await prisma.playerSuspension.upsert({
       where: { sanctionId: sanction.id },
       create: { sanctionId: sanction.id, profileId: sanction.profileId, ...data },
       update: data,
     });
-    res.json({ id: row.id, fechas, sameDay, note });
+    res.json({ id: row.id, fechas, sameDay, scope, note });
   } catch (err) {
     handle(err, res);
   }

@@ -583,6 +583,7 @@ model PlayerSuspension {
   profileId   String
   fechas      Int      @default(0) // fechas completas posteriores a la roja
   sameDay     Boolean  @default(false) // tambien queda afuera lo que resta de la misma jornada
+  scope       String   @default("MODALITY") // MODALITY = solo la modalidad de la roja | ALL = todas las modalidades y equipos
   note        String?  @db.VarChar(300)
   decidedById String?
   createdAt   DateTime @default(now())

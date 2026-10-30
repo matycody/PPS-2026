@@ -2,6 +2,7 @@ const express = require('express');
 const prisma = require('../db');
 const { VENUE_SELECT } = require('../lib/venue');
 const storage = require('../services/storage');
+const { activeSuspensions } = require('../services/sanctions');
 
 // Banner público del jugador. Solo muestra los datos que la persona marcó como públicos
 // (apodo, número, edad, foto); nunca DNI, mail ni fecha de nacimiento.
@@ -116,6 +117,8 @@ router.get('/:id', async (req, res) => {
     };
     const stintStats = (t) => { const x = tally(inStint(t), [t.teamId]); return { played: x.played, won: x.won }; };
 
+    const suspension = (await activeSuspensions([p.id]).catch(() => new Map())).get(p.id) || null;
+
     res.json({
       id: p.id,
       name: p.name,
@@ -131,6 +134,7 @@ router.get('/:id', async (req, res) => {
       next: next.map(shape),
       recent: recent.slice(0, 15).map(shape),
       stats,
+      suspension,
     });
   } catch (err) {
     console.error('[players]', err);

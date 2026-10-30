@@ -36,45 +36,89 @@ async function emitSanctions(io, matchId) {
 
 const TZ = 'America/Argentina/Buenos_Aires';
 const dayKey = (d) => new Date(d).toLocaleDateString('en-CA', { timeZone: TZ });
-const matchDate = (m) => m.scheduledAt || m.finishedAt || m.createdAt;
+const OPEN = ['SCHEDULED', 'READY', 'LIVE', 'SUSPENDED'];
 
-// ¿Queda el jugador afuera del partido `match` por la suspension `sus`? (sus incluye sanction.match)
-async function isBlocked(sus, match) {
+const SUS_INCLUDE = {
+  sanction: { include: { match: true } },
+  profile: { select: { id: true, name: true, nickname: true, showNickname: true, number: true } },
+};
+
+// Partidos "del jugador" dentro del alcance de la suspension: de los equipos/ramas donde juega hoy
+// (scope MODALITY: solo la modalidad de la roja; scope ALL: todas)
+async function playerMatches(sus, { after } = {}) {
   const red = sus.sanction.match;
-  if (match.id === red.id) return false;
-  const teamId = sus.sanction.side === 'A' ? red.teamAId : red.teamBId;
-  if (!teamId || (match.teamAId !== teamId && match.teamBId !== teamId)) return false;
-  const redDay = dayKey(matchDate(red));
-  const day = dayKey(matchDate(match));
-  if (day < redDay) return false;
-  if (day === redDay) return sus.sameDay && new Date(matchDate(match)) > new Date(matchDate(red));
-  if (sus.fechas <= 0) return false;
-  // dias con partidos del equipo despues de la roja: los primeros `fechas` quedan afuera
-  const rows = await prisma.match.findMany({
-    where: { status: { notIn: ['CANCELLED'] }, OR: [{ teamAId: teamId }, { teamBId: teamId }], scheduledAt: { gt: new Date(matchDate(red)) } },
-    select: { scheduledAt: true },
-  });
-  const days = [...new Set(rows.map((r) => dayKey(r.scheduledAt)))].filter((d) => d > redDay).sort();
-  return days.slice(0, sus.fechas).includes(day);
+  const memberships = await prisma.playerTeam.findMany({ where: { profileId: sus.profileId, to: null }, select: { teamId: true, branch: true } });
+  if (!memberships.length) return [];
+  const where = {
+    status: { not: 'CANCELLED' },
+    hiddenAt: null,
+    scheduledAt: after ? { gt: after } : { not: null },
+    OR: memberships.map((m) => ({ branch: m.branch, OR: [{ teamAId: m.teamId }, { teamBId: m.teamId }] })),
+  };
+  if (sus.scope !== 'ALL') where.modality = red.modality;
+  return prisma.match.findMany({ where, select: { id: true, status: true, scheduledAt: true, teamAId: true, teamBId: true, modality: true, branch: true } });
 }
 
-// Jugadores suspendidos para este partido: [{ profileId, side, name, number, note }]
+// Estado vigente: fechas que le faltan cumplir y si le queda algo de la jornada de la roja
+async function suspensionState(sus) {
+  const red = sus.sanction.match;
+  const redAt = red.scheduledAt || red.finishedAt || red.createdAt;
+  const redDay = dayKey(redAt);
+  const rows = await playerMatches(sus);
+  const sameDayLeft = sus.sameDay && rows.some((m) => m.id !== red.id && dayKey(m.scheduledAt) === redDay && OPEN.includes(m.status));
+  // dias posteriores a la roja con partidos: los primeros `fechas` son los que se pierde
+  const days = [...new Set(rows.filter((m) => dayKey(m.scheduledAt) > redDay).map((m) => dayKey(m.scheduledAt)))].sort();
+  const lost = days.slice(0, sus.fechas);
+  const served = lost.filter((d) => rows.filter((m) => dayKey(m.scheduledAt) === d).every((m) => !OPEN.includes(m.status))).length;
+  const remaining = Math.max(0, sus.fechas - served);
+  return { remaining, sameDayLeft, active: remaining > 0 || sameDayLeft, lostDays: lost, redDay };
+}
+
+// ¿Queda el jugador afuera de `match`? (no mira equipo: mira si el partido entra en el alcance de la suspension)
+async function isBlocked(sus, match, memberships) {
+  const red = sus.sanction.match;
+  if (match.id === red.id || !match.scheduledAt) return false;
+  const inTeam = memberships.some((m) => m.branch === match.branch && (m.teamId === match.teamAId || m.teamId === match.teamBId));
+  if (!inTeam) return false;
+  if (sus.scope !== 'ALL' && match.modality !== red.modality) return false;
+  const st = await suspensionState(sus);
+  const day = dayKey(match.scheduledAt);
+  if (day === st.redDay) return sus.sameDay && OPEN.includes(match.status);
+  return st.lostDays.includes(day);
+}
+
+const baseWhere = { revokedAt: null, OR: [{ fechas: { gt: 0 } }, { sameDay: true }], sanction: { revokedAt: null, kind: 'RED' } };
+
+// Jugadores suspendidos para este partido: [{ profileId, side, name, number, note, scope }]
 async function suspendedForMatch(matchId) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return [];
   const teamIds = [match.teamAId, match.teamBId].filter(Boolean);
   if (!teamIds.length) return [];
-  const rows = await prisma.playerSuspension.findMany({
-    where: { revokedAt: null, OR: [{ fechas: { gt: 0 } }, { sameDay: true }], sanction: { revokedAt: null, kind: 'RED', match: { OR: [{ teamAId: { in: teamIds } }, { teamBId: { in: teamIds } }] } } },
-    include: { sanction: { include: { match: true } }, profile: { select: { id: true, name: true, nickname: true, showNickname: true, number: true } } },
-  });
+  const roster = await prisma.playerTeam.findMany({ where: { teamId: { in: teamIds }, branch: match.branch, to: null }, select: { profileId: true, teamId: true } });
+  if (!roster.length) return [];
+  const rows = await prisma.playerSuspension.findMany({ where: { ...baseWhere, profileId: { in: roster.map((r) => r.profileId) } }, include: SUS_INCLUDE });
   const out = [];
   for (const r of rows) {
-    if (!(await isBlocked(r, match))) continue;
-    const teamId = r.sanction.side === 'A' ? r.sanction.match.teamAId : r.sanction.match.teamBId;
-    out.push({ profileId: r.profileId, side: match.teamAId === teamId ? 'A' : 'B', name: publicName(r.profile), number: r.profile.number, note: r.note });
+    const memberships = await prisma.playerTeam.findMany({ where: { profileId: r.profileId, to: null }, select: { teamId: true, branch: true } });
+    if (!(await isBlocked(r, match, memberships))) continue;
+    const teamId = roster.find((x) => x.profileId === r.profileId)?.teamId;
+    out.push({ profileId: r.profileId, side: match.teamAId === teamId ? 'A' : 'B', name: publicName(r.profile), number: r.profile.number, note: r.note, scope: r.scope });
   }
   return out;
 }
 
-module.exports = { TEAM_SIZE, listSanctions, emitSanctions, publicName, suspendedForMatch };
+// Suspensiones vigentes de estos jugadores: Map(profileId -> { remaining, sameDayLeft, scope, modality, note })
+async function activeSuspensions(profileIds) {
+  const out = new Map();
+  if (!profileIds.length) return out;
+  const rows = await prisma.playerSuspension.findMany({ where: { ...baseWhere, profileId: { in: profileIds } }, include: SUS_INCLUDE });
+  for (const r of rows) {
+    const st = await suspensionState(r);
+    if (!st.active) continue;
+    out.set(r.profileId, { remaining: st.remaining, sameDayLeft: st.sameDayLeft, scope: r.scope, modality: r.sanction.match.modality, note: r.note, sanctionId: r.sanctionId });
+  }
+  return out;
+}
+
+module.exports = { TEAM_SIZE, listSanctions, emitSanctions, publicName, suspendedForMatch, activeSuspensions, suspensionState, SUS_INCLUDE, baseWhere };
