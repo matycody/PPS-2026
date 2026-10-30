@@ -458,6 +458,24 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
   const [warn, setWarn] = useState('')
   const [pausing, setPausing] = useState(false)
 
+  // SOLO PARA PRUEBAS Y DEMOS: se saca cuando el Product Owner lo indique (borrar este bloque, el botón y la ruta POST /tournaments/:id/reset)
+  async function resetTournament() {
+    const keep = await ask({ title: 'Reiniciar torneo', message: '¿Querés mantener la estructura de "' + t.name + '"? Sí: queda el mismo fixture, equipos y llaves, solo en cero. No: el torneo se pausa para todos y podés cambiar equipos, estructura y fixture.', confirmText: 'Sí, mantener', cancelText: 'No, cambiar' })
+    // Con estructura nueva los horarios no importan: el fixture se vuelve a armar
+    const clearSchedule = keep ? await ask({ title: 'Horarios', message: '¿Borrar también los horarios de los partidos? Si elegís mantener, quedan con su fecha y hora actuales.', confirmText: 'Borrar horarios', cancelText: 'Mantener horarios' }) : false
+    const detail = keep
+      ? 'Se borran los resultados, relojes, canchas y designaciones de TODOS los partidos y vuelven a Programado' + (clearSchedule ? ', sin horarios' : '') + '. Equipos, zonas, fechas y llaves se conservan.'
+      : 'Se borran los resultados, relojes, canchas y designaciones de TODOS los partidos' + (t.pausedAt ? '' : ' y el torneo se pausa para todos, menos la organización') + '. Después podés cambiar equipos, estructura y fixture.'
+    if (!(await ask({ title: 'Confirmar reinicio', message: detail + ' No se puede deshacer.', confirmText: 'Reiniciar', cancelText: 'Volver', danger: true }))) return
+    setPausing(true); setErr('')
+    try {
+      const r = await api('POST', '/tournaments/' + t.id + '/reset', { clearSchedule: !!clearSchedule })
+      if (!keep && !t.pausedAt) await api('POST', '/tournaments/' + t.id + '/pause')
+      setMsg('Torneo reiniciado: ' + r.matches + ' partidos en cero' + (keep ? (r.clearedSchedule ? ' y sin horarios' : '') : ' y pausado para editar la estructura'))
+      await reload()
+    } catch (e) { setErr(e.message) } finally { setPausing(false) }
+  }
+
   async function togglePause() {
     const willPause = !t.pausedAt
     const ok = await ask(willPause
@@ -527,6 +545,13 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
       >
         {pausing ? '...' : t.pausedAt ? 'Reanudar torneo' : 'Pausar torneo'}
       </button>
+      {t.status !== 'DRAFT' && (
+        <div className="space-y-2 rounded-3xl border border-danger p-4">
+          <p className="text-sm font-bold text-danger">Reiniciar torneo (solo pruebas)</p>
+          <p className="text-xs">Deja el fixture en cero: borra resultados, canchas y designaciones. Conserva equipos y estructura.</p>
+          <Btn tone="danger" disabled={pausing} onClick={resetTournament} className="w-full">Reiniciar torneo</Btn>
+        </div>
+      )}
       {t.status === 'ACTIVE' && (
         <div className="space-y-2 rounded-3xl border border-line bg-surface p-4">
           <p className="text-sm font-bold">Cerrar torneo</p>
