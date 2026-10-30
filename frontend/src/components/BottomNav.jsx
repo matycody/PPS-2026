@@ -3,13 +3,16 @@ import { LogIn } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { ITEMS, BOTTOM_PRIORITY, NOTICIAS } from '../lib/navConfig'
 
-export default function BottomNav() {
-  const { user, menu } = useAuthStore()
-
+export function bottomItems(user, menu = []) {
   const isAdmin = !!user?.roles?.includes('ADMIN')
-  const items = user
+  return user
     ? [ITEMS.home, NOTICIAS, ...BOTTOM_PRIORITY.filter((k) => k !== 'home' && menu.includes(k) && ITEMS[k] && (!isAdmin || k === 'dashboard_canchas' || k === 'partidos')).slice(0, 2).map((k) => ITEMS[k]), ...(isAdmin ? [] : [ITEMS.perfil])]
     : [ITEMS.home, NOTICIAS, { to: '/login', label: 'Ingresar', Icon: LogIn }]
+}
+
+export default function BottomNav() {
+  const { user, menu } = useAuthStore()
+  const items = bottomItems(user, menu)
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line menu-glass">
