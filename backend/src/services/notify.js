@@ -1,6 +1,7 @@
 const prisma = require('../db');
 const { SERVER_EVENTS } = require('../timers/timerEvents');
 const { getPermissions } = require('./matchAccess');
+const { setsWithScore } = require('./scoreTimeline');
 const authCache = require('./authCache');
 const { getMatch } = require('../timers/matchManager');
 
@@ -92,7 +93,7 @@ async function notifyMatch(io, matchId) {
       originalScheduledAt: m.originalScheduledAt ?? null,
       teamA: m.teamA,
       teamB: m.teamB,
-      sets: m.sets.map((s) => ({ number: s.number, winnerTeamId: s.winnerTeamId, draw: s.winnerTeamId === null })),
+      sets: setsWithScore(m),
       score: { teamA: a, teamB: b },
     });
   } catch (err) {

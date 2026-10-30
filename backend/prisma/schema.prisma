@@ -273,6 +273,10 @@ model MatchSet {
   matchId      String
   number       Int
   winnerTeamId String?
+  // Cuándo se decidió el set (queda registrado para siempre): tiempo (1 o 2) y segundos jugados de ese tiempo
+  half         Int?
+  matchSecond  Int?
+  createdAt    DateTime @default(now())
 
   match      Match @relation(fields: [matchId], references: [id])
   winnerTeam Team? @relation("SetWinner", fields: [winnerTeamId], references: [id])

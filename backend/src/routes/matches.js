@@ -7,6 +7,7 @@ const { getPermissions } = require('../services/matchAccess');
 const { notifyMatch } = require('../services/notify');
 const { ExtraMatchError, assertTournamentOpen, planStanding, placeInFixture } = require('../services/extraMatch');
 const { getMatch } = require('../timers/matchManager');
+const { setsWithScore } = require('../services/scoreTimeline');
 const { editorLabel, setResultLabel, buildLogData, logEntry, describeClockAction } = require('../services/resultLog');
 
 const router = express.Router();
@@ -91,7 +92,7 @@ function serialize(match, isAdmin) {
     originalScheduledAt: match.originalScheduledAt ?? null,
     teamA: match.teamA,
     teamB: match.teamB,
-    sets: match.sets.map((s) => ({ number: s.number, winnerTeamId: s.winnerTeamId, draw: s.winnerTeamId === null })),
+    sets: setsWithScore(match),
     score: score(match),
   };
   if (isAdmin) {
@@ -834,13 +835,17 @@ router.post('/:id/sets', authenticate, async (req, res) => {
     const editorLbl = await editorLabel(req.user);
     const logCreate = logEntry(label, req.user.id, editorLbl, 'SET_ADD', description);
 
+    // Momento en que se decidió el set (queda registrado): tiempo y segundos jugados de ese tiempo (cada tiempo dura 20:00)
+    const engine = getMatch(match.id);
+    const half = engine ? engine.matchHalf : null;
+    const matchSecond = engine ? Math.max(0, 20 * 60 - engine.matchTimeLeft) : null;
+
     const [set] = await prisma.$transaction([
-      prisma.matchSet.create({ data: { matchId: match.id, number, winnerTeamId } }),
+      prisma.matchSet.create({ data: { matchId: match.id, number, winnerTeamId, half, matchSecond } }),
       logCreate,
     ]);
     // Al cargar el ganador del set, el reloj de set vuelve a 3:00 y queda en pausa
     // hasta que el árbitro o la mesa inicie el set siguiente (no toca el reloj del partido)
-    const engine = getMatch(match.id);
     if (engine) engine.reset('set');
     await notifyMatch(req.app.get('io'), req.params.id);
     res.status(201).json(set);
