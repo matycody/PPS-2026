@@ -6,6 +6,9 @@ const SECRET = /pass|token|secret/i;
 const ID = /\/(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|c[a-z0-9]{20,})(?=\/|$)/gi;
 
 const LABELS = {
+  'POST /venues': 'Creó una sede',
+  'PATCH /venues/:id': 'Editó una sede',
+  'DELETE /venues/:id': 'Eliminó una sede',
   'POST /users/:id/promote': 'Hizo admin a un usuario',
   'POST /users/:id/demote': 'Quitó admin a un usuario',
   'DELETE /users/:id': 'Desactivó un usuario',

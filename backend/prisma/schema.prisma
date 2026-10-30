@@ -226,6 +226,9 @@ model Match {
   matchday   Matchday? @relation(fields: [matchdayId], references: [id])
 
   // Llaves: a que partido pasa el ganador / el perdedor
+  venueId    String?
+  venue      Venue?    @relation(fields: [venueId], references: [id])
+
   nextMatchId  String?
   nextSide     MatchSide?
   loserMatchId String?
@@ -238,6 +241,7 @@ model Match {
   @@index([tournamentId])
   @@index([stageId])
   @@index([matchdayId])
+  @@index([venueId])
   @@index([status])
   @@index([scheduledAt])
   @@index([teamAId])
@@ -515,4 +519,23 @@ model StageStanding {
 enum MatchSide {
   A
   B
+}
+
+
+// Sedes (polideportivos) donde se juegan los partidos; las carga la organización
+model Venue {
+  id        String    @id @default(uuid())
+  name      String    @db.VarChar(80)
+  address   String    @db.VarChar(160)
+  latitude  Float?
+  longitude Float?
+  mapUrl    String?   @db.VarChar(300) // enlace pegado desde Google/Apple Maps (opcional)
+  courts    Int? // canchas disponibles habitualmente (sugerencia al armar la jornada)
+  notes     String?   @db.VarChar(300)
+  deletedAt DateTime? // baja lógica: los partidos que la usaron la conservan
+  createdAt DateTime  @default(now())
+
+  matches Match[]
+
+  @@index([deletedAt])
 }

@@ -29,9 +29,11 @@ function parseReason(v) {
   return s || null;
 }
 
+const { VENUE_SELECT } = require('../lib/venue');
 const teamSelect = { id: true, name: true, logo: true };
 const baseInclude = {
   tournament: { select: { id: true, name: true } },
+  venue: { select: VENUE_SELECT },
   teamA: { select: teamSelect },
   teamB: { select: teamSelect },
   sets: { orderBy: { number: 'asc' } },
@@ -46,6 +48,15 @@ const adminInclude = {
     },
   },
 };
+
+// Sede opcional: undefined = no vino, null = sin sede. Devuelve { venueId } o { error }
+async function resolveVenue(v) {
+  if (v === undefined) return {};
+  if (v === null || v === '') return { venueId: null };
+  const venue = await prisma.venue.findUnique({ where: { id: String(v) }, select: { id: true, name: true, deletedAt: true } });
+  if (!venue || venue.deletedAt) return { error: 'La sede no existe' };
+  return { venueId: venue.id, venueName: venue.name };
+}
 
 function parseDate(v) {
   if (v === undefined || v === null || v === '') return null;
@@ -82,6 +93,7 @@ function serialize(match, isAdmin) {
     id: match.id,
     tournament: match.tournament,
     court: match.court,
+    venue: match.venue ?? null,
     branch: match.branch,
     modality: match.modality,
     status: match.status,
@@ -221,6 +233,8 @@ router.post('/', ...admin, async (req, res) => {
 
     const teamError = await validateTeams(teamAId, teamBId, branch, modality);
     if (teamError) return res.status(409).json({ error: teamError });
+    const ven = await resolveVenue(req.body.venueId);
+    if (ven.error) return res.status(400).json({ error: ven.error });
 
     // countsInStandings: el partido suma a la tabla de una zona (y aparece en su fixture). Sin eso queda en "Fuera del fixture"
     const plan = req.body.countsInStandings === true
@@ -230,7 +244,7 @@ router.post('/', ...admin, async (req, res) => {
     const match = await prisma.$transaction(async (tx) => {
       const place = plan ? await placeInFixture(tx, plan, scheduledAt) : {};
       return tx.match.create({
-        data: { tournamentId, court, branch, modality, scheduledAt, teamAId, teamBId, ...place },
+        data: { tournamentId, court, branch, modality, scheduledAt, teamAId, teamBId, venueId: ven.venueId ?? null, ...place },
       });
     });
     await notifyMatch(req.app.get('io'), match.id);
@@ -324,6 +338,9 @@ router.patch('/:id', ...admin, async (req, res) => {
       if (court !== null && (!Number.isInteger(court) || court < 1)) return res.status(400).json({ error: 'Cancha inválida' });
       data.court = court;
     }
+    const ven = await resolveVenue(b.venueId);
+    if (ven.error) return res.status(400).json({ error: ven.error });
+    if (b.venueId !== undefined) data.venueId = ven.venueId;
     if (b.branch !== undefined) {
       if (!BRANCHES.includes(b.branch)) return res.status(400).json({ error: 'Rama inválida' });
       data.branch = b.branch;
@@ -390,6 +407,9 @@ router.patch('/:id', ...admin, async (req, res) => {
     const changes = [];
     if (data.court !== undefined && data.court !== match.court) {
       changes.push('cancha: ' + (match.court ?? 'sin asignar') + ' → ' + (data.court ?? 'sin asignar'));
+    }
+    if (data.venueId !== undefined && data.venueId !== match.venueId) {
+      changes.push('sede: ' + (ven.venueName ?? 'sin sede'));
     }
     if (data.branch !== undefined && data.branch !== match.branch) {
       changes.push('rama: ' + BRANCH_LABEL[match.branch] + ' → ' + BRANCH_LABEL[data.branch]);
@@ -466,7 +486,9 @@ router.post('/bulk-schedule', ...admin, async (req, res) => {
       if (court !== null && (!Number.isInteger(court) || court < 1)) return res.status(400).json({ error: 'Cancha inválida' });
       const at = parseDate(it.scheduledAt);
       if (at === undefined) return res.status(400).json({ error: 'Fecha inválida' });
-      plan.set(id, { court, scheduledAt: at });
+      const ven = await resolveVenue(it.venueId);
+      if (ven.error) return res.status(400).json({ error: ven.error });
+      plan.set(id, { court, scheduledAt: at, ...(it.venueId !== undefined ? { venueId: ven.venueId, venueName: ven.venueName ?? null } : {}) });
     }
 
     const matches = await prisma.match.findMany({
@@ -506,7 +528,7 @@ router.post('/bulk-schedule', ...admin, async (req, res) => {
       for (const b of pool) {
         if (a === b || (b.scheduledAt && plan.has(b.id) && b.id < a.id)) continue; // cada par una sola vez
         if (!b.scheduledAt || Math.abs(a.scheduledAt.getTime() - b.scheduledAt.getTime()) >= TURN_MS) continue;
-        if (a.court && b.court && a.court === b.court) {
+        if (a.court && b.court && a.court === b.court && (!a.venueId || !b.venueId || a.venueId === b.venueId)) {
           problems.push('Cancha ' + a.court + ' ocupada a las ' + fmtDate(a.scheduledAt) + ': ' + label(a) + ' y ' + label(b));
         }
         const ids = [a.teamAId, a.teamBId].filter(Boolean);
@@ -527,13 +549,18 @@ router.post('/bulk-schedule', ...admin, async (req, res) => {
     for (const m of matches) {
       const next = plan.get(m.id);
       const sameCourt = next.court === m.court;
+      const sameVenue = next.venueId === undefined || next.venueId === m.venueId;
       const before = m.scheduledAt ? m.scheduledAt.getTime() : null;
       const after = next.scheduledAt ? next.scheduledAt.getTime() : null;
-      if (sameCourt && before === after) continue;
+      if (sameCourt && sameVenue && before === after) continue;
       const parts = [];
       if (!sameCourt) parts.push('cancha: ' + (m.court ?? 'sin asignar') + ' → ' + (next.court ?? 'sin asignar'));
       if (before !== after) parts.push('fecha: ' + fmtDate(m.scheduledAt) + ' → ' + fmtDate(next.scheduledAt));
-      ops.push(prisma.match.update({ where: { id: m.id }, data: { court: next.court, scheduledAt: next.scheduledAt } }));
+      if (!sameVenue) parts.push('sede: ' + (next.venueName ?? 'sin sede'));
+      ops.push(prisma.match.update({
+        where: { id: m.id },
+        data: { court: next.court, scheduledAt: next.scheduledAt, ...(next.venueId !== undefined ? { venueId: next.venueId } : {}) },
+      }));
       ops.push(prisma.matchResultLog.create({
         data: buildLogData(
           { id: m.id, court: next.court, teamAId: m.teamAId, teamBId: m.teamBId, teamA: m.teamA, teamB: m.teamB },

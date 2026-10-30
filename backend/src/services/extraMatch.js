@@ -5,6 +5,7 @@
 //   aparece en el fixture y la tabla lo cuenta al finalizar (la tabla se calcula siempre desde los partidos).
 
 const prisma = require('../db');
+const { VENUE_SELECT } = require('../lib/venue');
 
 class ExtraMatchError extends Error {
   constructor(status, message) {
@@ -70,6 +71,7 @@ function listExtraMatches(tournamentId, TEAM_SELECT, includePaused = false) {
       id: true,
       hiddenByPause: true,
       court: true,
+      venue: { select: VENUE_SELECT },
       status: true,
       statusReason: true,
       originalScheduledAt: true,

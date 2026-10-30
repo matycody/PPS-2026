@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const express = require('express');
+const { VENUE_SELECT } = require('../lib/venue');
 const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 
@@ -248,6 +249,7 @@ router.get('/:id/matchdays', async (req, res) => {
               hiddenByPause: true,
               slot: true,
               court: true,
+              venue: { select: VENUE_SELECT },
               status: true,
               statusReason: true,
               originalScheduledAt: true,

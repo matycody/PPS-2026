@@ -1,5 +1,6 @@
 const express = require('express');
 const prisma = require('../db');
+const { VENUE_SELECT } = require('../lib/venue');
 const { authenticate, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -199,14 +200,14 @@ router.get('/:id/posiciones', async (req, res) => {
         if (chain.length) {
           const full = await prisma.match.findMany({
             where: { id: { in: chain.map((m) => m.id) } },
-            include: { tournament: { select: { id: true, name: true } }, teamA: { select: POS_TEAM }, teamB: { select: POS_TEAM }, sets: { orderBy: { number: 'asc' } } },
+            include: { tournament: { select: { id: true, name: true } }, venue: { select: VENUE_SELECT }, teamA: { select: POS_TEAM }, teamB: { select: POS_TEAM }, sets: { orderBy: { number: 'asc' } } },
           });
           const phases = await phasesFor(full.map((m) => m.id)).catch(() => new Map());
           const order = new Map(chain.map((m, i) => [m.id, i]));
           playoffs = full
             .sort((x, y) => order.get(x.id) - order.get(y.id))
             .map((m) => ({
-              id: m.id, tournament: m.tournament, court: m.court, branch: m.branch, modality: m.modality, status: m.status,
+              id: m.id, tournament: m.tournament, court: m.court, venue: m.venue ?? null, branch: m.branch, modality: m.modality, status: m.status,
               scheduledAt: m.scheduledAt, finishedAt: m.finishedAt, statusReason: m.statusReason ?? null,
               originalScheduledAt: m.originalScheduledAt ?? null,
               teamA: m.teamA, teamB: m.teamB,

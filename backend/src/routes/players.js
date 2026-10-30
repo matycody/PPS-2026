@@ -1,5 +1,6 @@
 const express = require('express');
 const prisma = require('../db');
+const { VENUE_SELECT } = require('../lib/venue');
 const storage = require('../services/storage');
 
 // Banner público del jugador. Solo muestra los datos que la persona marcó como públicos
@@ -10,6 +11,7 @@ const teamSel = { select: { id: true, name: true, logo: true } };
 const matchSelect = {
   id: true, status: true, court: true, branch: true, modality: true, scheduledAt: true, finishedAt: true, statusReason: true,
   tournament: { select: { id: true, name: true } },
+  venue: { select: VENUE_SELECT },
   teamA: teamSel,
   teamB: teamSel,
   teamAId: true,

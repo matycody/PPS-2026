@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const express = require('express');
 const prisma = require('../db');
+const { VENUE_SELECT } = require('../lib/venue');
 const { openLeagueTournaments } = require('../services/leagueOpen');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { computeStandings } = require('../services/standings');
@@ -166,6 +167,7 @@ async function view(stageId) {
       statusReason: true,
       originalScheduledAt: true,
       court: true,
+      venue: { select: VENUE_SELECT },
       scheduledAt: true,
       teamAId: true,
       teamBId: true,
@@ -225,6 +227,7 @@ async function view(stageId) {
       statusReason: m.statusReason,
       originalScheduledAt: m.originalScheduledAt,
       court: m.court,
+      venue: m.venue ?? null,
       scheduledAt: m.scheduledAt,
       teamA: m.teamA,
       teamB: m.teamB,

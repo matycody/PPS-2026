@@ -1,4 +1,5 @@
 const prisma = require('../db');
+const { VENUE_SELECT } = require('../lib/venue');
 const { SERVER_EVENTS } = require('../timers/timerEvents');
 const { getPermissions } = require('./matchAccess');
 const { setsWithScore } = require('./scoreTimeline');
@@ -45,6 +46,7 @@ async function notifyMatch(io, matchId) {
       where: { id: matchId },
       include: {
         tournament: { select: { id: true, name: true } },
+        venue: { select: VENUE_SELECT },
         teamA: { select: { id: true, name: true, logo: true } },
         teamB: { select: { id: true, name: true, logo: true } },
         sets: { orderBy: { number: 'asc' } },
@@ -83,6 +85,7 @@ async function notifyMatch(io, matchId) {
       matchId: m.id,
       tournament: m.tournament,
       court: m.court,
+      venue: m.venue ?? null,
       branch: m.branch,
       modality: m.modality,
       status: m.status,
