@@ -21,16 +21,16 @@ const dayLabel = (iso) => {
   return (diff === 0 ? 'Hoy \u00b7 ' : diff === 1 ? 'Ma\u00f1ana \u00b7 ' : '') + base
 }
 
-function AdminRow({ m, hidden, busy, onHide, onRestore, onPurge, selecting, selected, onToggle }) {
+function AdminRow({ m, hidden, busy, onHide, onRestore, onPurge, selecting, selected, onToggle, readOnly }) {
   return (
     <MatchRow
       m={m}
       flat
-      to={'/admin/partidos/' + m.id}
+      to={readOnly ? '/partido/' + m.id : '/admin/partidos/' + m.id}
       selecting={selecting}
       selected={selected}
       onToggle={onToggle}
-      action={!hidden && canHide(m.status) ? (
+      action={!readOnly && !hidden && canHide(m.status) ? (
         <button disabled={busy} onClick={onHide} aria-label="Eliminar" className="grid h-9 w-9 place-items-center rounded-full text-danger disabled:opacity-40"><Trash2 size={16} /></button>
       ) : null}
       footer={!selecting && hidden ? (
@@ -56,7 +56,8 @@ const PERIODS = [
   { id: 'all', label: 'Todos (incluye sin fecha)' },
 ]
 
-export default function PartidosPage() {
+// readOnly: lo ven los demás roles (y quien no inició sesión): mismo listado y filtros, sin crear, eliminar ni restaurar
+export default function PartidosPage({ readOnly = false }) {
   const ask = useConfirm()
   const [matches, setMatches] = useState(null)
   const [tournaments, setTournaments] = useState(null)
@@ -230,23 +231,25 @@ export default function PartidosPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Partidos</h1>
-        {view === 'active' && (
+        {view === 'active' && !readOnly && (
           <Btn tone="accent" onClick={() => setOpen((o) => !o)} className="px-4 py-2"><Plus size={16} /> Nuevo</Btn>
         )}
       </div>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
       {ok && <Alert tone="ok" onClose={() => setOk('')}>{ok}</Alert>}
 
-      {open && view === 'active' && ready && (
+      {open && !readOnly && view === 'active' && ready && (
         <div className="rounded-3xl border border-line bg-surface p-5">
           <MatchForm tournaments={tournaments} teams={teams} onSubmit={create} label="Crear partido" busy={busyId === 'new'} />
         </div>
       )}
 
-      <div className="flex gap-2">
-        <Btn tone={view === 'active' ? 'accent' : 'base'} onClick={() => setView('active')} className="flex-1">Partidos</Btn>
-        <Btn tone={view === 'hidden' ? 'accent' : 'base'} onClick={() => setView('hidden')} className="flex-1">Eliminados</Btn>
-      </div>
+      {!readOnly && (
+        <div className="flex gap-2">
+          <Btn tone={view === 'active' ? 'accent' : 'base'} onClick={() => setView('active')} className="flex-1">Partidos</Btn>
+          <Btn tone={view === 'hidden' ? 'accent' : 'base'} onClick={() => setView('hidden')} className="flex-1">Eliminados</Btn>
+        </div>
+      )}
 
       {view === 'hidden' && all.length > 0 && !selecting && (
         <div className="relative">
@@ -324,7 +327,7 @@ export default function PartidosPage() {
               <section key={g.id} className="overflow-hidden rounded-2xl border border-line bg-surface">
                 <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
                   {g.id !== 'none'
-                    ? <Link to={'/admin/torneos/' + g.id} className="min-w-0 truncate text-sm font-extrabold text-accent">{g.name} ›</Link>
+                    ? <Link to={(readOnly ? '/liga/' : '/admin/torneos/') + g.id} className="min-w-0 truncate text-sm font-extrabold text-accent">{g.name} ›</Link>
                     : <span className="min-w-0 truncate text-sm font-extrabold">{g.name}</span>}
                   <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted">{g.list.length} {g.list.length === 1 ? 'partido' : 'partidos'}</span>
                 </div>
@@ -338,6 +341,7 @@ export default function PartidosPage() {
                       onHide={() => hide(m)}
                       onRestore={() => restore(m)}
                       onPurge={() => purge(m)}
+                      readOnly={readOnly}
                       selecting={selecting}
                       selected={selected.has(m.id)}
                       onToggle={() => toggle(m.id)}

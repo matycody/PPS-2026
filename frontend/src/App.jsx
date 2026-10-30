@@ -92,9 +92,11 @@ function App() {
             <Route path="/liga/:id" element={<TorneoPage />} />
             <Route path="/estadisticas" element={<EstadisticasPage />} />
             <Route path="/equipos" element={<EquiposListPage />} />
-            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos'].includes(g.to)).map((g) => (
+            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos', '/partidos'].includes(g.to)).map((g) => (
               <Route key={g.to} path={g.to} element={<Placeholder title={g.label} />} />
             ))}
+
+            <Route path="/partidos" element={<PartidosPage readOnly />} />
 
             <Route element={<ProtectedRoute />}>
               <Route path="/perfil" element={<PerfilPage />} />
@@ -107,7 +109,7 @@ function App() {
             <Route element={<ProtectedRoute need="mis_partidos_asignados" />}>
               <Route path="/asignados" element={<AssignmentsPage fn="REFEREE" />} />
             </Route>
-            <Route element={<ProtectedRoute need="control_mesa" />}>
+            <Route element={<ProtectedRoute need="control_mesa" roles={['ADMIN', 'REFEREE']} />}>
               <Route path="/mesa" element={<AssignmentsPage fn="TABLE" />} />
             </Route>
 

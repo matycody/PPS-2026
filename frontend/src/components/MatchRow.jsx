@@ -46,6 +46,7 @@ function Side({ t, slot, form, rank }) {
 export default function MatchRow({ m, to, action, footer, selecting, selected, onToggle, flat }) {
   const pip = usePipClock(m)
   const done = m.status === 'FINISHED'
+  const live = m.status === 'LIVE'
   const meta = [
     courtLabel(m.court),
     MODALITY[m.modality],
@@ -61,7 +62,9 @@ export default function MatchRow({ m, to, action, footer, selecting, selected, o
       <Link
         to={to ?? '/partido/' + m.id}
         onClick={selecting ? (e) => { e.preventDefault(); onToggle?.() } : undefined}
-        className={flat ? 'block px-3 py-2.5 ' + (selected ? 'bg-accent-soft' : '') : 'block rounded-2xl border bg-surface px-3 py-2.5 ' + (selected ? 'border-accent ring-2 ring-accent/40' : statusBorder(m.status))}
+        className={flat
+          ? (live ? 'block border-l-4 border-live bg-live/10 py-2.5 pl-2 pr-3 ' : 'block px-3 py-2.5 ') + (selected ? 'bg-accent-soft' : '')
+          : 'block rounded-2xl border bg-surface px-3 py-2.5 ' + (live ? 'bg-live/10 ' : '') + (selected ? 'border-accent ring-2 ring-accent/40' : statusBorder(m.status))}
       >
         <div className="flex items-stretch gap-3">
           {selecting && (
@@ -74,12 +77,18 @@ export default function MatchRow({ m, to, action, footer, selecting, selected, o
             <Side t={m.teamB} slot={m.phase?.slotB} form={m.form?.B} rank={m.form?.rankB} />
           </div>
           <div className="flex w-[72px] shrink-0 flex-col items-center justify-center border-l border-line pl-3 text-center">
-            {done ? (
-              <span className="font-mono text-xl font-extrabold tabular-nums">{m.score?.teamA ?? 0}-{m.score?.teamB ?? 0}</span>
+            {done || live ? (
+              <span className={'font-mono text-xl font-extrabold tabular-nums ' + (live ? 'text-live' : '')}>{m.score?.teamA ?? 0}-{m.score?.teamB ?? 0}</span>
             ) : (
               <span className="font-mono text-xl font-extrabold tabular-nums">{hour(m.scheduledAt)}</span>
             )}
-            <span className={'mt-0.5 text-[10px] font-bold uppercase leading-tight ' + (m.status === 'CANCELLED' ? 'text-danger' : 'text-muted')}>{s.label}</span>
+            {live ? (
+              <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-live px-2 py-0.5 text-[10px] font-extrabold uppercase leading-tight text-black">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-black" />En vivo
+              </span>
+            ) : (
+              <span className={'mt-0.5 text-[10px] font-bold uppercase leading-tight ' + (m.status === 'CANCELLED' ? 'text-danger' : 'text-muted')}>{s.label}</span>
+            )}
           </div>
         </div>
         {probable && <p className="mt-2 inline-block rounded-full bg-warn/15 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-warn">Probable cruce</p>}

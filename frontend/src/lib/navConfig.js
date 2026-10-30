@@ -35,6 +35,9 @@ export const GENERAL = [
   { to: '/cronometro', label: 'Cronómetro offline', Icon: Timer },
   { to: '/liga', label: 'Liga o copas', Icon: Trophy },
   { to: '/estadisticas', label: 'Estadísticas', Icon: BarChart3 },
+  // (va después de los 3 primeros: son los accesos del Inicio)
+  // El organizador ya tiene 'Partidos' (con edición) en Administración; los demás roles lo ven solo para consultar
+  { to: '/partidos', label: 'Partidos', Icon: CalendarDays, hideIf: 'partidos' },
   { to: '/noticias', label: 'Noticias', Icon: Newspaper, soon: true, bottomOnly: true }, // fija en la barra inferior para todos (no va en el drawer)
   // El organizador ya tiene 'Equipos' en Administración
   { to: '/equipos', label: 'Equipos', Icon: Users, hideIf: 'equipos' },

@@ -127,7 +127,7 @@ export default function AssignmentsPage({ fn }) {
       <h1 className="text-xs font-bold uppercase tracking-widest text-muted">{title}</h1>
       {error && <p className="text-danger">{error}</p>}
       {list === null && !error && <p className="text-muted">Cargando…</p>}
-      {list && items.length === 0 && <p className="text-muted">No tenés partidos asignados.</p>}
+      {list && items.length === 0 && <p className="text-muted">{fn === 'TABLE' ? 'No tenés partidos asignados como mesa.' : 'No tenés partidos asignados.'}</p>}
 
       {list && items.length > 0 && (
         <>
