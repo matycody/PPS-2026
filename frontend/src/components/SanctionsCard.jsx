@@ -41,7 +41,8 @@ export function playing(side, tick, items) {
 }
 
 // Casilla de sancionados + historial. Con `control` (mesa/árbitros) permite cargar y deshacer sanciones.
-export default function SanctionsCard({ m, tick, items, control, nameA, nameB, always = false }) {
+export default function SanctionsCard({ m, tick, items, control, nameA, nameB, always = false, suspended = [] }) {
+  const suspIds = new Set(suspended.map((x) => x.profileId))
   const [pick, setPick] = useState(null) // { side, kind }
   const [roster, setRoster] = useState({ A: null, B: null })
   const [playerId, setPlayerId] = useState('')
@@ -171,9 +172,10 @@ export default function SanctionsCard({ m, tick, items, control, nameA, nameB, a
             <label className="block text-xs font-bold text-muted">Jugador{needPlayer ? '' : ' (opcional)'}
               <select value={playerId} onChange={(e) => setPlayerId(e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-bg px-3 py-3 text-sm">
                 <option value="">{list === null ? 'Cargando…' : needPlayer ? 'Elegí al jugador' : 'Sin identificar'}</option>
-                {(list ?? []).map((p) => <option key={p.profileId} value={p.profileId}>{p.number != null ? '#' + p.number + ' ' : ''}{p.nickname || p.name}</option>)}
+                {(list ?? []).map((p) => <option key={p.profileId} value={p.profileId}>{p.number != null ? '#' + p.number + ' ' : ''}{p.nickname || p.name}{suspIds.has(p.profileId) ? ' · SUSPENDIDO' : ''}</option>)}
               </select>
             </label>
+            {suspIds.has(playerId) && <p className="rounded-xl bg-danger/15 px-3 py-2 text-xs font-bold text-danger">Este jugador figura suspendido: no debería estar jugando este partido.</p>}
             <label className="block text-xs font-bold text-muted">Motivo (opcional)
               <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} placeholder="Ej.: salida en falso, reclamo, juego brusco" className="mt-1 w-full rounded-xl border border-line bg-bg px-3 py-3 text-sm" />
             </label>

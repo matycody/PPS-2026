@@ -6,6 +6,7 @@ import TeamBadge from '../components/TeamBadge'
 import FavHeart from '../components/FavHeart'
 import MatchRow from '../components/MatchRow'
 import ResultRow from '../components/ResultRow'
+import SuspensionNotice from '../components/SuspensionNotice'
 
 const Title = ({ children, n }) => (
   <h2 className="text-xs font-bold uppercase tracking-widest text-muted">{children}{n != null ? ' · ' + n : ''}</h2>
@@ -146,6 +147,8 @@ export default function PlayerPage() {
           ))}
         </div>
       </section>
+
+      <SuspensionNotice s={p.suspension} />
 
       {tab === 'resumen' && (
         <>

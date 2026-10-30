@@ -9,6 +9,7 @@ import PersonName from '../components/PersonName'
 import PlayerRequestBanner from '../components/PlayerRequestBanner'
 import MenuPrefsCard from '../components/MenuPrefsCard'
 import CuentaCard from '../components/CuentaCard'
+import SuspensionNotice from '../components/SuspensionNotice'
 
 function Card({ title, children }) {
   return (
@@ -23,6 +24,10 @@ export default function PerfilPage() {
   const { user, menu, signOut, refreshProfile } = useAuthStore()
   const navigate = useNavigate()
   const fileRef = useRef(null)
+  const [sus, setSus] = useState(null)
+  useEffect(() => {
+    if (user?.profileId) api('GET', '/players/' + user.profileId).then((r) => setSus(r.suspension ?? null)).catch(() => {})
+  }, [user?.profileId])
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
@@ -84,6 +89,7 @@ export default function PerfilPage() {
       {err && <p className="rounded-2xl border box-danger px-4 py-3 text-sm font-bold text-danger">{err}</p>}
       {msg && <p className="rounded-2xl border box-live px-4 py-3 text-sm font-bold text-live">{msg}</p>}
       <PlayerRequestBanner cta />
+      <SuspensionNotice s={sus} self />
 
       <div className="flex items-center gap-4 rounded-3xl border border-line bg-surface p-5">
         <div className="relative shrink-0">

@@ -2,6 +2,7 @@
 import { Link } from 'react-router-dom'
 import { BRANCH } from '../lib/format'
 import PersonName from './PersonName'
+import { suspensionText } from './SuspensionNotice'
 
 const ORDER = ['MALE', 'MIXED', 'FEMALE']
 
@@ -53,6 +54,7 @@ export default function Roster({ roster = [], meProfileId, extra }) {
                   <span className="min-w-0 flex-1 truncate font-semibold">
                     <Link to={'/jugador/' + r.profileId}><PersonName p={r} /></Link>
                     {r.coach && <span className="ml-1.5 text-xs font-bold text-accent">(DT)</span>}
+                    {r.suspension && <span className="ml-1.5 rounded bg-danger/15 px-1.5 py-0.5 text-[10px] font-extrabold uppercase text-danger">Suspendido · {suspensionText(r.suspension)}</span>}
                   </span>
                   {me && <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold uppercase text-black">Vos</span>}
                   {extra?.(r)}

@@ -216,6 +216,10 @@ export default function ControlPage() {
   const [busy, setBusy] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
   const sanctions = useSanctions(id)
+  const [suspended, setSuspended] = useState([])
+  useEffect(() => {
+    api('GET', '/matches/' + id + '/suspended').then((r) => setSuspended(r.items ?? [])).catch(() => {})
+  }, [id])
   const soundAllowed = !!(perms?.isTable || perms?.isReferee)
   useMatchSound(id, soundAllowed) // solo mesa y arbitro
   useWakeLock(!!tick && (!tick.isMatchPaused || !tick.isSetPaused || !!tick.isTimeoutRunning))
@@ -348,6 +352,15 @@ export default function ControlPage() {
         <button onClick={() => setErr('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border box-danger px-4 py-3 text-left text-sm font-bold text-danger">
           {err} <X size={16} className="shrink-0" />
         </button>
+      )}
+      {suspended.length > 0 && (
+        <div className="rounded-2xl border box-danger px-4 py-3 text-sm text-danger">
+          <p className="font-extrabold">Jugadores suspendidos en este partido</p>
+          <p className="mt-0.5 text-xs font-semibold">
+            {suspended.map((s) => (s.number != null ? '#' + s.number + ' ' : '') + s.name + ' (' + (s.side === 'A' ? a?.name : b?.name) + ')').join(' · ')}
+          </p>
+          <p className="mt-0.5 text-xs">No deberían jugar: avisale al árbitro y al delegado antes de empezar.</p>
+        </div>
       )}
       {notices.map((n) => (
         <button key={n.k} onClick={() => setNotices((l) => l.filter((x) => x.k !== n.k))} className="flex w-full items-center justify-between gap-3 rounded-2xl border box-warn px-4 py-3 text-left text-sm font-bold text-warn">
@@ -490,7 +503,7 @@ export default function ControlPage() {
       )}
 
       {(live || m.status === 'READY') && (
-        <SanctionsCard m={m} tick={tick} items={sanctions} nameA={a?.name} nameB={b?.name} always control={{ can, send }} />
+        <SanctionsCard suspended={suspended} m={m} tick={tick} items={sanctions} nameA={a?.name} nameB={b?.name} always control={{ can, send }} />
       )}
 
       <MatchRosterToggle teamA={a} teamB={b} branch={m.branch} matchId={m.id} />
