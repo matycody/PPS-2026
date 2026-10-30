@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Pin, PinOff, Check } from 'lucide-react'
+import { Pin, PinOff, Check, MapPin } from 'lucide-react'
 import GoTo from './GoTo'
 import TeamBadge from './TeamBadge'
 import Forma from './torneo/Forma'
@@ -92,7 +92,8 @@ export default function MatchRow({ m, to, action, footer, selecting, selected, o
           </div>
         </div>
         {probable && <p className="mt-2 inline-block rounded-full bg-warn/15 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-warn">Probable cruce</p>}
-        <p className={(probable ? 'mt-1.5 ' : 'mt-2 ') + 'truncate text-[11px] font-semibold uppercase tracking-wide text-muted ' + (pip.canPin || showAction ? 'pr-10' : '')}>{meta}</p>
+        {m.venue && !done && <p className="mt-1.5 flex items-center gap-1 truncate text-[11px] font-bold text-muted"><MapPin size={12} className="shrink-0" /><span className="truncate">{m.venue.name}</span></p>}
+        <p className={(probable || m.venue ? 'mt-1.5 ' : 'mt-2 ') + 'truncate text-[11px] font-semibold uppercase tracking-wide text-muted ' + (pip.canPin || showAction ? 'pr-10' : '')}>{meta}</p>
       </Link>
       {pip.canPin && (
         <button

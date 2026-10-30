@@ -1,6 +1,6 @@
 import { halfLabel } from '../../lib/pipTime'
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
 import { dayOf, dayTab } from '../../lib/days'
 import { Link } from 'react-router-dom'
 import { Pin, PinOff } from 'lucide-react'
@@ -207,6 +207,15 @@ export default function DashboardPage() {
     return () => { socket.off('match:updated', onUpd); socket.off('connect', load) }
   }, [])
 
+  // Sedes de la jornada elegida (con cuántos partidos tiene cada una)
+  const dayVenues = useMemo(() => {
+    const count = {}
+    Object.values({ ...fin, ...byId }).forEach((m) => {
+      if (m.venue && m.scheduledAt && dayOf(m.scheduledAt) === day && m.status in ORDER) count[m.venue.id] = { name: m.venue.name, n: (count[m.venue.id]?.n ?? 0) + 1 }
+    })
+    return Object.values(count).sort((a, b) => b.n - a.n)
+  }, [fin, byId, day])
+
   const courts = useMemo(() => {
     const groups = {}
     const all = { ...fin, ...byId }
@@ -264,6 +273,12 @@ export default function DashboardPage() {
         <button onClick={() => setDay(dayOf(new Date().toISOString()))} className="text-sm font-extrabold">{dayTab(day)}</button>
         <button aria-label="Día siguiente" onClick={() => setDay(shiftDay(day, 1))} className="grid h-9 w-9 place-items-center rounded-full bg-surface-2"><ChevronRight size={18} /></button>
       </div>
+      {dayVenues.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold">
+          <MapPin size={14} className="text-accent" />
+          {dayVenues.map((v) => <span key={v.name} className="rounded-full border border-line bg-surface px-2.5 py-1">{v.name} · {v.n}</span>)}
+        </div>
+      )}
       {loading && <p className="text-muted">Cargando…</p>}
       {error && <p className="text-danger">{error}</p>}
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}

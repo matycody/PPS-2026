@@ -37,7 +37,7 @@ export default function MatchCard({ m, featured = false, to, badge }) {
     >
       <div className={'flex items-center justify-between ' + (pip.canPin ? 'pr-8' : '')}>
         <StatusPill status={m.status} />
-        <span className="text-sm text-muted">{courtLabel(m.court)}</span>
+        <span className="min-w-0 truncate text-sm text-muted">{m.venue ? m.venue.name + ' · ' : ''}{courtLabel(m.court)}</span>
       </div>
       {m.phase?.label && (
         <p className="mt-2 text-center text-xs font-bold uppercase tracking-widest text-accent">

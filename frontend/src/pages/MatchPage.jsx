@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom'
 import { Eye, Pin, PinOff, Trophy, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
+import VenueInfo from '../components/VenueInfo'
 import { normMatch, MODALITY, BRANCH, courtLabel } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import MatchNotice from '../components/MatchNotice'
@@ -94,6 +95,7 @@ export default function MatchPage() {
       <div className="flex flex-col items-center gap-2 text-center">
         <StatusPill status={m.status} />
         <p className="text-sm text-muted">{courtLabel(m.court)} · {BRANCH[m.branch] ?? m.branch}</p>
+        {m.venue && !over && <VenueInfo venue={m.venue} className="w-full max-w-sm" />}
         {m.tournament?.id && (
           <div className="flex items-center gap-2">
             <Link to={'/liga/' + m.tournament.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-bold text-accent">

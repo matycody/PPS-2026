@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { api } from '../lib/api'
 import { BRANCH, MODALITY } from '../lib/format'
 import { Btn, inputCls } from './ui'
 
@@ -13,12 +14,15 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
     // Al editar se respeta el torneo actual (o amistoso); solo un alta nueva propone el primero
     tournamentId: initial ? (initial.tournament?.id ?? '') : (tournaments[0]?.id ?? ''),
     court: initial?.court ?? '',
+    venueId: initial?.venue?.id ?? '',
     branch: initial?.branch ?? 'MIXED',
     modality: initial?.modality ?? 'FOAM',
     scheduledAt: toLocalInput(initial?.scheduledAt),
     teamAId: initial?.teamA?.id ?? '',
     teamBId: initial?.teamB?.id ?? '',
   })
+  const [venues, setVenues] = useState([])
+  useEffect(() => { api('GET', '/venues').then(setVenues).catch(() => {}) }, [])
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }))
   // Solo equipos que juegan esa rama y esa modalidad (sin dato de modalidad = ambas)
   const eligible = teams.filter((t) => (t.branches ?? []).includes(f.branch) && (t.modalities ?? ['FOAM', 'CLOTH']).includes(f.modality))
@@ -28,6 +32,7 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
     onSubmit({
       tournamentId: f.tournamentId || null, // vacío = partido suelto, sin torneo
       court: f.court === '' ? null : Number(f.court),
+      venueId: f.venueId || null,
       branch: f.branch,
       modality: f.modality,
       scheduledAt: f.scheduledAt ? new Date(f.scheduledAt).toISOString() : null, // vacío = sin fecha (borra la anterior)
@@ -42,6 +47,12 @@ export default function MatchForm({ initial, tournaments, teams, onSubmit, label
         <option value="">Amistoso</option>
         {tournaments.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
       </select>
+      <label className="block text-xs text-muted">Sede
+        <select className={inputCls} value={f.venueId} onChange={(e) => set('venueId', e.target.value)}>
+          <option value="">Sin sede</option>
+          {venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+        </select>
+      </label>
       <div className="grid grid-cols-3 gap-3 [&>*]:min-w-0">
         <label className="text-xs text-muted">Cancha
           <input type="number" min="1" placeholder="Opcional" className={inputCls} value={f.court} onChange={(e) => set('court', e.target.value)} />

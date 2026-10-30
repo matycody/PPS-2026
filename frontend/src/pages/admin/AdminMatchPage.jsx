@@ -326,6 +326,7 @@ export default function AdminMatchPage() {
           <div className="space-y-1 text-sm">
             <div className="flex justify-between"><span className="text-muted">Torneo</span><b>{m.tournament?.name ?? 'Amistoso'}</b></div>
             <div className="flex justify-between"><span className="text-muted">Equipos</span><b>{m.teamA?.name} vs {m.teamB?.name}</b></div>
+            <div className="flex justify-between"><span className="text-muted">Sede</span><b>{m.venue?.name ?? 'Sin sede'}</b></div>
             <div className="flex justify-between"><span className="text-muted">Cancha</span><b>{m.court ?? '—'}</b></div>
             <div className="flex justify-between"><span className="text-muted">Fecha y hora</span><b>{m.scheduledAt ? new Date(m.scheduledAt).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Sin programación'}</b></div>
             {!editable && <p className="pt-1 text-xs">Solo se edita con el partido Programado o Habilitado.</p>}

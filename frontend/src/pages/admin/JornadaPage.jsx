@@ -62,6 +62,9 @@ export default function JornadaPage() {
   const [turn, setTurn] = useState(DEFAULT_TURN) // minutos entre el inicio de un partido y el siguiente
   const [courts, setCourts] = useState(2)
   const [turns, setTurns] = useState(8)
+  const [venues, setVenues] = useState([])
+  const [venueId, setVenueId] = useState('') // sede de la jornada
+  const [baseVenue, setBaseVenue] = useState('')
   const [noBack, setNoBack] = useState(true) // el autoarmado evita partidos seguidos del mismo plantel
   const [grid, setGrid] = useState({}) // 'cancha|turno' -> id de partido (borrador)
   const [base, setBase] = useState({}) // lo que hay guardado
@@ -89,14 +92,15 @@ export default function JornadaPage() {
   useEffect(() => {
     load().catch((e) => setErr(e.message))
     api('GET', '/tournaments').then(setTournaments).catch(() => {})
+    api('GET', '/venues').then(setVenues).catch(() => {})
   }, [load])
 
   const byId = useMemo(() => Object.fromEntries((all ?? []).map((m) => [m.id, m])), [all])
 
   const dirty = useMemo(() => {
     const ks = new Set([...Object.keys(grid), ...Object.keys(base)])
-    return [...ks].some((k) => grid[k] !== base[k])
-  }, [grid, base])
+    return [...ks].some((k) => grid[k] !== base[k]) || venueId !== baseVenue
+  }, [grid, base, venueId, baseVenue])
 
   const { modal: leaveModal } = useLeaveGuard(dirty, '', {
     title: '¿Salir sin guardar?',
@@ -111,6 +115,12 @@ export default function JornadaPage() {
     setGrid(g)
     setBase(g)
     setSel(null)
+    // sede de la jornada: la que más usan los partidos ya ubicados ese día
+    const count = {}
+    Object.values(g).forEach((id) => { const v = list.find((m) => m.id === id)?.venue?.id; if (v) count[v] = (count[v] ?? 0) + 1 })
+    const top = Object.entries(count).sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''
+    setVenueId(top)
+    setBaseVenue(top)
     setCourts((c) => Math.max(c, maxCourt))
     setTurns((t) => Math.max(t, maxRow + 1))
   }, [])
@@ -120,6 +130,13 @@ export default function JornadaPage() {
   const changeDay = async (d) => { if (d === day || !(await confirmDiscard())) return; setDay(d); rebuild(d, start, all ?? [], turn) }
   const changeStart = async (s) => { if (!s || s === start || !(await confirmDiscard())) return; setStart(s); rebuild(day, s, all ?? [], turn) }
   const changeTurn = async (t) => { if (t === turn || t < 10 || t > 240 || !(await confirmDiscard())) return; setTurn(t); rebuild(day, start, all ?? [], t) }
+
+  // Al elegir una sede se sugiere su cantidad de canchas (se puede ajustar: depende de lo disponible ese día)
+  const changeVenue = (id) => {
+    setVenueId(id)
+    const n = venues.find((v) => v.id === id)?.courts
+    if (n) setCourts(Math.min(MAX_COURTS, n))
+  }
 
   // Partidos ubicados dentro de la grilla visible
   const placedIds = useMemo(() => {
@@ -236,10 +253,11 @@ export default function JornadaPage() {
 
   const save = async () => {
     const items = []
+    const venueChanged = venueId !== baseVenue
     Object.entries(grid).forEach(([k, id]) => {
-      if (base[k] === id) return
+      if (base[k] === id && !venueChanged) return
       const [c, r] = k.split('|').map(Number)
-      items.push({ matchId: id, court: c, scheduledAt: new Date(slotDate(day, start, r, turn)).toISOString() })
+      items.push({ matchId: id, court: c, scheduledAt: new Date(slotDate(day, start, r, turn)).toISOString(), venueId: venueId || null })
     })
     // Los que estaban guardados en la grilla y se sacaron: quedan sin cancha y conservan su horario
     const nowPlaced = new Set(Object.values(grid))
@@ -293,6 +311,13 @@ export default function JornadaPage() {
           <button onClick={() => changeDay(dayOf(new Date().toISOString()))} className="text-sm font-extrabold">{dayTab(day)} · {day.split('-').reverse().join('/')}</button>
           <button aria-label="Día siguiente" onClick={() => changeDay(shiftDay(day, 1))} className="grid h-9 w-9 place-items-center rounded-full bg-surface-2"><ChevronRight size={18} /></button>
         </div>
+        <label className="block text-xs font-bold text-muted">Sede de la jornada
+          <select className={inputCls} value={venueId} onChange={(e) => changeVenue(e.target.value)}>
+            <option value="">Sin sede</option>
+            {venues.map((v) => <option key={v.id} value={v.id}>{v.name}{v.courts ? ' · ' + v.courts + (v.courts === 1 ? ' cancha' : ' canchas') : ''}</option>)}
+          </select>
+          {venues.length === 0 && <span className="mt-1 block font-normal">Todavía no hay sedes: cargalas en <Link to="/admin/sedes" className="font-bold text-accent">Administración › Sedes</Link>.</span>}
+        </label>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {stepper('Canchas', courts, setCourts, 1, MAX_COURTS)}
           {stepper('Turnos', turns, setTurns, 1, MAX_TURNS)}
