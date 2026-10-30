@@ -13,7 +13,7 @@ function fail(err, res) {
 
 // Filtros comunes: yearFrom, yearTo, branch, modality (sobre el torneo del partido)
 function tournamentFilter(q) {
-  const where = {};
+  const where = { deletedAt: null }; // los torneos eliminados no cuentan en ninguna estadística
   const years = {};
   for (const [key, op] of [['yearFrom', 'gte'], ['yearTo', 'lte']]) {
     if (q[key] === undefined) continue;

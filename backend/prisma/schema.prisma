@@ -179,6 +179,7 @@ model Tournament {
   pointsLoss Int              @default(0)
   championId String?
   pausedAt   DateTime? // pausado: oculto para todos menos la organización; null = visible
+  deletedAt  DateTime? // en "Eliminados": no lo ve nadie (ni la organización) hasta restaurarlo o borrarlo definitivamente
 
   champion    Team?            @relation("TournamentChampion", fields: [championId], references: [id])
   matches     Match[]

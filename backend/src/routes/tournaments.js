@@ -149,6 +149,7 @@ router.get('/', async (req, res) => {
     const q = req.query;
     const where = {};
     if (req.hidePaused) where.pausedAt = null; // los pausados solo los ve la organización
+    where.deletedAt = req.onlyDeleted ? { not: null } : null; // los eliminados solo se listan en la papelera
 
     for (const [key, list] of [['status', STATUSES], ['branch', BRANCHES], ['modality', MODALITIES], ['format', FORMATS]]) {
       if (q[key] === undefined) continue;
@@ -613,12 +614,52 @@ router.post('/:id/reset', ...admin, async (req, res) => {
   }
 });
 
+// Eliminar = mandar a "Eliminados": desaparece para todos (también para la organización) y se puede restaurar.
+// Sus partidos se ocultan igual que al pausar.
 router.delete('/:id', ...admin, async (req, res) => {
   try {
     const id = req.params.id;
-    const t = await prisma.tournament.findUnique({ where: { id } });
+    const t = await prisma.tournament.findUnique({ where: { id }, select: { id: true, deletedAt: true, pausedAt: true } });
     if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
-    // Se puede eliminar en cualquier estado: borra también partidos y todo lo que cuelga de ellos
+    if (t.deletedAt) return res.status(409).json({ error: 'El torneo ya está eliminado' });
+    const now = new Date();
+    await prisma.$transaction([
+      prisma.tournament.update({ where: { id }, data: { deletedAt: now } }),
+      prisma.match.updateMany({ where: { tournamentId: id, hiddenAt: null }, data: { hiddenAt: now, hiddenByPause: true } }),
+    ]);
+    emitTournamentUpdate(req, id, t.pausedAt);
+    res.json({ ok: true });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Restaurar un torneo eliminado: vuelve a verse tal cual estaba (si estaba pausado, sigue pausado)
+router.post('/:id/restore', ...admin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const t = await prisma.tournament.findUnique({ where: { id }, select: { id: true, deletedAt: true, pausedAt: true } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+    if (!t.deletedAt) return res.status(409).json({ error: 'El torneo no está eliminado' });
+    const ops = [prisma.tournament.update({ where: { id }, data: { deletedAt: null } })];
+    if (!t.pausedAt) {
+      ops.push(prisma.match.updateMany({ where: { tournamentId: id, hiddenByPause: true }, data: { hiddenAt: null, hiddenByPause: false } }));
+    }
+    await prisma.$transaction(ops);
+    emitTournamentUpdate(req, id, t.pausedAt);
+    res.json({ ok: true });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Borrado definitivo (solo desde "Eliminados"): borra también partidos y todo lo que cuelga de ellos
+router.delete('/:id/purge', ...admin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const t = await prisma.tournament.findUnique({ where: { id }, select: { id: true, deletedAt: true } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+    if (!t.deletedAt) return res.status(409).json({ error: 'Primero hay que eliminar el torneo para borrarlo definitivamente' });
     await prisma.$transaction([
       prisma.clockAction.deleteMany({ where: { match: { tournamentId: id } } }),
       prisma.matchSet.deleteMany({ where: { match: { tournamentId: id } } }),

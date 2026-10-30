@@ -141,7 +141,7 @@ router.get('/:id/posiciones', async (req, res) => {
     const { phasesFor } = require('../services/matchPhase');
 
     const tts = await prisma.tournamentTeam.findMany({
-      where: { teamId, tournament: { status: { not: 'DRAFT' }, pausedAt: null } },
+      where: { teamId, tournament: { status: { not: 'DRAFT' }, pausedAt: null, deletedAt: null } },
       include: { tournament: { select: { id: true, name: true, year: true, edition: true, branch: true, modality: true, format: true, status: true } } },
     });
 

@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
     const [teams, players, tournaments] = await Promise.all([
       prisma.team.findMany({ where: { id: { in: teamIds } }, select: { id: true, name: true, logo: true } }),
       prisma.profile.findMany({ where: { id: { in: playerIds }, active: true }, select: { id: true, name: true, nickname: true, number: true } }),
-      prisma.tournament.findMany({ where: { id: { in: tournamentIds }, pausedAt: null }, select: { id: true, name: true, branch: true, modality: true, year: true } }),
+      prisma.tournament.findMany({ where: { id: { in: tournamentIds }, pausedAt: null, deletedAt: null }, select: { id: true, name: true, branch: true, modality: true, year: true } }),
     ]);
     const teamMap = new Map(teams.map((t) => [t.id, t]));
     const playerMap = new Map(players.map((p) => [p.id, p]));
