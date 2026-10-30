@@ -25,16 +25,40 @@ router.get('/', async (req, res) => {
   try {
     const { q, role, active } = req.query;
     const where = {};
-    if (q) { const t = String(q).toLowerCase(); where.OR = [{ email: { contains: t } }, { username: { contains: t } }]; }
+    if (q && String(q).trim()) {
+      // mail, usuario, nombre, apodo (solo si el jugador lo hizo público) y equipo actual
+      const t = String(q).trim().slice(0, 60);
+      const ci = { contains: t, mode: 'insensitive' };
+      where.OR = [
+        { email: ci },
+        { username: ci },
+        { profile: { name: ci } },
+        { profile: { showNickname: true, nickname: ci } },
+        { profile: { teams: { some: { to: null, team: { name: ci } } } } },
+      ];
+    }
     if (ROLES.includes(role)) where.roles = { has: role };
     if (active !== undefined) where.active = active === 'true';
 
     const users = await prisma.user.findMany({
       where,
       orderBy: { email: 'asc' },
-      select: { id: true, email: true, username: true, roles: true, active: true, profileId: true, createdAt: true },
+      select: {
+        id: true, email: true, username: true, roles: true, active: true, profileId: true, createdAt: true,
+        profile: {
+          select: {
+            name: true, nickname: true, showNickname: true,
+            teams: { where: { to: null }, select: { team: { select: { name: true } } } },
+          },
+        },
+      },
     });
-    res.json(users);
+    res.json(users.map(({ profile, ...u }) => ({
+      ...u,
+      name: profile?.name ?? null,
+      nickname: profile?.showNickname ? profile.nickname : null,
+      teams: [...new Set((profile?.teams ?? []).map((x) => x.team.name))],
+    })));
   } catch (err) {
     handleError(err, res);
   }

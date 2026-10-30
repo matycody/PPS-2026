@@ -20,6 +20,15 @@ const admin = [authenticate, requireRole('ADMIN')];
 const BRANCHES = ['MIXED', 'MALE', 'FEMALE'];
 const MODALITIES = ['FOAM', 'CLOTH'];
 const FORMATS = ['LEAGUE', 'LEAGUE_CUP', 'CUP'];
+// Borra partidos y todo lo que cuelga de ellos (solo con el torneo pausado)
+async function wipeMatches(tx, where) {
+  const w = { match: where };
+  await tx.clockAction.deleteMany({ where: w });
+  await tx.matchSet.deleteMany({ where: w });
+  await tx.matchAssignment.deleteMany({ where: w });
+  await tx.match.deleteMany({ where });
+}
+
 const STATUSES = ['DRAFT', 'ACTIVE', 'FINISHED'];
 const CRITERIA = ['HEAD_TO_HEAD', 'SET_DIFFERENCE', 'SETS_WON', 'WINS', 'DRAW_LOT'];
 // Valores por defecto: el organizador los puede cambiar, agregar y reordenar por torneo
@@ -295,8 +304,8 @@ router.patch('/:id', ...admin, async (req, res) => {
 
     // El formato define la estructura: solo en borrador (lo demás se edita siempre, salvo torneo finalizado)
     const structural = ['format'].filter((k) => b[k] !== undefined);
-    if (structural.length && t.status !== 'DRAFT') {
-      return res.status(409).json({ error: 'El formato solo se edita en borrador' });
+    if (structural.length && t.status !== 'DRAFT' && !t.pausedAt) {
+      return res.status(409).json({ error: 'El formato solo se edita en borrador o con el torneo pausado' });
     }
     if (b.branch !== undefined) {
       if (BRANCHES.includes(b.branch)) data.branch = b.branch;
@@ -372,8 +381,8 @@ router.put('/:id/teams', ...admin, async (req, res) => {
   try {
     const t = await prisma.tournament.findUnique({ where: { id: req.params.id } });
     if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
-    if (t.status !== 'DRAFT') {
-      return res.status(409).json({ error: 'Los equipos solo se editan en borrador' });
+    if (t.status === 'FINISHED' || (t.status !== 'DRAFT' && !t.pausedAt)) {
+      return res.status(409).json({ error: 'Los equipos solo se editan en borrador o con el torneo pausado' });
     }
 
     const raw = req.body?.teamIds;
@@ -401,6 +410,12 @@ router.put('/:id/teams', ...admin, async (req, res) => {
       });
     }
 
+    if (t.pausedAt) {
+      await prisma.$transaction(async (tx) => {
+        await wipeMatches(tx, { tournamentId: t.id, OR: [{ teamAId: { notIn: teamIds } }, { teamBId: { notIn: teamIds } }] });
+        await tx.stageStanding.deleteMany({ where: { stage: { tournamentId: t.id }, teamId: { notIn: teamIds } } });
+      });
+    }
     await prisma.$transaction([
       prisma.stageTeam.deleteMany({ where: { stage: { tournamentId: t.id }, teamId: { notIn: teamIds } } }),
       prisma.tournamentTeam.deleteMany({ where: { tournamentId: t.id, teamId: { notIn: teamIds } } }),
@@ -425,11 +440,12 @@ router.put('/:id/stages', ...admin, async (req, res) => {
       include: { teams: { select: { teamId: true } } },
     });
     if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
-    if (t.status !== 'DRAFT') {
-      return res.status(409).json({ error: 'La estructura solo se edita en borrador' });
+    if (t.status === 'FINISHED' || (t.status !== 'DRAFT' && !t.pausedAt)) {
+      return res.status(409).json({ error: 'La estructura solo se edita en borrador o con el torneo pausado' });
     }
-    if (await prisma.match.count({ where: { tournamentId: t.id } })) {
-      return res.status(409).json({ error: 'El torneo ya tiene partidos: no se puede rehacer la estructura' });
+    const hasMatches = (await prisma.match.count({ where: { tournamentId: t.id } })) > 0;
+    if (hasMatches && !t.pausedAt) {
+      return res.status(409).json({ error: 'El torneo ya tiene partidos: pausalo para rehacer la estructura' });
     }
 
     const raw = req.body?.stages;
@@ -511,6 +527,8 @@ router.put('/:id/stages', ...admin, async (req, res) => {
 
     await prisma.$transaction(
       async (tx) => {
+        if (hasMatches) await wipeMatches(tx, { tournamentId: t.id }); // pausado: el fixture se rehace
+        await tx.stageStanding.deleteMany({ where: { stage: { tournamentId: t.id } } });
         await tx.stageTeam.deleteMany({ where: { stage: { tournamentId: t.id } } });
         await tx.matchday.deleteMany({ where: { stage: { tournamentId: t.id } } });
         await tx.stage.deleteMany({ where: { tournamentId: t.id } });

@@ -192,6 +192,18 @@ router.delete('/:id/stages/:stageId/fixture', ...admin, async (req, res) => {
     if (stage.tournament.status === 'FINISHED') return res.status(409).json({ error: 'El torneo finalizó' });
 
     const matches = await prisma.match.findMany({ where: { stageId: stage.id }, select: { id: true, status: true } });
+    if (stage.tournament.pausedAt) {
+      // torneo pausado: se puede rehacer el fixture aunque tenga resultados (el torneo no es visible)
+      const w = { match: { stageId: stage.id } };
+      await prisma.$transaction([
+        prisma.clockAction.deleteMany({ where: w }),
+        prisma.matchSet.deleteMany({ where: w }),
+        prisma.matchAssignment.deleteMany({ where: w }),
+        prisma.match.deleteMany({ where: { stageId: stage.id } }),
+        prisma.matchday.deleteMany({ where: { stageId: stage.id } }),
+      ]);
+      return res.json({ ok: true, deletedMatches: matches.length });
+    }
     if (matches.some((m) => m.status !== 'SCHEDULED')) {
       return res.status(409).json({ error: 'Hay partidos habilitados, jugados o cancelados: no se puede eliminar el fixture' });
     }
