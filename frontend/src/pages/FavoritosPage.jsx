@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, ChevronDown } from 'lucide-react'
 import { api } from '../lib/api'
 import TeamBadge from '../components/TeamBadge'
 import MatchRow from '../components/MatchRow'
@@ -8,6 +8,10 @@ import FavHeart from '../components/FavHeart'
 import { BRANCH, MODALITY, normMatch } from '../lib/format'
 import { dayOf, dayTab } from '../lib/days'
 import { useFavorites } from '../stores/favoritesStore'
+import StandingsView from '../components/torneo/StandingsView'
+import Posiciones from '../components/team/Posiciones'
+
+const TYPE_LABEL = { TEAM: 'Equipo', TOURNAMENT: 'Torneo', PLAYER: 'Jugador' }
 
 const BACK = 30 // días hacia atrás
 const AHEAD = 120 // y hacia adelante
@@ -24,8 +28,15 @@ export default function FavoritosPage() {
   const [teams, setTeams] = useState([])
   const [tournaments, setTournaments] = useState([])
   const [err, setErr] = useState('')
+  const [tab, setTab] = useState('partidos') // partidos | posiciones
+  const [tourList, setTourList] = useState(null) // torneos (para estado y rama en Posiciones)
+  const [openTour, setOpenTour] = useState(null) // id del torneo desplegado (null = el primero)
 
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (tab !== 'posiciones' || tourList) return
+    api('GET', '/tournaments?limit=200').then(setTourList).catch(() => setTourList([]))
+  }, [tab, tourList])
   // La tira se vuelve a pedir cada vez que cambia lo que se sigue
   useEffect(() => {
     api('GET', '/favorites').then(setFavs).catch((e) => setErr(e.message))
@@ -101,6 +112,7 @@ export default function FavoritosPage() {
               <Link key={f.targetType + f.targetId} to={pathOf(f)} className="flex w-16 shrink-0 flex-col items-center gap-1">
                 <TeamBadge team={{ name, logo: f.logo }} size="lg" />
                 <span className="w-full truncate text-center text-[11px] font-semibold">{name}</span>
+                <span className="-mt-1 text-[9px] font-bold uppercase tracking-wide text-muted">{TYPE_LABEL[f.targetType]}</span>
               </Link>
             )
           })}
@@ -143,7 +155,61 @@ export default function FavoritosPage() {
         </div>
       )}
 
-      {!adding && (
+      {!adding && !nothing && (
+        <div className="flex border-b border-line" role="tablist">
+          {[['partidos', 'Partidos'], ['posiciones', 'Posiciones']].map(([k, label]) => (
+            <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={'flex-1 border-b-2 py-3 text-sm font-bold ' + (tab === k ? 'border-accent' : 'border-transparent text-muted')}>{label}</button>
+          ))}
+        </div>
+      )}
+
+      {!adding && tab === 'posiciones' && !nothing && (
+        <div className="space-y-4">
+          {tourList === null && <p className="text-muted">Cargando…</p>}
+          {tourList && favTours.size === 0 && favTeams.size === 0 && (
+            <p className="rounded-2xl border border-line bg-surface p-4 text-sm">Seguí equipos o torneos para ver sus posiciones acá.</p>
+          )}
+          {tourList && [...favTours].map((tid, i) => {
+            const t = tourList.find((x) => x.id === tid)
+            if (!t) return null
+            const open = (openTour ?? [...favTours][0]) === tid
+            return (
+              <div key={tid} className="overflow-hidden rounded-3xl border border-line bg-surface">
+                <button onClick={() => setOpenTour(open ? '' : tid)} aria-expanded={open} className="flex w-full items-center gap-3 p-4 text-left">
+                  <TeamBadge team={t} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold">{t.name}{t.edition ? ' · ' + t.edition : ''}</p>
+                    <p className="text-[11px] font-semibold uppercase text-muted">{[MODALITY[t.modality], BRANCH[t.branch]].filter(Boolean).join(' · ')}</p>
+                  </div>
+                  <span className={'shrink-0 rounded-full px-2 py-0.5 text-xs font-bold uppercase ' + (t.status === 'ACTIVE' ? 'bg-live/15 text-live' : 'bg-surface-2 text-muted')}>{t.status === 'ACTIVE' ? 'En curso' : 'Finalizado'}</span>
+                  <ChevronDown size={18} className={'shrink-0 text-muted transition-transform ' + (open ? 'rotate-180' : '')} />
+                </button>
+                {open && (
+                  <div className="space-y-3 border-t border-line p-4">
+                    <StandingsView tournamentId={t.id} finished={t.status === 'FINISHED'} />
+                    <Link to={'/liga/' + t.id} className="block text-center text-sm font-bold text-accent">Ver torneo completo ›</Link>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          {[...favTeams].map((tid) => {
+            const f = (favs ?? []).find((x) => x.targetType === 'TEAM' && x.targetId === tid)
+            if (!f) return null
+            return (
+              <section key={tid} className="space-y-2">
+                <Link to={'/equipo/' + tid} className="flex items-center gap-2">
+                  <TeamBadge team={{ name: f.name, logo: f.logo }} size="sm" />
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Posiciones de {f.name}</h2>
+                </Link>
+                <Posiciones teamId={tid} mod="all" br="all" />
+              </section>
+            )
+          })}
+        </div>
+      )}
+
+      {!adding && tab === 'partidos' && (
         <>
           {nothing && (
             <div className="rounded-2xl border border-line bg-surface p-4 text-sm">

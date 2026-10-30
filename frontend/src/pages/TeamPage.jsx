@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { MapPin, CalendarDays } from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
+import { MapPin, CalendarDays, Trophy } from 'lucide-react'
 import FavHeart from '../components/FavHeart'
 import { api } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
@@ -41,12 +41,20 @@ export default function TeamPage() {
   const [mod, setMod] = useState('all')
   const [br, setBr] = useState('all')
   const [more, setMore] = useState({ next: false, done: false })
-  const [tab, setTab] = useState('posiciones') // posiciones | proximos | resultados | plantel
+  const [tab, setTab] = useState('resumen') // resumen | partidos | posiciones | estadisticas | plantel | historial
+  const [ptab, setPtab] = useState('proximos') // dentro de Partidos
+  const [st, setSt] = useState(null) // /stats/teams/:id (récord, sets, títulos, historial)
 
   useEffect(() => {
     api('GET', '/teams/' + id).then(setTeam).catch((e) => setErr(e.message))
     api('GET', '/matches?teamId=' + id + '&limit=200').then((r) => setMatches(r.map(normMatch))).catch(() => setMatches([]))
   }, [id, user])
+
+  useEffect(() => {
+    setSt(null)
+    const q = [mod !== 'all' ? 'modality=' + mod : '', br !== 'all' ? 'branch=' + br : ''].filter(Boolean).join('&')
+    api('GET', '/stats/teams/' + id + (q ? '?' + q : '')).then(setSt).catch(() => setSt(false))
+  }, [id, mod, br])
 
   const shown = useMemo(
     () => (matches ?? []).filter((m) => (mod === 'all' || m.modality === mod) && (br === 'all' || m.branch === br)),
@@ -91,75 +99,19 @@ export default function TeamPage() {
   const brs = team.branches ?? []
   // Qué categoría muestran los números y las listas
   const scope = mod === 'all' && br === 'all' ? 'Total: todas las ramas y modalidades' : [br === 'all' ? 'Todas las ramas' : BRANCH[br], mod === 'all' ? 'Todas las modalidades' : MODALITY[mod]].join(' · ')
+  const players = (team.roster ?? []).filter((r) => br === 'all' || r.branch === br)
 
-  return (
-    <div className="space-y-5">
-      {err && <p className="text-sm text-danger">{err}</p>}
-
-      <section className="rounded-3xl border border-line bg-surface p-5">
-        <div className="flex justify-end">{heart('TEAM', team.id)}</div>
-        <div className="-mt-3 flex flex-col items-center gap-2 text-center">
-          <TeamBadge team={team} size="xl" />
-          <h1 className="text-2xl font-extrabold leading-tight">{team.name}</h1>
-          {team.nickname && <p className="text-sm font-semibold text-accent">"{team.nickname}"</p>}
-          {(team.city || team.foundedYear) && (
-            <p className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-muted">
-              {team.city && <span className="inline-flex items-center gap-1"><MapPin size={14} />{team.city}</span>}
-              {team.foundedYear && <span className="inline-flex items-center gap-1"><CalendarDays size={14} />Fundado en {team.foundedYear}</span>}
-            </p>
-          )}
-          <div className="flex flex-wrap justify-center gap-1.5 pt-1">
-            {brs.map((b) => <span key={b} className="rounded-full bg-surface-2 px-3 py-1 text-xs font-bold uppercase">{BRANCH[b] ?? b}</span>)}
-            {mods.map((m) => <span key={m} className="rounded-full bg-accent-soft px-3 py-1 text-xs font-bold uppercase text-accent">{MODALITY[m] ?? m}</span>)}
-          </div>
-        </div>
-        {(mods.length > 1 || brs.length > 1) && (
-          <div className="mt-4 space-y-2 border-t border-line pt-4">
-            <p className="text-center text-xs font-bold uppercase tracking-widest text-muted">Ver historial de</p>
-            {mods.length > 1 && (
-              <div className="flex flex-wrap justify-center gap-2">
-                <Chip on={mod === 'all'} onClick={() => setMod('all')}>Todas las modalidades</Chip>
-                {mods.map((m) => <Chip key={m} on={mod === m} onClick={() => setMod(m)}>{MODALITY[m] ?? m}</Chip>)}
-              </div>
-            )}
-            {brs.length > 1 && (
-              <div className="flex flex-wrap justify-center gap-2">
-                <Chip on={br === 'all'} onClick={() => setBr('all')}>Todas las ramas</Chip>
-                {brs.map((b) => <Chip key={b} on={br === b} onClick={() => setBr(b)}>{BRANCH[b] ?? b}</Chip>)}
-              </div>
-            )}
-          </div>
-        )}
-        <p className="mt-4 text-center text-xs font-bold uppercase tracking-widest text-accent">{scope}</p>
-        <div className="mt-2 grid grid-cols-4 gap-2 text-center">
-          {[['PJ', done.length], ['G', rec.G], ['E', rec.E], ['P', rec.P]].map(([k, v]) => (
-            <div key={k} className="rounded-2xl bg-surface-2 py-2">
-              <p className="font-mono text-xl font-extrabold tabular-nums">{v}</p>
-              <p className="text-[11px] font-bold uppercase tracking-widest text-muted">{k}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="flex flex-wrap gap-2">
-        {[['posiciones', 'Posiciones'], ['proximos', 'Próximos' + (matches ? ' · ' + next.length : '')], ['resultados', 'Resultados' + (matches ? ' · ' + done.length : '')], ['plantel', 'Plantel']].map(([k, label]) => (
-          <button
-            key={k}
-            onClick={() => setTab(k)}
-            className={'rounded-full border px-4 py-2 text-sm font-bold ' + (tab === k ? 'border-accent bg-accent text-black' : 'border-line bg-surface')}
-          >
-            {label}
-          </button>
+  const matchList = (
+    <section className="space-y-3">
+      <div className="flex gap-2">
+        {[['proximos', 'Próximos' + (matches ? ' · ' + next.length : '')], ['resultados', 'Resultados' + (matches ? ' · ' + done.length : '')]].map(([k, label]) => (
+          <button key={k} onClick={() => setPtab(k)} className={'rounded-full border px-4 py-2 text-sm font-bold ' + (ptab === k ? 'border-accent bg-accent text-black' : 'border-line bg-surface')}>{label}</button>
         ))}
       </div>
-
-      {tab === 'posiciones' && <Posiciones teamId={id} mod={mod} br={br} />}
-
-      {tab === 'proximos' && (
-        <section className="space-y-3">
+      {ptab === 'proximos' && (
+        <>
           {matches === null && <p className="text-muted">Cargando…</p>}
           {matches && next.length === 0 && <p className="text-muted">No hay partidos programados.</p>}
-          {/* En vivo: tarjeta grande; el resto, compacto y agrupado por torneo como en el Inicio */}
           {live.map((m) => <MatchCard key={m.id} m={m} />)}
           {groups.map((g) => (
             <div key={g.id} className="overflow-hidden rounded-2xl border border-line bg-surface">
@@ -173,21 +125,164 @@ export default function TeamPage() {
             </div>
           ))}
           {upcoming.length > NEXT_MAX && (
-            <button onClick={() => setMore((s) => ({ ...s, next: !s.next }))} className="w-full rounded-2xl border border-line bg-surface py-2 text-sm font-bold">
+            <button onClick={() => setMore((x) => ({ ...x, next: !x.next }))} className="w-full rounded-2xl border border-line bg-surface py-2 text-sm font-bold">
               {more.next ? 'Ver menos' : 'Ver todos (' + upcoming.length + ')'}
             </button>
           )}
-        </section>
+        </>
       )}
-
-      {tab === 'resultados' && (
-        <section className="space-y-2">
+      {ptab === 'resultados' && (
+        <>
           {matches && done.length === 0 && <p className="text-muted">Todavía no jugó partidos.</p>}
           {(more.done ? done : done.slice(0, 5)).map((m) => <ResultRow key={m.id} m={m} teamIds={[id]} />)}
           {done.length > 5 && (
-            <button onClick={() => setMore((s) => ({ ...s, done: !s.done }))} className="w-full rounded-2xl border border-line bg-surface py-2 text-sm font-bold">
+            <button onClick={() => setMore((x) => ({ ...x, done: !x.done }))} className="w-full rounded-2xl border border-line bg-surface py-2 text-sm font-bold">
               {more.done ? 'Ver menos' : 'Ver todos (' + done.length + ')'}
             </button>
+          )}
+        </>
+      )}
+    </section>
+  )
+
+  return (
+    <div className="-mt-1 space-y-5">
+      {err && <p className="text-sm text-danger">{err}</p>}
+
+      {/* Banner: nombre arriba, franja con ramas y modalidades, escudo encimado */}
+      <section className="overflow-hidden rounded-3xl border border-line bg-surface">
+        <div className="relative px-5 pb-16 pt-5">
+          <div className="absolute right-3 top-3">{heart('TEAM', team.id)}</div>
+          <p className="pr-10 text-lg font-light leading-tight">{team.nickname ? '"' + team.nickname + '"' : ' '}</p>
+          <h1 className="pr-10 text-3xl font-extrabold leading-tight">{team.name}</h1>
+          {(team.city || team.foundedYear) && (
+            <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+              {team.city && <span className="inline-flex items-center gap-1"><MapPin size={12} />{team.city}</span>}
+              {team.foundedYear && <span className="inline-flex items-center gap-1"><CalendarDays size={12} />Fundado en {team.foundedYear}</span>}
+            </p>
+          )}
+        </div>
+        <div className="relative flex min-h-16 flex-wrap items-center gap-1.5 bg-accent-soft py-3 pl-5 pr-28">
+          {brs.map((b) => <span key={b} className="rounded-full bg-bg/60 px-2.5 py-1 text-[11px] font-bold uppercase">{BRANCH[b] ?? b}</span>)}
+          {mods.map((m) => <span key={m} className="rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold uppercase text-black">{MODALITY[m] ?? m}</span>)}
+          <div className="absolute -top-12 right-4"><TeamBadge team={team} size="xl" /></div>
+        </div>
+        <div className="flex overflow-x-auto border-t border-line" role="tablist">
+          {[['resumen', 'Resumen'], ['partidos', 'Partidos'], ['posiciones', 'Posiciones'], ['estadisticas', 'Estadísticas'], ['plantel', 'Plantel'], ['historial', 'Historial']].map(([k, label]) => (
+            <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={'shrink-0 border-b-2 px-4 py-3 text-sm font-bold ' + (tab === k ? 'border-accent' : 'border-transparent text-muted')}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {(mods.length > 1 || brs.length > 1) && tab !== 'plantel' && (
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted">Ver historial de</p>
+          {mods.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              <Chip on={mod === 'all'} onClick={() => setMod('all')}>Todas las modalidades</Chip>
+              {mods.map((m) => <Chip key={m} on={mod === m} onClick={() => setMod(m)}>{MODALITY[m] ?? m}</Chip>)}
+            </div>
+          )}
+          {brs.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              <Chip on={br === 'all'} onClick={() => setBr('all')}>Todas las ramas</Chip>
+              {brs.map((b) => <Chip key={b} on={br === b} onClick={() => setBr(b)}>{BRANCH[b] ?? b}</Chip>)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'resumen' && (
+        <>
+          <section className="space-y-2 rounded-3xl border border-line bg-surface p-4">
+            <p className="text-center text-xs font-bold uppercase tracking-widest text-accent">{scope}</p>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              {[['PJ', done.length], ['G', rec.G], ['E', rec.E], ['P', rec.P]].map(([k, v]) => (
+                <div key={k} className="rounded-2xl bg-surface-2 py-2">
+                  <p className="font-mono text-xl font-extrabold tabular-nums">{v}</p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted">{k}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Próximo partido</h2>
+            {matches === null && <p className="text-muted">Cargando…</p>}
+            {matches && next.length === 0 && <p className="text-muted">No hay partidos programados.</p>}
+            {live.map((m) => <MatchCard key={m.id} m={m} />)}
+            {upcoming.slice(0, 2).map((m) => <MatchRow key={m.id} m={m} />)}
+            {next.length > 0 && <button onClick={() => { setTab('partidos'); setPtab('proximos') }} className="w-full rounded-2xl border border-line bg-surface py-2 text-sm font-bold">Ver todos los partidos</button>}
+          </section>
+
+          {players.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Jugadores</h2>
+              <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
+                {players.slice(0, 14).map((r) => {
+                  const parts = String(r.nickname || r.name).trim().split(/\s+/)
+                  const top = r.nickname || parts.length < 2 ? ' ' : parts.slice(0, -1).join(' ')
+                  const bottom = r.nickname || parts.length < 2 ? (r.nickname || r.name) : parts[parts.length - 1]
+                  return (
+                    <Link key={r.profileId + r.branch} to={'/jugador/' + r.profileId} className="w-36 shrink-0 overflow-hidden rounded-2xl border border-line bg-surface">
+                      <div className="h-16 px-3 pt-3">
+                        <p className="truncate text-sm leading-tight text-muted">{top}</p>
+                        <p className="truncate text-base font-extrabold leading-tight">{bottom}</p>
+                      </div>
+                      <div className="relative flex h-12 items-center bg-accent-soft px-3">
+                        <TeamBadge team={team} size="sm" />
+                        <span className="ml-auto font-mono text-xs font-bold text-muted">{r.number != null ? '#' + r.number : ''}</span>
+                        <span className="absolute -top-5 right-3 grid h-12 w-12 place-items-center rounded-full border-2 border-bg bg-surface-2 text-base font-extrabold text-muted">{(r.nickname || r.name).charAt(0).toUpperCase()}</span>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+              <button onClick={() => setTab('plantel')} className="w-full rounded-2xl border border-line bg-surface py-2 text-sm font-bold">Ver plantel completo</button>
+            </section>
+          )}
+
+          {done.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Últimos resultados</h2>
+              {done.slice(0, 3).map((m) => <ResultRow key={m.id} m={m} teamIds={[id]} />)}
+              {done.length > 3 && <button onClick={() => { setTab('partidos'); setPtab('resultados') }} className="w-full rounded-2xl border border-line bg-surface py-2 text-sm font-bold">Ver todos los resultados</button>}
+            </section>
+          )}
+        </>
+      )}
+
+      {tab === 'partidos' && matchList}
+
+      {tab === 'posiciones' && <Posiciones teamId={id} mod={mod} br={br} />}
+
+      {tab === 'estadisticas' && (
+        <section className="space-y-3 rounded-3xl border border-line bg-surface p-4">
+          <p className="text-center text-xs font-bold uppercase tracking-widest text-accent">{scope}</p>
+          {st === null && <p className="text-center text-sm text-muted">Cargando…</p>}
+          {st === false && <p className="text-center text-sm text-muted">No se pudieron cargar las estadísticas.</p>}
+          {st && (
+            <>
+              <div className="grid grid-cols-4 gap-2 text-center">
+                {[['Partidos', st.record.played, ''], ['Ganados', st.record.won, 'text-live'], ['Perdidos', st.record.lost, 'text-danger'], ['Títulos', st.titles, 'text-accent']].map(([l, v, c]) => (
+                  <div key={l} className="flex flex-col items-center gap-2">
+                    <span className={'grid h-16 w-16 place-items-center rounded-full border-2 border-line bg-surface-2 font-mono text-xl font-extrabold tabular-nums ' + c}>{v}</span>
+                    <span className="text-xs font-semibold text-muted">{l}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {[['Empatados', st.record.drawn], ['Sets a favor', st.record.setsFor], ['Sets en contra', st.record.setsAgainst]].map(([l, v]) => (
+                  <div key={l} className="rounded-2xl bg-surface-2 py-2">
+                    <p className="font-mono text-lg font-extrabold tabular-nums">{v}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-muted">{l}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-center text-xs text-muted">Torneos disputados: {st.tournamentsPlayed}</p>
+            </>
           )}
         </section>
       )}
@@ -195,6 +290,40 @@ export default function TeamPage() {
       {tab === 'plantel' && (
         <section className="space-y-2">
           <Roster roster={team.roster} meProfileId={user?.profileId} extra={(r) => heart('PLAYER', r.profileId)} />
+        </section>
+      )}
+
+      {tab === 'historial' && (
+        <section className="space-y-3">
+          {st === null && <p className="text-muted">Cargando…</p>}
+          {st && st.titlesList?.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Títulos · {st.titles}</h2>
+              {st.titlesList.map((t) => (
+                <GoTo key={t.id} to={'/liga/' + t.id} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-soft text-accent"><Trophy size={18} /></span>
+                  <span className="min-w-0 flex-1 truncate font-bold">{t.name}</span>
+                  <span className="font-mono text-sm font-bold text-muted">{t.year}</span>
+                </GoTo>
+              ))}
+            </div>
+          )}
+          {st && (
+            <div className="space-y-2">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Torneos</h2>
+              {st.history.length === 0 && <p className="text-muted">Todavía no tiene torneos con tabla de posiciones.</p>}
+              {st.history.map((h) => (
+                <GoTo key={h.tournamentId + h.stage} to={'/liga/' + h.tournamentId} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-2 font-mono text-sm font-extrabold">{h.position}.º</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold">{h.tournament}</p>
+                    <p className="truncate text-xs text-muted">{h.stage}{h.zone ? ' · ' + h.zone : ''} · {h.year}</p>
+                  </div>
+                  <span className="font-mono text-xs font-bold text-muted">{h.points} pts · {h.played} PJ</span>
+                </GoTo>
+              ))}
+            </div>
+          )}
         </section>
       )}
     </div>
