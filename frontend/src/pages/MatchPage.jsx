@@ -6,6 +6,8 @@ import { Eye, Pin, PinOff, Trophy, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
 import VenueInfo from '../components/VenueInfo'
+import SanctionsCard from '../components/SanctionsCard'
+import { useSanctions } from '../hooks/useSanctions'
 import { normMatch, MODALITY, BRANCH, courtLabel } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import MatchNotice from '../components/MatchNotice'
@@ -49,6 +51,7 @@ export default function MatchPage() {
   const [tick, setTick] = useState(null)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
+  const sanctions = useSanctions(id)
   const pip = usePipClock(m)
   useWakeLock(!!tick && (!tick.isMatchPaused || !tick.isSetPaused || !!tick.isTimeoutRunning))
 
@@ -166,6 +169,7 @@ export default function MatchPage() {
       </div>
 
       <TimeoutBanner tick={tick} nameA={m.teamA?.name ?? 'Equipo A'} nameB={m.teamB?.name ?? 'Equipo B'} />
+      <SanctionsCard m={m} tick={tick} items={sanctions} nameA={m.teamA?.name} nameB={m.teamB?.name} />
 
 
       <div className="rounded-3xl border border-line bg-surface p-5 text-center">
@@ -184,7 +188,7 @@ export default function MatchPage() {
         <Eye size={14} /> Vista en vivo · solo lectura
       </p>
 
-      <MatchRoster teamA={m.teamA} teamB={m.teamB} branch={m.branch} />
+      <MatchRoster teamA={m.teamA} teamB={m.teamB} branch={m.branch} matchId={m.id} />
     </div>
   )
 }

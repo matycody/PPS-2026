@@ -26,7 +26,7 @@ function byNumber(a, b) {
   return a.name.localeCompare(b.name, 'es')
 }
 
-function TeamRoster({ team, matchBranch, noLink }) {
+function TeamRoster({ team, matchBranch, noLink, suspended }) {
   // noLink: en la pantalla de control no se navega a los banners
   const L = ({ to, className, children }) => (noLink ? <span className={className}>{children}</span> : <Link to={to} className={className}>{children}</Link>)
   const [roster, setRoster] = useState(null)
@@ -68,6 +68,7 @@ function TeamRoster({ team, matchBranch, noLink }) {
                         <span className="min-w-0 flex-1 break-words font-semibold leading-tight">
                           {nm.top}
                           {r.coach && <span className="ml-1.5 text-[10px] font-bold text-accent">(DT)</span>}
+                          {suspended?.has(r.profileId) && <span className="ml-1.5 rounded bg-danger/15 px-1 text-[10px] font-bold text-danger">SUSPENDIDO</span>}
                           {nm.bottom && <span className="block font-normal text-muted">{nm.bottom}</span>}
                         </span>
                       </L>
@@ -84,13 +85,18 @@ function TeamRoster({ team, matchBranch, noLink }) {
   )
 }
 
-export default function MatchRoster({ teamA, teamB, branch, hideTitle, noLink }) {
+export default function MatchRoster({ teamA, teamB, branch, hideTitle, noLink, matchId }) {
+  const [suspended, setSuspended] = useState(null)
+  useEffect(() => {
+    if (!matchId) return
+    api('GET', '/matches/' + matchId + '/suspended').then((r) => setSuspended(new Set((r.items ?? []).map((i) => i.profileId)))).catch(() => {})
+  }, [matchId])
   return (
     <div className="space-y-4">
       {!hideTitle && <p className="text-xs font-bold uppercase tracking-widest text-muted">Jugadores disponibles</p>}
       <div className="grid grid-cols-2 items-start gap-3">
-        <TeamRoster team={teamA} matchBranch={branch} noLink={noLink} />
-        <TeamRoster team={teamB} matchBranch={branch} noLink={noLink} />
+        <TeamRoster team={teamA} matchBranch={branch} noLink={noLink} suspended={suspended} />
+        <TeamRoster team={teamB} matchBranch={branch} noLink={noLink} suspended={suspended} />
       </div>
     </div>
   )

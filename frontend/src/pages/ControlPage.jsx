@@ -12,6 +12,8 @@ import SoundToggle from '../components/SoundToggle'
 import { useMatchSound } from '../hooks/useMatchSound'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { useConfirm } from '../components/ConfirmProvider'
+import SanctionsCard from '../components/SanctionsCard'
+import { useSanctions } from '../hooks/useSanctions'
 
 const ACTIONS = {
   START: 'Iniciado', PAUSE: 'Pausado', RESUME: 'Reanudado', RESET: 'Reiniciado',
@@ -201,6 +203,7 @@ export default function ControlPage() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
+  const sanctions = useSanctions(id)
   const soundAllowed = !!(perms?.isTable || perms?.isReferee)
   useMatchSound(id, soundAllowed) // solo mesa y arbitro
   useWakeLock(!!tick && (!tick.isMatchPaused || !tick.isSetPaused || !!tick.isTimeoutRunning))
@@ -474,7 +477,11 @@ export default function ControlPage() {
         <TimeoutCard tick={tick} can={can} half={half} send={send} nameA={a?.name ?? 'Equipo A'} nameB={b?.name ?? 'Equipo B'} />
       )}
 
-      <MatchRosterToggle teamA={a} teamB={b} branch={m.branch} />
+      {(live || m.status === 'READY') && (
+        <SanctionsCard m={m} tick={tick} items={sanctions} nameA={a?.name} nameB={b?.name} always control={{ can, send }} />
+      )}
+
+      <MatchRosterToggle teamA={a} teamB={b} branch={m.branch} matchId={m.id} />
     </div>
   )
 }

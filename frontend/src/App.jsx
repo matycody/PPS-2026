@@ -27,6 +27,7 @@ import TorneoPage from './pages/TorneoPage'
 import EstadisticasPage from './pages/EstadisticasPage'
 import EquiposPage from './pages/admin/EquiposPage'
 import SedesPage from './pages/admin/SedesPage'
+import SancionesPage from './pages/admin/SancionesPage'
 import AdminTeamPage from './pages/admin/AdminTeamPage'
 import PartidosPage from './pages/admin/PartidosPage'
 import AdminMatchPage from './pages/admin/AdminMatchPage'
@@ -62,7 +63,7 @@ function PerfilTemp() {
   )
 }
 
-const PROTECTED = Object.entries(ITEMS).filter(([k]) => !['home', 'perfil', 'favoritos', 'mi_equipo', 'mis_partidos_asignados', 'control_mesa', 'mis_partidos', 'dashboard_canchas', 'torneos', 'equipos', 'sedes', 'partidos', 'personas', 'usuarios', 'registro_ediciones'].includes(k))
+const PROTECTED = Object.entries(ITEMS).filter(([k]) => !['home', 'perfil', 'favoritos', 'mi_equipo', 'mis_partidos_asignados', 'control_mesa', 'mis_partidos', 'dashboard_canchas', 'torneos', 'equipos', 'sedes', 'sanciones', 'partidos', 'personas', 'usuarios', 'registro_ediciones'].includes(k))
 
 function App() {
   const init = useAuthStore((s) => s.init)
@@ -128,6 +129,9 @@ function App() {
               <Route path="/admin/equipos/:id" element={<AdminTeamPage />} />
             </Route>
 
+            <Route element={<ProtectedRoute need="sanciones" />}>
+              <Route path="/admin/sanciones" element={<SancionesPage />} />
+            </Route>
             <Route element={<ProtectedRoute need="sedes" />}>
               <Route path="/admin/sedes" element={<SedesPage />} />
             </Route>
