@@ -1,7 +1,8 @@
 const express = require('express');
 const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { FEED_ROOM } = require('../services/notify');
+const { FEED_ROOM, notifyMatch } = require('../services/notify');
+const { removeMatch } = require('../timers/matchManager');
 
 // Avisa a quienes tienen la app abierta que un torneo se pausó o reanudó (para que recarguen sus listas)
 function emitTournamentUpdate(req, tournamentId, pausedAt) {
@@ -543,6 +544,75 @@ router.put('/:id/stages', ...admin, async (req, res) => {
 });
 
 // Solo si no tiene partidos ni finalizó (no se borra historial)
+// Reiniciar torneo (solo para pruebas y demos): deja el fixture como recién creado.
+// Conserva equipos, zonas, fechas y llaves; borra resultados, relojes, canchas y designaciones.
+// Body: { clearSchedule: boolean } -> true también borra los horarios (si no, se restauran los originales de los reprogramados).
+router.post('/:id/reset', ...admin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const t = await prisma.tournament.findUnique({ where: { id }, select: { id: true, status: true, pausedAt: true } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+    const clearSchedule = req.body && req.body.clearSchedule === true;
+
+    const matches = await prisma.match.findMany({
+      where: { tournamentId: id },
+      select: { id: true, status: true, originalScheduledAt: true, nextMatchId: true, nextSide: true, loserMatchId: true, loserSide: true, teamAFrom: true, teamBFrom: true },
+    });
+    const ids = matches.map((m) => m.id);
+
+    // Lugares de las llaves que se completan solos (ganador, perdedor o posición de zona): vuelven a quedar vacíos
+    const fed = new Map(); // matchId -> { A: bool, B: bool }
+    const mark = (matchId, side) => {
+      if (!matchId || !side) return;
+      if (!fed.has(matchId)) fed.set(matchId, { A: false, B: false });
+      fed.get(matchId)[side] = true;
+    };
+    matches.forEach((m) => {
+      mark(m.nextMatchId, m.nextSide);
+      mark(m.loserMatchId, m.loserSide);
+      if (m.teamAFrom) mark(m.id, 'A');
+      if (m.teamBFrom) mark(m.id, 'B');
+    });
+
+    const ops = [
+      prisma.clockAction.deleteMany({ where: { matchId: { in: ids } } }),
+      prisma.matchClock.deleteMany({ where: { matchId: { in: ids } } }),
+      prisma.matchSet.deleteMany({ where: { matchId: { in: ids } } }),
+      prisma.matchAssignment.deleteMany({ where: { matchId: { in: ids } } }),
+      prisma.stageStanding.deleteMany({ where: { stage: { tournamentId: id } } }),
+      prisma.match.updateMany({
+        where: { id: { in: ids } },
+        data: { status: 'SCHEDULED', court: null, readyAt: null, readyBy: null, finishedAt: null, statusReason: null, originalScheduledAt: null, ...(clearSchedule ? { scheduledAt: null } : {}) },
+      }),
+    ];
+    if (!clearSchedule) {
+      matches.filter((m) => m.originalScheduledAt).forEach((m) => {
+        ops.push(prisma.match.update({ where: { id: m.id }, data: { scheduledAt: m.originalScheduledAt } }));
+      });
+    }
+    fed.forEach((sides, matchId) => {
+      const data = {};
+      if (sides.A) data.teamAId = null;
+      if (sides.B) data.teamBId = null;
+      ops.push(prisma.match.update({ where: { id: matchId }, data }));
+    });
+    ops.push(prisma.tournament.update({ where: { id }, data: { championId: null, ...(t.status === 'FINISHED' ? { status: 'ACTIVE' } : {}) } }));
+
+    await prisma.$transaction(ops);
+
+    // Relojes en memoria de los partidos que estaban en juego o habilitados
+    matches.filter((m) => ['LIVE', 'READY'].includes(m.status)).forEach((m) => removeMatch(m.id));
+    const io = req.app.get('io');
+    for (const mid of ids) {
+      try { await notifyMatch(io, mid); } catch (e) { console.error('[reset] notify', e.message); }
+    }
+    if (io) io.to(FEED_ROOM).emit('tournament:updated', { tournamentId: id, pausedAt: t.pausedAt ?? null });
+    res.json({ ok: true, matches: ids.length, clearedSchedule: clearSchedule });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
 router.delete('/:id', ...admin, async (req, res) => {
   try {
     const id = req.params.id;
