@@ -8,34 +8,35 @@ import { dayOf, dayTab } from '../../lib/days'
 import { useLeaveGuard } from '../../hooks/useLeaveGuard'
 import { useConfirm } from '../../components/ConfirmProvider'
 
-const TURN_MIN = 40 // un partido ocupa 40 minutos (2 tiempos de 20)
+const DEFAULT_TURN = 40 // por defecto un partido ocupa 40 minutos (2 tiempos de 20); la organización lo puede cambiar
+const TURN_STEP = 5
 const MAX_COURTS = 8
 const MAX_TURNS = 30
 const POOL_STEP = 40
 const key = (court, row) => court + '|' + row
 const shiftDay = (d, n) => dayOf(new Date(new Date(d + 'T12:00:00').getTime() + n * 864e5).toISOString())
 const pad = (n) => String(n).padStart(2, '0')
-const slotDate = (day, start, row) => {
+const slotDate = (day, start, row, turn) => {
   const [h, m] = start.split(':').map(Number)
-  return new Date(day + 'T' + pad(h) + ':' + pad(m) + ':00').getTime() + row * TURN_MIN * 60000
+  return new Date(day + 'T' + pad(h) + ':' + pad(m) + ':00').getTime() + row * turn * 60000
 }
-const rowLabel = (day, start, row) => {
-  const d = new Date(slotDate(day, start, row))
+const rowLabel = (day, start, row, turn) => {
+  const d = new Date(slotDate(day, start, row, turn))
   return pad(d.getHours()) + ':' + pad(d.getMinutes())
 }
 const teamsOf = (m) => [m.teamA?.id, m.teamB?.id].filter(Boolean)
 const byFixture = (a, b) => (a.tournament?.name ?? '').localeCompare(b.tournament?.name ?? '') || phaseCmp(a, b) || String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? ''))
 
 // Grilla inicial: los partidos del día que ya tienen cancha y caen justo en un turno
-function buildGrid(matches, day, start) {
+function buildGrid(matches, day, start, turn) {
   const grid = {}
   let maxCourt = 0
   let maxRow = -1
   matches.forEach((m) => {
     if (!m.scheduledAt || !m.court || m.court > MAX_COURTS || dayOf(m.scheduledAt) !== day) return
-    const diff = (new Date(m.scheduledAt).getTime() - slotDate(day, start, 0)) / 60000
-    if (diff < 0 || diff % TURN_MIN !== 0) return
-    const row = diff / TURN_MIN
+    const diff = (new Date(m.scheduledAt).getTime() - slotDate(day, start, 0, turn)) / 60000
+    if (diff < 0 || diff % turn !== 0) return
+    const row = diff / turn
     if (row >= MAX_TURNS || grid[key(m.court, row)]) return
     grid[key(m.court, row)] = m.id
     maxCourt = Math.max(maxCourt, m.court)
@@ -54,6 +55,7 @@ export default function JornadaPage() {
   const [tournaments, setTournaments] = useState([])
   const [day, setDay] = useState(() => dayOf(new Date().toISOString()))
   const [start, setStart] = useState('10:00')
+  const [turn, setTurn] = useState(DEFAULT_TURN) // minutos entre el inicio de un partido y el siguiente
   const [courts, setCourts] = useState(2)
   const [turns, setTurns] = useState(8)
   const [grid, setGrid] = useState({}) // 'cancha|turno' -> id de partido (borrador)
@@ -62,7 +64,7 @@ export default function JornadaPage() {
   const [q, setQ] = useState('')
   const [fTour, setFTour] = useState('')
   const [fBranch, setFBranch] = useState('')
-  const [fWhen, setFWhen] = useState('all') // all | none | day
+  const [fWhen, setFWhen] = useState('jornada') // jornada | none | all
   const [shown, setShown] = useState(POOL_STEP)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -99,19 +101,20 @@ export default function JornadaPage() {
   })
 
   // Reconstruye la grilla guardada al cargar los datos o cambiar de día / hora de inicio
-  const rebuild = useCallback((d, s, list) => {
-    const { grid: g, maxCourt, maxRow } = buildGrid(list, d, s)
+  const rebuild = useCallback((d, s, list, t) => {
+    const { grid: g, maxCourt, maxRow } = buildGrid(list, d, s, t)
     setGrid(g)
     setBase(g)
     setSel(null)
     setCourts((c) => Math.max(c, maxCourt))
     setTurns((t) => Math.max(t, maxRow + 1))
   }, [])
-  useEffect(() => { if (all) rebuild(day, start, all) }, [all]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (all) rebuild(day, start, all, turn) }, [all]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const confirmDiscard = async () => !dirty || (await ask({ title: 'Descartar cambios', message: 'Tenés cambios sin guardar. Si seguís, se pierden.', confirmText: 'Descartar', cancelText: 'Volver', danger: true }))
-  const changeDay = async (d) => { if (d === day || !(await confirmDiscard())) return; setDay(d); rebuild(d, start, all ?? []) }
-  const changeStart = async (s) => { if (!s || s === start || !(await confirmDiscard())) return; setStart(s); rebuild(day, s, all ?? []) }
+  const changeDay = async (d) => { if (d === day || !(await confirmDiscard())) return; setDay(d); rebuild(d, start, all ?? [], turn) }
+  const changeStart = async (s) => { if (!s || s === start || !(await confirmDiscard())) return; setStart(s); rebuild(day, s, all ?? [], turn) }
+  const changeTurn = async (t) => { if (t === turn || t < 10 || t > 240 || !(await confirmDiscard())) return; setTurn(t); rebuild(day, start, all ?? [], t) }
 
   // Partidos ubicados dentro de la grilla visible
   const placedIds = useMemo(() => {
@@ -142,16 +145,32 @@ export default function JornadaPage() {
   }, [grid, courts, turns, byId])
   const badCount = Object.values(flags).filter((f) => f === 'bad').length
 
+  // Jornada: los partidos del día elegido y, de cada torneo, los de su próxima fecha pendiente
+  const nextPhase = useMemo(() => {
+    const out = {}
+    ;(all ?? []).forEach((m) => {
+      const o = m.phase?.order
+      if (o == null || !m.tournament?.id) return
+      const id = m.tournament.id
+      if (out[id] == null || o < out[id]) out[id] = o
+    })
+    return out
+  }, [all])
+  const inJornada = useCallback((m) => (
+    (m.scheduledAt && dayOf(m.scheduledAt) === day) ||
+    (m.phase?.order != null && m.tournament?.id && m.phase.order === nextPhase[m.tournament.id])
+  ), [day, nextPhase])
+
   const pool = useMemo(() => {
     const t = q.trim().toLowerCase()
     return (all ?? [])
       .filter((m) => !placedIds.has(m.id))
       .filter((m) => !fTour || m.tournament?.id === fTour)
       .filter((m) => !fBranch || m.branch === fBranch)
-      .filter((m) => fWhen === 'all' || (fWhen === 'none' ? !m.scheduledAt : m.scheduledAt && dayOf(m.scheduledAt) === day))
+      .filter((m) => fWhen === 'all' || (t && fWhen === 'jornada') || (fWhen === 'none' ? !m.scheduledAt : inJornada(m)))
       .filter((m) => !t || (m.teamA?.name ?? '').toLowerCase().includes(t) || (m.teamB?.name ?? '').toLowerCase().includes(t))
       .sort(byFixture)
-  }, [all, placedIds, q, fTour, fBranch, fWhen, day])
+  }, [all, placedIds, q, fTour, fBranch, fWhen, inJornada])
 
   const positionOf = (id) => Object.keys(grid).find((k) => grid[k] === id)
 
@@ -211,7 +230,7 @@ export default function JornadaPage() {
     Object.entries(grid).forEach(([k, id]) => {
       if (base[k] === id) return
       const [c, r] = k.split('|').map(Number)
-      items.push({ matchId: id, court: c, scheduledAt: new Date(slotDate(day, start, r)).toISOString() })
+      items.push({ matchId: id, court: c, scheduledAt: new Date(slotDate(day, start, r, turn)).toISOString() })
     })
     // Los que estaban guardados en la grilla y se sacaron: quedan sin cancha y conservan su horario
     const nowPlaced = new Set(Object.values(grid))
@@ -221,7 +240,7 @@ export default function JornadaPage() {
     if (!items.length) return
     setBusy(true); setErr(''); setErrs([]); setOk('')
     try {
-      const r = await api('POST', '/matches/bulk-schedule', { items })
+      const r = await api('POST', '/matches/bulk-schedule', { turnMinutes: turn, items })
       await load()
       setOk('Jornada guardada: ' + r.updated + ' partidos actualizados')
     } catch (e) {
@@ -232,13 +251,13 @@ export default function JornadaPage() {
     }
   }
 
-  const stepper = (label, value, set, min, max) => (
+  const stepper = (label, value, set, min, max, step = 1) => (
     <div className="flex items-center justify-between gap-2 rounded-xl border border-line bg-bg px-2 py-1.5">
       <span className="pl-1 text-xs font-bold text-muted">{label}</span>
       <div className="flex items-center gap-1">
-        <button aria-label={'Menos ' + label} disabled={value <= min} onClick={() => set(value - 1)} className="grid h-8 w-8 place-items-center rounded-full bg-surface-2 disabled:opacity-30"><Minus size={14} /></button>
-        <span className="w-6 text-center font-extrabold">{value}</span>
-        <button aria-label={'Más ' + label} disabled={value >= max} onClick={() => set(value + 1)} className="grid h-8 w-8 place-items-center rounded-full bg-surface-2 disabled:opacity-30"><Plus size={14} /></button>
+        <button aria-label={'Menos ' + label} disabled={value <= min} onClick={() => set(Math.max(min, value - step))} className="grid h-8 w-8 place-items-center rounded-full bg-surface-2 disabled:opacity-30"><Minus size={14} /></button>
+        <span className="min-w-6 text-center font-extrabold">{value}</span>
+        <button aria-label={'Más ' + label} disabled={value >= max} onClick={() => set(Math.min(max, value + step))} className="grid h-8 w-8 place-items-center rounded-full bg-surface-2 disabled:opacity-30"><Plus size={14} /></button>
       </div>
     </div>
   )
@@ -265,15 +284,16 @@ export default function JornadaPage() {
           <button onClick={() => changeDay(dayOf(new Date().toISOString()))} className="text-sm font-extrabold">{dayTab(day)} · {day.split('-').reverse().join('/')}</button>
           <button aria-label="Día siguiente" onClick={() => changeDay(shiftDay(day, 1))} className="grid h-9 w-9 place-items-center rounded-full bg-surface-2"><ChevronRight size={18} /></button>
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {stepper('Canchas', courts, setCourts, 1, MAX_COURTS)}
           {stepper('Turnos', turns, setTurns, 1, MAX_TURNS)}
+          {stepper('Min por turno', turn, changeTurn, 10, 240, TURN_STEP)}
           <label className="flex items-center justify-between gap-2 rounded-xl border border-line bg-bg px-3 py-1.5">
             <span className="text-xs font-bold text-muted">Inicio</span>
             <input type="time" value={start} onChange={(e) => changeStart(e.target.value)} className="bg-transparent py-1 text-right font-extrabold outline-none" />
           </label>
         </div>
-        <p className="text-xs">Cada turno dura {TURN_MIN} min (2 tiempos de 20). Tocá un partido de la lista y después una celda; tocá una celda ocupada para moverla o intercambiarla.</p>
+        <p className="text-xs">Turno = tiempo entre el inicio de un partido y el siguiente (lo definís vos). Tocá un partido de la lista y después una celda; tocá una celda ocupada para moverla o intercambiarla.</p>
       </section>
 
       <section className="space-y-2">
@@ -288,7 +308,7 @@ export default function JornadaPage() {
             <tbody>
               {rows.map((r) => (
                 <tr key={r} className="border-b border-line last:border-0">
-                  <td className="sticky left-0 z-10 bg-surface px-2 py-1 text-xs font-extrabold">{rowLabel(day, start, r)}</td>
+                  <td className="sticky left-0 z-10 bg-surface px-2 py-1 text-xs font-extrabold">{rowLabel(day, start, r, turn)}</td>
                   {cols.map((c) => {
                     const k = key(c, r)
                     const m = byId[grid[k]]
@@ -330,7 +350,7 @@ export default function JornadaPage() {
           <Btn disabled={busy || !Object.keys(grid).length} onClick={clearGrid}>Vaciar tablero</Btn>
         </div>
         <div className="flex gap-2">
-          <Btn className="flex-1" disabled={busy || !dirty} onClick={() => rebuild(day, start, all)}>Descartar</Btn>
+          <Btn className="flex-1" disabled={busy || !dirty} onClick={() => rebuild(day, start, all, turn)}>Descartar</Btn>
           <Btn tone="accent" className="flex-1" disabled={busy || !dirty || badCount > 0} onClick={save}>{busy ? 'Guardando…' : 'Guardar jornada'}</Btn>
         </div>
       </section>
@@ -352,7 +372,7 @@ export default function JornadaPage() {
           </select>
         </div>
         <div className="flex gap-2">
-          {[['all', 'Todos'], ['none', 'Sin horario'], ['day', 'De este día']].map(([v, l]) => (
+          {[['jornada', 'Esta jornada'], ['none', 'Sin horario'], ['all', 'Todos']].map(([v, l]) => (
             <button key={v} onClick={() => { setFWhen(v); setShown(POOL_STEP) }} className={'flex-1 rounded-full border px-3 py-1.5 text-xs font-bold ' + (fWhen === v ? 'border-accent bg-accent text-black' : 'border-line bg-surface-2')}>{l}</button>
           ))}
         </div>
@@ -376,7 +396,7 @@ export default function JornadaPage() {
               </span>
             </button>
           ))}
-          {pool.length === 0 && <p className="text-sm text-muted">No quedan partidos con estos filtros.</p>}
+          {pool.length === 0 && <p className="text-sm text-muted">{fWhen === 'jornada' ? 'No quedan partidos de esta jornada. Probá "Todos" o buscá por equipo.' : 'No quedan partidos con estos filtros.'}</p>}
           {pool.length > shown && (
             <button onClick={() => setShown((n) => n + POOL_STEP)} className="w-full rounded-xl border border-line py-2.5 text-xs font-extrabold uppercase tracking-wide text-accent">Ver {Math.min(POOL_STEP, pool.length - shown)} más</button>
           )}
