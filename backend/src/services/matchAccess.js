@@ -1,4 +1,5 @@
 const prisma = require('../db');
+const tableLock = require('./tableLock');
 
 const OPEN = ['READY', 'LIVE']; // reloj habilitado
 
@@ -36,16 +37,22 @@ async function getPermissions(user, match) {
   const isAdmin = user.roles.includes('ADMIN');
   const open = OPEN.includes(match.status);
 
+  // Mesa única: si otra persona ya opera este partido como mesa, quien es solo mesa lo ve en solo lectura
+  const tableOnly = isTable && !isReferee && !isAdmin;
+  const tableLockedBy = tableOnly ? tableLock.blockedFor(match.id, user.id) : null;
+  const table = isTable && !tableLockedBy;
+
   return {
     isAdmin,
     isTable,
     isReferee,
+    tableLockedBy,
     // Árbitro asignado o mesa asignada, con el partido Habilitado o En vivo
-    canControlClock: (isTable || isReferee) && open,
-    canReady: (isAdmin || isTable) && match.status === 'SCHEDULED',
-    canUnready: (isAdmin || isTable) && match.status === 'READY',
-    canAddSets: ((isTable || isReferee || isAdmin) && open) || (isAdmin && match.status === 'FINISHED'),
-    canEditResult: !['CANCELLED', 'SUSPENDED'].includes(match.status) && (isAdmin || (isTable && open)),
+    canControlClock: (table || isReferee) && open,
+    canReady: (isAdmin || table) && match.status === 'SCHEDULED',
+    canUnready: (isAdmin || table) && match.status === 'READY',
+    canAddSets: ((table || isReferee || isAdmin) && open) || (isAdmin && match.status === 'FINISHED'),
+    canEditResult: !['CANCELLED', 'SUSPENDED'].includes(match.status) && (isAdmin || (table && open)),
     canFinish: isAdmin && open,
   };
 }

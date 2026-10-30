@@ -4,6 +4,7 @@ const prisma = require('../db');
 const { getPermissions } = require('../services/matchAccess');
 const { notifyMatch, FEED_ROOM } = require('../services/notify');
 const authCache = require('../services/authCache');
+const tableLock = require('../services/tableLock');
 const { CLIENT_EVENTS, SERVER_EVENTS } = require('../timers/timerEvents');
 const { getOrCreateMatch, getMatch, pauseMatch, resumeMatch } = require('../timers/matchManager');
 const clockStore = require('../timers/clockStore');
@@ -115,6 +116,7 @@ async function authorize(socket, matchId, need) {
 
   const perms = await getPermissions(auth.user, match);
   if (need && !perms[need]) {
+    if (perms.tableLockedBy) return { error: perms.tableLockedBy + ' está operando la mesa de este partido' };
     return { error: 'Sin permiso sobre este partido (o el partido no está Habilitado)' };
   }
   const result = { user: auth.user, match, perms };
@@ -184,7 +186,13 @@ function alreadyRunning(matchId, target) {
 
 // ───────────── Handlers ─────────────
 
+let lockReady = false;
 function registerMatchHandlers(io, socket) {
+  if (!lockReady) {
+    lockReady = true;
+    // Al quedar libre la mesa, quienes esperan en solo lectura vuelven a intentar tomarla
+    tableLock.init((matchId) => io.to(controlRoom(matchId)).emit('match:tableFree', { matchId }));
+  }
   function on(event, need, fn) {
     socket.on(event, (payload) => {
       const p = payload && typeof payload === 'object' ? payload : {};
@@ -250,17 +258,12 @@ function registerMatchHandlers(io, socket) {
         return emitError(socket, matchId, 'Demasiadas suscripciones');
       }
 
-      // Mesa por buena fe: no se bloquea a nadie, pero se avisa si ya hay otra persona operando como mesa
-      let otherTables = [];
+      // Mesa única: la primera persona que entra opera; las demás quedan en solo lectura hasta que salga
+      let live = perms;
       if (perms.isTable && !perms.isReferee && !perms.isAdmin) {
-        const peers = await io.in(controlRoom(match.id)).fetchSockets();
-        otherTables = peers
-          .filter((x) => x.id !== socket.id && x.data.user && x.data.user.id !== ctx.user.id && x.data.tableIn && x.data.tableIn.has(match.id))
-          .map((x) => x.data.displayName || 'otra persona');
-        socket.data.tableIn = socket.data.tableIn || new Set();
-        socket.data.tableIn.add(match.id);
+        tableLock.acquire(match.id, ctx.user.id, socket.id, socket.data.displayName || 'Otra persona');
+        live = await getPermissions(ctx.user, match); // con el bloqueo ya aplicado
       }
-      socket.emit('match:tableOthers', { matchId: match.id, names: [...new Set(otherTables)] });
 
       socket.join(publicRoom(match.id));
       socket.join(controlRoom(match.id));
@@ -268,14 +271,15 @@ function registerMatchHandlers(io, socket) {
       socket.emit(SERVER_EVENTS.MATCH_PERMISSIONS, {
         matchId: match.id,
         status: match.status,
-        isTable: perms.isTable,
-        isReferee: perms.isReferee,
-        canControlClock: perms.canControlClock,
-        canReady: perms.canReady,
-        canUnready: perms.canUnready,
-        canAddSets: perms.canAddSets,
-        canEditResult: perms.canEditResult,
-        canFinish: perms.canFinish,
+        isTable: live.isTable,
+        isReferee: live.isReferee,
+        tableLockedBy: live.tableLockedBy ?? null,
+        canControlClock: live.canControlClock,
+        canReady: live.canReady,
+        canUnready: live.canUnready,
+        canAddSets: live.canAddSets,
+        canEditResult: live.canEditResult,
+        canFinish: live.canFinish,
       });
 
       const snapshot = lastTick.get(match.id);
@@ -289,8 +293,11 @@ function registerMatchHandlers(io, socket) {
   socket.on(CLIENT_EVENTS.MATCH_CONTROL_LEAVE, (payload) => {
     const matchId = payload && payload.matchId;
     if (typeof matchId === 'string') socket.leave(controlRoom(matchId));
-    if (typeof matchId === 'string' && socket.data.tableIn) socket.data.tableIn.delete(matchId);
+    if (typeof matchId === 'string') tableLock.release(matchId, socket.id); // salir de la pantalla libera la mesa al instante
   });
+
+  // Se cortó la conexión: se libera la mesa pasada la gracia (un corte breve de red no la pierde)
+  socket.on('disconnect', () => tableLock.releaseSocket(socket.id, true));
 
   // ── Comandos del reloj: árbitros asignados y mesa, con el partido Habilitado o En vivo ──
   on(CLIENT_EVENTS.MATCH_START, 'canControlClock', async ({ match }, p) => {

@@ -13,9 +13,9 @@ const NUMBER_MAX = 999;
 // Ítems de menú por rol (el front solo los renderiza)
 const MENU = {
   BASE: ['home', 'favoritos', 'perfil'],
-  PLAYER: ['mis_partidos', 'mi_equipo', 'mis_estadisticas'],
+  PLAYER: ['mis_partidos', 'mi_equipo', 'mis_estadisticas', 'control_mesa'], // todo jugador ve Control de mesa (vacío si no tiene partidos asignados); los permisos reales siguen siendo por asignación
   REFEREE: ['mis_partidos_asignados'],
-  TABLE: ['control_mesa'], // solo si tiene una mesa asignada en un partido activo
+  TABLE: ['control_mesa'], // quien no es jugador lo recibe solo si tiene una mesa asignada en un partido activo
   ADMIN: [
     'dashboard_canchas', 'torneos', 'partidos', 'equipos',
     'personas', 'importar_excel', 'usuarios', 'registro_ediciones',
