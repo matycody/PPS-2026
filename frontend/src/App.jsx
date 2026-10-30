@@ -109,7 +109,7 @@ function App() {
             <Route element={<ProtectedRoute need="mis_partidos_asignados" />}>
               <Route path="/asignados" element={<AssignmentsPage fn="REFEREE" />} />
             </Route>
-            <Route element={<ProtectedRoute need="control_mesa" roles={['ADMIN', 'REFEREE']} />}>
+            <Route element={<ProtectedRoute need="control_mesa" roles={['ADMIN', 'REFEREE', 'PLAYER']} />}>
               <Route path="/mesa" element={<AssignmentsPage fn="TABLE" />} />
             </Route>
 

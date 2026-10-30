@@ -35,7 +35,7 @@ export default function InicioPage() {
       <div className="flex gap-2">
         {[
           ...GENERAL.slice(0, 3),
-          ...(role === 'Organizador' || role === 'Árbitro' || menu.includes('control_mesa') ? [ITEMS.control_mesa] : []),
+          ...(role === 'Organizador' || role === 'Árbitro' || user?.roles?.includes('PLAYER') || menu.includes('control_mesa') ? [ITEMS.control_mesa] : []),
           ...(menu.includes('usuarios') ? [ITEMS.usuarios] : []),
         ].filter((c) => !(user?.roles?.includes('ADMIN') && c.to === '/estadisticas')).map(({ to, label, Icon, soon }) => (
           <Link key={to} to={to} className="flex min-w-0 flex-1 flex-col items-center justify-start gap-1.5 break-words rounded-2xl border border-line bg-surface px-1 py-3 text-center text-[10px] font-semibold leading-tight sm:text-sm">

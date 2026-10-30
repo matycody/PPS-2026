@@ -1,6 +1,6 @@
 ﻿import { useLeaveGuard } from '../hooks/useLeaveGuard'
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { ChevronLeft, Play, Pause, RotateCcw, Minus, Plus, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
@@ -193,7 +193,6 @@ function TimeoutCard({ tick, can, half, send, nameA, nameB }) {
 
 export default function ControlPage() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const [m, setM] = useState(null)
   const [tick, setTick] = useState(null)
   const [perms, setPerms] = useState(null)
@@ -202,13 +201,11 @@ export default function ControlPage() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
-  const [otherTables, setOtherTables] = useState([]) // otras personas ya operando como mesa
-  const [tableOk, setTableOk] = useState(false)
   const soundAllowed = !!(perms?.isTable || perms?.isReferee)
   useMatchSound(id, soundAllowed) // solo mesa y arbitro
   useWakeLock(!!tick && (!tick.isMatchPaused || !tick.isSetPaused || !!tick.isTimeoutRunning))
   // Quien opera el partido (árbitro, mesa u organizador) confirma antes de irse a otra pantalla
-  const operating = !!(perms && (perms.isTable || perms.isReferee || perms.canControlClock)) && !['FINISHED', 'CANCELLED'].includes(m?.status)
+  const operating = !!(perms && (perms.isTable || perms.isReferee || perms.canControlClock)) && !perms.tableLockedBy && !['FINISHED', 'CANCELLED'].includes(m?.status)
   const roleText = perms?.isReferee && perms?.isTable ? 'árbitro y mesa' : perms?.isReferee ? 'árbitro' : perms?.isTable ? 'mesa' : 'organizador'
   const { modal: leaveModal, ask: askLeave } = useLeaveGuard(operating, roleText)
 
@@ -239,7 +236,8 @@ export default function ControlPage() {
     const mine = (p) => p.matchId === id
     const onTick = (p) => mine(p) && setTick(p)
     const onPerms = (p) => mine(p) && setPerms(p)
-    const onOthers = (p) => mine(p) && setOtherTables(p.names ?? [])
+    // Quien operaba la mesa salió: si estoy esperando en solo lectura, intento tomar el control (la primera persona que lo logre lo conserva)
+    const onTableFree = (p) => mine(p) && socket.emit('match:controlJoin', { matchId: id })
     const onAction = (p) => mine(p) && setLast(p)
     const onError = (p) => setErr(p.message ?? 'Error')
     const onUpdated = (p) => (p.matchId ?? p.id) === id && setM((prev) => ({ ...prev, ...normMatch(p) }))
@@ -250,7 +248,7 @@ export default function ControlPage() {
     socket.on('connect', join)
     socket.on('match:tick', onTick)
     socket.on('match:permissions', onPerms)
-    socket.on('match:tableOthers', onOthers)
+    socket.on('match:tableFree', onTableFree)
     socket.on('match:action', onAction)
     socket.on('match:error', onError)
     socket.on('match:updated', onUpdated)
@@ -265,7 +263,7 @@ export default function ControlPage() {
       socket.off('connect', join)
       socket.off('match:tick', onTick)
       socket.off('match:permissions', onPerms)
-      socket.off('match:tableOthers', onOthers)
+      socket.off('match:tableFree', onTableFree)
       socket.off('match:action', onAction)
       socket.off('match:error', onError)
       socket.off('match:updated', onUpdated)
@@ -307,18 +305,12 @@ export default function ControlPage() {
   return (
     <div className="space-y-4">
       {leaveModal}
-      {perms?.isTable && !perms?.isReferee && otherTables.length > 0 && !tableOk && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-4">
-            <p className="font-semibold">Ya hay una mesa designada</p>
-            <p className="mt-1 text-sm text-muted">
-              {otherTables.join(', ')} ya {otherTables.length > 1 ? 'están' : 'está'} operando este partido como mesa. ¿Querés continuar como mesa igualmente?
-            </p>
-            <div className="mt-4 flex gap-2">
-              <Btn className="flex-1" onClick={() => navigate(-1)}>Salir</Btn>
-              <Btn tone="accent" className="flex-1" onClick={() => setTableOk(true)}>Continuar</Btn>
-            </div>
-          </div>
+      {perms?.tableLockedBy && (
+        <div className="rounded-2xl border border-warn/40 bg-warn/10 p-3 text-sm">
+          <p className="font-bold">Otra persona está operando la mesa</p>
+          <p className="mt-1">
+            {perms.tableLockedBy} tiene el control de este partido. Podés mirarlo, pero no controlarlo hasta que salga de la pantalla del partido. Apenas lo haga, vas a poder tomar el control.
+          </p>
         </div>
       )}
       <button onClick={() => askLeave({ back: true })} className="inline-flex items-center gap-1 text-sm font-semibold text-muted">

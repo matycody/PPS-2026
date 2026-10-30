@@ -94,7 +94,7 @@ export default function LoginPage() {
           {error && <p className="text-sm text-danger">{error}</p>}
           {info && <p className="text-sm text-live">{info}</p>}
 
-          <button type="button" onClick={() => { setForgot((v) => !v); setError(''); setInfo('') }} className="self-end text-sm font-semibold text-accent underline">
+          <button type="button" onClick={() => { setForgot((v) => !v); setError(''); setInfo('') }} className="self-end text-sm font-bold text-black underline">
             {forgot ? 'Volver a iniciar sesión' : '¿Olvidaste tu contraseña?'}
           </button>
 
@@ -118,7 +118,7 @@ export default function LoginPage() {
         <p className="mt-8 text-center text-sm">
           ¿No tenés cuenta? <Link to="/registro?tipo=invitado" className="font-bold text-accent">Registrate</Link>
         </p>
-        <p className="mt-2 text-center text-sm text-muted">
+        <p className="mt-2 text-center text-sm">
           ¿Sos jugador? <Link to="/registro" className="font-bold text-accent">Registrate acá</Link>
         </p>
       </div>
