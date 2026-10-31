@@ -82,6 +82,7 @@ const LABELS = {
   'DELETE /teams/:id/photo': 'Quitó la foto de un equipo',
   'PUT /profiles/:id': 'Cambió la foto de una persona',
   'DELETE /profiles/:id/photo': 'Quitó la foto de una persona',
+  'POST /matches/:id/sheet/reject': 'Anuló la planilla de juego (vuelven a estar todos disponibles)',
   'POST /matches/:id/sheet/:id/confirm': 'Confirmó la planilla de juego (quiénes juegan el partido)',
   'POST /venues/resolve': 'Buscó una sede',
 };

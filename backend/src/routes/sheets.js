@@ -116,6 +116,23 @@ router.post('/:id/sheet/:sheetId/confirm', authenticate, async (req, res) => {
   } catch (err) { fail(res, err); }
 });
 
+// Anular: la mesa cargó una planilla equivocada. Se vuelve a "todos disponibles"; la foto y su registro quedan para auditoría.
+router.post('/:id/sheet/reject', authenticate, async (req, res) => {
+  try {
+    const match = await loadForTable(req, res);
+    if (!match) return;
+    const sheet = await prisma.matchSheet.findFirst({ where: { matchId: match.id, status: 'CONFIRMED' } });
+    if (!sheet) return res.status(404).json({ error: 'No hay una planilla confirmada para anular' });
+    await prisma.$transaction([
+      prisma.matchAttendance.deleteMany({ where: { matchId: match.id } }),
+      prisma.matchSheet.update({ where: { id: sheet.id }, data: { status: 'REJECTED' } }),
+    ]);
+    const io = req.app.get('io');
+    if (io) io.to('match:' + match.id).emit('match:attendance', { matchId: match.id });
+    res.json({ ok: true });
+  } catch (err) { fail(res, err); }
+});
+
 // Quién juega según la planilla confirmada (público: se ve en gris a quien no juega)
 router.get('/:id/attendance', optionalAuth, async (req, res) => {
   try {
@@ -124,6 +141,23 @@ router.get('/:id/attendance', optionalAuth, async (req, res) => {
     if (!match || (match.hiddenAt && !isAdmin)) return res.status(404).json({ error: 'Partido no encontrado' });
     const rows = await prisma.matchAttendance.findMany({ where: { matchId: match.id }, select: { profileId: true, present: true } });
     res.json({ confirmed: rows.length > 0, items: rows });
+  } catch (err) { fail(res, err); }
+});
+
+// La planilla confirmada del partido con su foto: la ve la mesa de ese partido (también después de jugarlo) y el admin
+router.get('/:id/sheet', authenticate, async (req, res) => {
+  try {
+    const match = await prisma.match.findUnique({ where: { id: req.params.id } });
+    if (!match || match.hiddenAt) return res.status(404).json({ error: 'Partido no encontrado' });
+    const perms = await getPermissions(req.user, match);
+    if (!perms.isAdmin && !perms.isTable) return res.status(403).json({ error: 'Solo la mesa del partido puede ver la planilla' });
+    const sheet = await prisma.matchSheet.findFirst({ where: { matchId: match.id, status: 'CONFIRMED' } });
+    if (!sheet) return res.json({ sheet: null });
+    const rows = await prisma.matchAttendance.findMany({ where: { matchId: match.id }, select: { present: true } });
+    res.json({ sheet: {
+      id: sheet.id, imageUrl: await storage.signedSheetUrl(sheet.imagePath), uploadedAt: sheet.uploadedAt, confirmedAt: sheet.confirmedAt,
+      present: rows.filter((r) => r.present).length, absent: rows.filter((r) => !r.present).length,
+    } });
   } catch (err) { fail(res, err); }
 });
 

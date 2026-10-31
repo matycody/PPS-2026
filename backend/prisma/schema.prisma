@@ -638,7 +638,7 @@ model MatchSheet {
   extracted     Json? // lo que leyó la herramienta, sin tocar
   aiError       String?   @db.VarChar(300)
   confirmed     Json? // lo que confirmó la mesa
-  status        String    @default("PENDING") @db.VarChar(12) // PENDING | CONFIRMED | SUPERSEDED
+  status        String    @default("PENDING") @db.VarChar(12) // PENDING | CONFIRMED | SUPERSEDED | REJECTED
   confirmedById String?
   confirmedAt   DateTime?
 
