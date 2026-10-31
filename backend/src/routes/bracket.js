@@ -482,4 +482,80 @@ router.post('/:id/stages/:stageId/bracket/rounds/:round/assign-courts', ...admin
   }
 });
 
+// ───────────── Playoff de ascenso / permanencia ─────────────
+// Se arma solo a partir de los puestos que la organización marcó en cada zona (Estructura):
+// una etapa de llave aparte con un partido por cruce, cuyos lugares son "N° Zona X" y se completan
+// cuando la zona termina (hasta entonces se ve como "Probable cruce").
+const PROMO_NAME = 'Playoff de ascenso/permanencia';
+
+function promoPairs(zones) {
+  const withP = zones.filter((z) => z.positions.length);
+  if (!withP.length) return { pairs: [] };
+  if (withP.length === 2) {
+    const [x, y] = withP;
+    if (x.positions.length !== y.positions.length) {
+      return { error: 'Para armar los cruces, ' + x.name + ' y ' + y.name + ' necesitan la misma cantidad de puestos de playoff' };
+    }
+    return { pairs: x.positions.map((p, i) => [{ stageId: x.id, position: p }, { stageId: y.id, position: y.positions[i] }]) };
+  }
+  const slots = withP.flatMap((z) => z.positions.map((p) => ({ stageId: z.id, position: p })));
+  if (slots.length % 2) return { error: 'La cantidad total de puestos de playoff tiene que ser par para armar los cruces' };
+  const pairs = [];
+  for (let i = 0; i < slots.length; i += 2) pairs.push([slots[i], slots[i + 1]]);
+  return { pairs };
+}
+
+const fromKey = (f) => (f ? f.stageId + ':' + f.position : '-');
+
+// Deja la etapa y sus partidos de promoción al día con la estructura. Devuelve { error? } sin lanzar por reglas de negocio.
+async function syncPromotion(tournamentId, io = null) {
+  const t = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  if (!t || t.status === 'FINISHED') return {};
+  const zones = (
+    await prisma.stage.findMany({
+      where: { tournamentId, type: 'LEAGUE' },
+      orderBy: [{ phase: 'asc' }, { tier: 'asc' }, { name: 'asc' }],
+      select: { id: true, name: true, phase: true, playoffPositions: true },
+    })
+  ).map((z) => ({ ...z, positions: [...z.playoffPositions].sort((a, b) => a - b) }));
+  const existing = await prisma.stage.findFirst({ where: { tournamentId, isPromotion: true } });
+  const built = promoPairs(zones);
+  if (built.error) return { error: built.error };
+
+  if (!built.pairs.length) {
+    if (!existing) return {};
+    const rep = await replaceable(existing.id);
+    if (!rep.ok) return { error: 'El cruce de ascenso/permanencia ya tiene partidos habilitados o jugados: no se quitó' };
+    await prisma.$transaction([
+      prisma.match.deleteMany({ where: { stageId: existing.id } }),
+      prisma.stageTeam.deleteMany({ where: { stageId: existing.id } }),
+      prisma.stage.delete({ where: { id: existing.id } }),
+    ]);
+    return {};
+  }
+
+  if (existing) {
+    const cur = await prisma.match.findMany({ where: { stageId: existing.id }, orderBy: [{ slot: 'asc' }], select: { teamAFrom: true, teamBFrom: true } });
+    const same =
+      cur.length === built.pairs.length &&
+      cur.every((m, i) => fromKey(m.teamAFrom) === fromKey(built.pairs[i][0]) && fromKey(m.teamBFrom) === fromKey(built.pairs[i][1]));
+    if (same) return {};
+    const rep = await replaceable(existing.id);
+    if (!rep.ok) return { error: 'El cruce de ascenso/permanencia ya tiene partidos habilitados o jugados: no se actualizó' };
+  }
+
+  const maxPhase = zones.reduce((n, z) => Math.max(n, z.phase), 1);
+  const stage = existing ?? (await prisma.stage.create({
+    data: { tournamentId, name: PROMO_NAME, type: 'KNOCKOUT', phase: maxPhase + 1, isPromotion: true },
+  }));
+  const specs = built.pairs.map((pr, i) => ({ ref: 'p' + (i + 1), round: 1, slot: i + 1, a: { from: pr[0] }, b: { from: pr[1] } }));
+  await persist({ ...stage, tournament: t }, specs, null);
+
+  // Si alguna zona ya terminó, completa su lugar enseguida
+  const { resolveFromSlots } = require('../services/slotFrom');
+  for (const z of zones) await resolveFromSlots(io, tournamentId, z.id);
+  return {};
+}
+
+router.syncPromotion = syncPromotion;
 module.exports = router;

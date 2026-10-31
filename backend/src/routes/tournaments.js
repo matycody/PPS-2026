@@ -443,7 +443,7 @@ router.put('/:id/stages', ...admin, async (req, res) => {
     if (t.status === 'FINISHED' || (t.status !== 'DRAFT' && !t.pausedAt)) {
       return res.status(409).json({ error: 'La estructura solo se edita en borrador o con el torneo pausado' });
     }
-    const hasMatches = (await prisma.match.count({ where: { tournamentId: t.id } })) > 0;
+    const hasMatches = (await prisma.match.count({ where: { tournamentId: t.id, stage: { isPromotion: false } } })) > 0;
     if (hasMatches && !t.pausedAt) {
       return res.status(409).json({ error: 'El torneo ya tiene partidos: pausalo para rehacer la estructura' });
     }
@@ -539,7 +539,7 @@ router.put('/:id/stages', ...admin, async (req, res) => {
     // Cambios no estructurales (ascensos, descensos, nivel) sobre zonas/llaves ya existentes:
     // se actualizan en el lugar, sin tocar partidos, fechas, llaves ni posiciones.
     const existing = await prisma.stage.findMany({
-      where: { tournamentId: t.id },
+      where: { tournamentId: t.id, isPromotion: false }, // la etapa de promoción se arma sola (syncPromotion)
       include: { teams: { select: { teamId: true, seed: true, entryRound: true } } },
     });
     const key = (x) => `${x.name.toLowerCase()}|${x.type}|${x.phase}`;
@@ -572,11 +572,11 @@ router.put('/:id/stages', ...admin, async (req, res) => {
       }
     await prisma.$transaction(
       async (tx) => {
-        if (hasMatches) await wipeMatches(tx, { tournamentId: t.id }); // pausado: el fixture se rehace
+        await wipeMatches(tx, { tournamentId: t.id }); // pausado: el fixture se rehace (y el cruce de promoción, que se rearma solo)
         await tx.stageStanding.deleteMany({ where: { stage: { tournamentId: t.id } } });
         await tx.stageTeam.deleteMany({ where: { stage: { tournamentId: t.id } } });
         await tx.matchday.deleteMany({ where: { stage: { tournamentId: t.id } } });
-        await tx.stage.deleteMany({ where: { tournamentId: t.id } });
+        await tx.stage.deleteMany({ where: { tournamentId: t.id } }); // incluye la de promoción: se rearma sola
         for (const s of stages) {
           await tx.stage.create({
             data: {
@@ -597,13 +597,16 @@ router.put('/:id/stages', ...admin, async (req, res) => {
     );
     }
 
+    // Cruce de ascenso/permanencia: se arma (o quita) solo según los puestos elegidos
+    const promo = await require('./bracket').syncPromotion(t.id, req.app.get('io'));
+
     const saved = await prisma.stage.findMany({
-      where: { tournamentId: t.id },
+      where: { tournamentId: t.id, isPromotion: false },
       orderBy: [{ phase: 'asc' }, { tier: 'asc' }, { name: 'asc' }],
       include: { teams: { include: { team: { select: TEAM_SELECT } } } },
     });
     const placed = new Set(saved.flatMap((s) => s.teams.map((x) => x.teamId)));
-    res.json({ stages: saved, unassigned: [...enrolled].filter((id) => !placed.has(id)) });
+    res.json({ stages: saved, unassigned: [...enrolled].filter((id) => !placed.has(id)), ...(promo.error ? { promotionWarning: promo.error } : {}) });
   } catch (err) {
     handleDbError(err, res);
   }
