@@ -620,3 +620,40 @@ model News {
   @@index([publishedAt])
   @@index([teamId])
 }
+
+
+// Planilla de juego fotografiada por la mesa. Queda guardada siempre (auditoría): no se borra ni se pisa.
+model MatchSheet {
+  id            String    @id @default(uuid())
+  matchId       String
+  kind          String    @default("PRE") @db.VarChar(8) // PRE = antes del partido
+  imagePath     String // en el bucket privado match-sheets
+  sha256        String    @db.VarChar(64) // huella de la foto original
+  mime          String    @db.VarChar(30)
+  bytes         Int
+  uploadedById  String
+  uploadedAt    DateTime  @default(now())
+  provider      String?   @db.VarChar(20) // quién la leyó (gemini)
+  aiModel       String?   @db.VarChar(60)
+  extracted     Json? // lo que leyó la herramienta, sin tocar
+  aiError       String?   @db.VarChar(300)
+  confirmed     Json? // lo que confirmó la mesa
+  status        String    @default("PENDING") @db.VarChar(12) // PENDING | CONFIRMED | SUPERSEDED
+  confirmedById String?
+  confirmedAt   DateTime?
+
+  @@index([matchId, uploadedAt])
+}
+
+// Quién juega el partido según la planilla confirmada (los demás se ven en gris)
+model MatchAttendance {
+  id        String  @id @default(uuid())
+  matchId   String
+  profileId String
+  teamId    String
+  present   Boolean
+  sheetId   String
+
+  @@unique([matchId, profileId])
+  @@index([matchId])
+}

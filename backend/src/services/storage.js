@@ -4,6 +4,7 @@ const supabaseAdmin = require('../lib/supabaseAdmin');
 
 const PHOTOS_BUCKET = 'photos'; // privado: URL firmadas solo para cuentas con sesión
 const LOGOS_BUCKET = 'team-logos'; // público: escudos y logos
+const SHEETS_BUCKET = 'match-sheets'; // privado: planillas de juego (auditoría, solo la organización)
 const SIGNED_TTL = 60 * 60; // 1 hora
 const ALLOWED = ['jpeg', 'png', 'webp'];
 
@@ -32,7 +33,7 @@ function imageBody(req, res, next) {
 let ready = false;
 async function ensureBuckets() {
   if (ready) return;
-  for (const [name, isPublic] of [[PHOTOS_BUCKET, false], [LOGOS_BUCKET, true]]) {
+  for (const [name, isPublic] of [[PHOTOS_BUCKET, false], [LOGOS_BUCKET, true], [SHEETS_BUCKET, false]]) {
     const { error } = await supabaseAdmin.storage.createBucket(name, { public: isPublic });
     const exists = error && (String(error.statusCode) === '409' || /already exists|duplicate/i.test(error.message));
     if (error && !exists) throw error;
@@ -74,6 +75,18 @@ async function uploadLogo(path, buffer) {
   return data.publicUrl + '?v=' + Date.now();
 }
 
+// Planilla original, sin tocarla (queda para auditoría)
+async function uploadSheet(path, buffer, mime) {
+  await ensureBuckets();
+  const { error } = await supabaseAdmin.storage.from(SHEETS_BUCKET).upload(path, buffer, { contentType: mime, upsert: false });
+  if (error) throw error;
+}
+
+async function signedSheetUrl(path) {
+  const { data, error } = await supabaseAdmin.storage.from(SHEETS_BUCKET).createSignedUrl(path, SIGNED_TTL);
+  return error ? null : data.signedUrl;
+}
+
 async function removeFile(bucket, path) {
   const { error } = await supabaseAdmin.storage.from(bucket).remove([path]);
   if (error) throw error;
@@ -101,6 +114,8 @@ module.exports = {
   processImage,
   uploadPhoto,
   uploadLogo,
+  uploadSheet,
+  signedSheetUrl,
   removeFile,
   signedUrl,
   signedUrls,
