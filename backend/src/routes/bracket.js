@@ -154,12 +154,15 @@ function roundLabel(round, maxRound) {
   return 'Ronda ' + round;
 }
 
-async function view(stageId) {
+// withPaused: con el torneo pausado la organización sigue viendo los partidos que ocultó la pausa (marcados paused: true)
+async function view(stageId, withPaused = false) {
+  const hid = withPaused ? { OR: [{ hiddenAt: null }, { hiddenByPause: true }] } : { hiddenAt: null };
   const matches = await prisma.match.findMany({
-    where: { stageId, hiddenAt: null },
+    where: { stageId, ...hid },
     orderBy: [{ round: 'asc' }, { slot: 'asc' }],
     select: {
       id: true,
+      hiddenByPause: true,
       tournamentId: true,
       round: true,
       slot: true,
@@ -190,7 +193,7 @@ async function view(stageId) {
   if (fromIds.length) {
     const [zones, zms] = await Promise.all([
       prisma.stage.findMany({ where: { id: { in: fromIds } }, select: { id: true, name: true } }),
-      prisma.match.findMany({ where: { stageId: { in: fromIds }, hiddenAt: null }, select: { stageId: true, status: true } }),
+      prisma.match.findMany({ where: { stageId: { in: fromIds }, ...hid }, select: { stageId: true, status: true } }),
     ]);
     for (const z of zones) {
       const own = zms.filter((x) => x.stageId === z.id);
@@ -221,6 +224,7 @@ async function view(stageId) {
     if (!rounds.has(m.round)) rounds.set(m.round, { round: m.round, name: roundLabel(m.round, maxRound), matches: [] });
     rounds.get(m.round).matches.push({
       id: m.id,
+      ...(m.hiddenByPause ? { paused: true } : {}),
       slot: m.slot,
       kind: thirdPlace ? 'THIRD_PLACE' : 'MATCH',
       status: m.status,
@@ -410,7 +414,7 @@ router.get('/:id/stages/:stageId/bracket', async (req, res) => {
   try {
     const stage = await findStage(req.params.id, req.params.stageId);
     if (!stage) return res.status(404).json({ error: 'Etapa no encontrada' });
-    res.json(await view(stage.id));
+    res.json(await view(stage.id, Boolean(req.user && req.user.roles && req.user.roles.includes('ADMIN'))));
   } catch (err) {
     handleDbError(err, res);
   }

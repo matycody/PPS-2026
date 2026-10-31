@@ -129,7 +129,8 @@ function buildTable(stage, t, matches, criteria) {
 
 // Tabla de posiciones de las zonas de liga de un torneo (o de una sola con stageId).
 // Se calcula siempre desde los partidos finalizados.
-async function computeStandingsRaw(tournamentId, stageId = null) {
+// withPaused: la organización ve la tabla con los partidos que ocultó la pausa del torneo
+async function computeStandingsRaw(tournamentId, stageId = null, withPaused = false) {
   const t = await prisma.tournament.findUnique({
     where: { id: tournamentId },
     include: { tiebreakers: { orderBy: { order: 'asc' } } },
@@ -143,7 +144,7 @@ async function computeStandingsRaw(tournamentId, stageId = null) {
   });
   const matches = stages.length
     ? await prisma.match.findMany({
-        where: { stageId: { in: stages.map((s) => s.id) }, status: 'FINISHED', hiddenAt: null },
+        where: { stageId: { in: stages.map((s) => s.id) }, status: 'FINISHED', ...(withPaused ? { OR: [{ hiddenAt: null }, { hiddenByPause: true }] } : { hiddenAt: null }) },
         select: { stageId: true, teamAId: true, teamBId: true, finishedAt: true, scheduledAt: true, sets: { select: { winnerTeamId: true } } },
       })
     : [];
@@ -172,6 +173,6 @@ async function computeStandingsRaw(tournamentId, stageId = null) {
 }
 
 // Con memoria corta: el Inicio pide las tablas de cada torneo en cada carga
-const computeStandings = (tournamentId, stageId = null) => memo('standings|' + tournamentId + '|' + (stageId ?? ''), () => computeStandingsRaw(tournamentId, stageId));
+const computeStandings = (tournamentId, stageId = null, withPaused = false) => memo('standings|' + tournamentId + '|' + (stageId ?? '') + '|' + (withPaused ? 'p' : ''), () => computeStandingsRaw(tournamentId, stageId, withPaused));
 
 module.exports = { computeStandings, buildTable };
