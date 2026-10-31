@@ -7,7 +7,7 @@ import { BRANCH, MODALITY, STATUS, courtLabel } from '../lib/format'
 import { statusBorder } from '../lib/statusStyle'
 import { usePipClock } from '../hooks/usePipClock'
 
-const hour = (iso) => (iso ? new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--')
+const hour = (iso, timeSet) => (iso && timeSet !== false ? new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--')
 
 // Una fila de equipo. Tocar solo el escudo abre el banner del equipo; el nombre y el resto de la fila abren el partido.
 // Con "slot" el cruce todavía no está definido: se muestra el lugar (1.°, 2.°…) y quién lo ocupa ahora, como probable.
@@ -81,7 +81,7 @@ export default function MatchRow({ m, to, action, footer, selecting, selected, o
             <Side branch={m.branch} t={m.teamB} slot={m.phase?.slotB} form={m.form?.B} rank={m.form?.rankB} score={hasScore ? m.score?.teamB ?? 0 : null} live={live} />
           </div>
           <div className="flex w-[72px] shrink-0 flex-col items-center justify-center border-l border-line pl-3 text-center">
-            {!hasScore && <span className="font-mono text-xl font-extrabold tabular-nums">{hour(m.scheduledAt)}</span>}
+            {!hasScore && <span className="font-mono text-xl font-extrabold tabular-nums">{hour(m.scheduledAt, m.timeSet)}</span>}
             {live ? (
               <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-live px-2 py-0.5 text-[10px] font-extrabold uppercase leading-tight text-black">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-black" />En vivo

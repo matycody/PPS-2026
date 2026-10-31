@@ -20,7 +20,7 @@ export function MatchRow({ m, base }) {
             : ' vs '}
           {m.teamB?.name ?? m.fromB?.label ?? '—'}
         </span>
-        <span className="min-w-0 text-xs text-muted sm:shrink-0">{m.scheduledAt ? fmtWhen(m.scheduledAt) : 'Sin programación'} · {m.venue ? m.venue.name + ' · ' : ''}{courtLabel(m.court)}</span>
+        <span className="min-w-0 text-xs text-muted sm:shrink-0">{m.scheduledAt ? fmtWhen(m.scheduledAt, m.timeSet) : 'Sin programación'} · {m.venue ? m.venue.name + ' · ' : ''}{courtLabel(m.court)}</span>
         <span className="ml-auto flex shrink-0 items-center gap-2">
           {m.paused && <span className="rounded-full bg-warn/20 px-2 py-0.5 text-xs font-bold uppercase text-warn">Pausado</span>}
           <StatusPill status={m.status} />

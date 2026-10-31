@@ -34,7 +34,7 @@ const byFixture = (a, b) => (a.tournament?.name ?? '').localeCompare(b.tournamen
 // Deduce con qué hora de inicio y minutos por turno se armó la jornada de ese día (a partir de los partidos ya ubicados)
 const gcd = (a, b) => (b ? gcd(b, a % b) : a)
 function inferCfg(matches, day, fallbackTurn) {
-  const times = [...new Set(matches.filter((m) => m.scheduledAt && m.court && dayOf(m.scheduledAt) === day).map((m) => new Date(m.scheduledAt).getTime()))].sort((a, b) => a - b)
+  const times = [...new Set(matches.filter((m) => m.scheduledAt && m.timeSet !== false && m.court && dayOf(m.scheduledAt) === day).map((m) => new Date(m.scheduledAt).getTime()))].sort((a, b) => a - b)
   if (!times.length) return null
   const d = new Date(times[0])
   const start = pad(d.getHours()) + ':' + pad(d.getMinutes())
@@ -53,7 +53,7 @@ function buildGrid(matches, day, start, turn) {
   let maxCourt = 0
   let maxRow = -1
   matches.forEach((m) => {
-    if (!m.scheduledAt || !m.court || m.court > MAX_COURTS || dayOf(m.scheduledAt) !== day) return
+    if (!m.scheduledAt || m.timeSet === false || !m.court || m.court > MAX_COURTS || dayOf(m.scheduledAt) !== day) return
     const diff = (new Date(m.scheduledAt).getTime() - slotDate(day, start, 0, turn)) / 60000
     if (diff < 0 || diff % turn !== 0) return
     const row = diff / turn
@@ -86,6 +86,9 @@ export default function JornadaPage() {
   const [grid, setGrid] = useState({}) // 'cancha|turno' -> id de partido (borrador)
   const [base, setBase] = useState({}) // lo que hay guardado
   const [sel, setSel] = useState(null)
+  const [picker, setPicker] = useState(null) // celda vacía tocada: { c, r }
+  const [pq, setPq] = useState('')
+  const [pAll, setPAll] = useState(false)
   const [q, setQ] = useState('')
   const [fTour, setFTour] = useState('')
   const [fBranch, setFBranch] = useState('')
@@ -225,7 +228,7 @@ export default function JornadaPage() {
     const k = key(c, r)
     const here = grid[k]
     setOk('')
-    if (!sel) { if (here) setSel(here); return }
+    if (!sel) { if (here) setSel(here); else { setPq(''); setPAll(false); setPicker({ c, r }) } return }
     if (here === sel) { setSel(null); return }
     const from = positionOf(sel)
     const g = { ...grid }
@@ -234,6 +237,22 @@ export default function JornadaPage() {
     if (here && from) g[from] = here // intercambio
     setGrid(g)
     setSel(null)
+  }
+  const pickerList = useMemo(() => {
+    if (!picker) return []
+    const t = pq.trim().toLowerCase()
+    return (all ?? [])
+      .filter((m) => !placedIds.has(m.id))
+      .filter((m) => !t || (m.teamA?.name ?? '').toLowerCase().includes(t) || (m.teamB?.name ?? '').toLowerCase().includes(t))
+      .filter((m) => pAll || t || inJornada(m))
+      .sort(byFixture)
+      .slice(0, POOL_STEP)
+  }, [picker, all, placedIds, pq, pAll, inJornada])
+  const pickFor = (m) => {
+    const k = key(picker.c, picker.r)
+    setGrid({ ...grid, [k]: m.id })
+    setPicker(null)
+    setOk('')
   }
   const unplace = (k) => { const g = { ...grid }; delete g[k]; setGrid(g); setSel(null) }
 
@@ -356,6 +375,7 @@ export default function JornadaPage() {
       </section>
 
       <section className="space-y-2">
+        <p className="text-xs text-muted">Para armarla a mano, tocá una celda vacía y elegí el partido. También podés usar Autoarmar.</p>
         <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
           <table className="w-full border-collapse text-left">
             <thead>
@@ -465,6 +485,29 @@ export default function JornadaPage() {
           )}
         </div>
       </section>
+      {picker && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/60" onClick={() => setPicker(null)}>
+          <div className="mx-auto flex max-h-[80vh] w-full max-w-xl flex-col gap-2 rounded-t-3xl border border-line bg-surface p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold">Cancha {picker.c} · {rowLabel(day, start, picker.r, turn)}</p>
+              <button aria-label="Cerrar" onClick={() => setPicker(null)} className="text-muted"><X size={18} /></button>
+            </div>
+            <input autoFocus className={inputCls} placeholder="Buscar equipo" value={pq} onChange={(e) => setPq(e.target.value)} />
+            <label className="flex items-center gap-2 text-xs">
+              <input type="checkbox" checked={!pAll} onChange={(e) => setPAll(!e.target.checked)} /> Solo partidos de esta jornada
+            </label>
+            <div className="space-y-1.5 overflow-y-auto">
+              {pickerList.map((m) => (
+                <button key={m.id} onClick={() => pickFor(m)} className="flex w-full flex-col rounded-xl border border-line bg-surface-2 px-3 py-2 text-left text-sm">
+                  <span className="truncate font-bold">{m.teamA?.name ?? 'Por definir'} vs {m.teamB?.name ?? 'Por definir'}</span>
+                  <span className="truncate text-[11px] font-semibold uppercase text-muted">{[tournamentName(m), MODALITY[m.modality], BRANCH[m.branch], m.phase?.label].filter(Boolean).join(' · ')}</span>
+                </button>
+              ))}
+              {pickerList.length === 0 && <p className="text-sm text-muted">No hay partidos para ubicar. Probá desmarcar "Solo partidos de esta jornada" o buscar por equipo.</p>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

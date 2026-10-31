@@ -66,7 +66,7 @@ export default function BracketView({ tournamentId, stageId, base = '/partido/',
           <div className="border-t border-line" />
           <Side branch={branch} team={m.teamB} from={m.fromB} sets={m.setsB} won={m.winnerTeamId && m.winnerTeamId === m.teamB?.id} placeholder={sourceLabel(m.feeds.B)} />
           <div className="flex items-center justify-between gap-2 border-t border-line bg-surface-2 px-3 py-1.5 text-[11px] text-muted">
-            <span className="truncate">{m.scheduledAt ? fmtWhen(m.scheduledAt) : 'Sin programación'} · {m.venue ? m.venue.name + ' · ' : ''}{courtLabel(m.court)}</span>
+            <span className="truncate">{m.scheduledAt ? fmtWhen(m.scheduledAt, m.timeSet) : 'Sin programación'} · {m.venue ? m.venue.name + ' · ' : ''}{courtLabel(m.court)}</span>
             <StatusPill status={m.status} />
           </div>
         </Link>

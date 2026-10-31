@@ -43,7 +43,7 @@ export default function EdicionesPage() {
         <option value="">Elegí un partido…</option>
         {matches.map((m) => (
           <option key={m.id} value={m.id}>
-            {(m.teamA?.name ?? '—') + ' vs ' + (m.teamB?.name ?? '—') + ' · ' + fmtWhen(m.scheduledAt)}
+            {(m.teamA?.name ?? '—') + ' vs ' + (m.teamB?.name ?? '—') + ' · ' + fmtWhen(m.scheduledAt, m.timeSet)}
           </option>
         ))}
       </select>

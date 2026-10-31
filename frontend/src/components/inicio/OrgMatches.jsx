@@ -21,7 +21,7 @@ const dayShort = (day) => {
   return (diff === 0 ? 'Hoy · ' : diff === 1 ? 'Mañana · ' : '') + d
 }
 const phaseText = (m) => (m.phase ? (m.phase.kind === 'LEAGUE' && m.phase.zone ? m.phase.zone + ' · ' : '') + m.phase.label : 'Sin fase')
-const hourText = (m) => (m.scheduledAt ? new Date(m.scheduledAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'Sin hora')
+const hourText = (m) => (m.scheduledAt && m.timeSet !== false ? new Date(m.scheduledAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'Sin hora')
 
 function dayLabel(day) {
   const d = new Date(day + 'T12:00:00')

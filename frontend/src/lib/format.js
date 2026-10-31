@@ -17,10 +17,12 @@ export const phaseCmp = (a, b) =>
 
 export const normMatch = (m) => ({ ...m, id: m.id ?? m.matchId })
 
-export function fmtWhen(iso) {
+// timeSet === false: se conoce el día pero la organización todavía no cargó el horario
+export function fmtWhen(iso, timeSet) {
   if (!iso) return 'Sin programación'
   const d = new Date(iso)
   const day = d.toLocaleDateString('es-AR', { weekday: 'long' })
+  if (timeSet === false) return day.charAt(0).toUpperCase() + day.slice(1) + ' · ' + d.toLocaleDateString('es-AR', { day: 'numeric', month: 'numeric' }) + ' · horario a confirmar'
   const time = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
   return day.charAt(0).toUpperCase() + day.slice(1) + ' · ' + time
 }

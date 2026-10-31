@@ -36,7 +36,7 @@ function Card({ m }) {
       </div>
       <div className="mt-4"><Versus branch={m.branch} a={m.teamA} b={m.teamB} /></div>
       <p className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-muted">{matchInfo(m)}</p>
-      <p className="mt-1 text-center text-sm text-muted">{fmtWhen(m.scheduledAt)}</p>
+      <p className="mt-1 text-center text-sm text-muted">{fmtWhen(m.scheduledAt, m.timeSet)}</p>
       {!isPast(m.status) && (
         <div className={'mt-4 rounded-2xl py-3 text-center font-extrabold ' + (live ? 'bg-accent text-black' : 'bg-surface-2')}>
           Ir al control del partido

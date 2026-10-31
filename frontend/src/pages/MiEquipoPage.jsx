@@ -29,7 +29,7 @@ function TeamCard({ t, next }) {
           <span className="min-w-0 truncate">
             {live && <b className="mr-1.5 text-live">EN VIVO</b>}
             <span className="font-bold">vs {rival?.name ?? 'Por definir'}</span>
-            <span className="text-muted"> · {fmtWhen(next.scheduledAt)}</span>
+            <span className="text-muted"> · {fmtWhen(next.scheduledAt, next.timeSet)}</span>
           </span>
         )}
       </div>

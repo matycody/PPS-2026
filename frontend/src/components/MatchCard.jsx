@@ -63,7 +63,7 @@ function LiveMatchCard({ m, featured = false, to, badge }) {
           {[MODALITY[m.modality], BRANCH[m.branch]].filter(Boolean).map((x) => ' \u00b7 ' + x).join('')}
         </p>
       )}
-      <p className="mt-3 text-center text-sm text-muted">{fmtWhen(m.scheduledAt)}</p>
+      <p className="mt-3 text-center text-sm text-muted">{fmtWhen(m.scheduledAt, m.timeSet)}</p>
       <MatchNotice m={m} compact className="mt-2 text-center" />
       {featured && (
         <div className="mt-4 rounded-2xl bg-live py-3 text-center font-extrabold text-black">

@@ -55,7 +55,7 @@ function CourtMatch({ m, tick, full, run, busy }) {
         </button>
       )}
       <div className={'flex items-center justify-between ' + (pip.canPin ? 'pr-8' : '')}>
-        <span className="text-xs font-bold uppercase tracking-widest text-muted">{fmtWhen(m.scheduledAt)}</span>
+        <span className="text-xs font-bold uppercase tracking-widest text-muted">{fmtWhen(m.scheduledAt, m.timeSet)}</span>
         {paused ? <span className="rounded-full bg-warn/15 px-3 py-1 text-xs font-bold uppercase text-warn">Pausado</span> : <StatusPill status={m.status} />}
       </div>
       {m.status === 'LIVE' && tick?.recovered && (
