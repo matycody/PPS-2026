@@ -52,7 +52,7 @@ async function forModel(buffer) {
 const RETRYABLE = new Set([429, 500, 502, 503, 504]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Modelos de respaldo si el principal está saturado (GEMINI_FALLBACK_MODELS, separados por coma)
-const models = () => [MODEL(), ...(process.env.GEMINI_FALLBACK_MODELS || 'gemini-2.5-flash,gemini-2.5-flash-lite').split(',').map((m) => m.trim()).filter(Boolean)]
+const models = () => [MODEL(), ...(process.env.GEMINI_FALLBACK_MODELS || 'gemini-3.5-flash,gemini-3.5-flash-lite').split(',').map((m) => m.trim()).filter(Boolean)]
   .filter((m, i, a) => a.indexOf(m) === i);
 
 async function callModel(model, key, img) {
@@ -87,10 +87,11 @@ async function readSheet(buffer) {
       try { out = await callModel(model, key, img); } catch (e) { lastErr = new Error('Gemini no respondió a tiempo'); continue; }
       const { res, json } = out;
       if (!res.ok) {
-        lastErr = new Error('Gemini respondió ' + res.status + (json?.error?.message ? ': ' + String(json.error.message).slice(0, 160) : ''));
+        const e = new Error('Gemini respondió ' + res.status + (json?.error?.message ? ': ' + String(json.error.message).slice(0, 160) : ''));
+        if (!(res.status === 404 && lastErr)) lastErr = e; // un modelo inexistente no tapa el error real
         if (RETRYABLE.has(res.status)) continue; // reintenta y luego pasa al modelo de respaldo
         if (res.status === 404) break; // modelo inexistente: probar el siguiente
-        throw lastErr;
+        throw e;
       }
       const text = json?.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join('');
       if (!text) { lastErr = new Error('Gemini no devolvió datos'); continue; }
