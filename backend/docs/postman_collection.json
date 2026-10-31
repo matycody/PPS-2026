@@ -171,6 +171,36 @@
           }
         },
         {
+          "name": "PATCH /me/username",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/username",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "username"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Cambiar mi nombre de usuario (regex ^[a-z0-9._]{3,20}$; 409 si ya existe)\n\nAcceso: Cuenta (Bearer)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "GET /me/assignments",
           "request": {
             "method": "GET",
@@ -187,7 +217,7 @@
               "query": [],
               "variable": []
             },
-            "description": "Mis partidos asignados (árbitro y/o mesa, por cuenta, por perfil o por equipo): pasados y futuros, sin los ocultos\n\nAcceso: Cuenta (Bearer)",
+            "description": "Consultar /me/assignments\n\nAcceso: Cuenta (Bearer)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -296,6 +326,36 @@
           }
         },
         {
+          "name": "GET /audit/summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/audit/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit",
+                "summary"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Resumen de movimientos del sistema (admin)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "GET /audit",
           "request": {
             "method": "GET",
@@ -347,6 +407,45 @@
                   "type": "string"
                 }
               ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Acceso",
+      "item": [
+        {
+          "name": "POST /auth/login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Inicio de sesión con usuario o mail + contraseña; devuelve access_token y refresh_token\n\nAcceso: Pública",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"\",\n  \"password\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         }
@@ -877,6 +976,32 @@
           }
         },
         {
+          "name": "GET /tournaments/{id}/extra-matches",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/extra-matches",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "extra-matches"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Partidos agregados al torneo fuera del fixture (público): tienen torneo pero no zona ni llave\n\nAcceso: Pública"
+          }
+        },
+        {
           "name": "PATCH /tournaments/{id}/matchdays/{matchdayId}",
           "request": {
             "method": "PATCH",
@@ -1002,7 +1127,7 @@
                 }
               ]
             },
-            "description": "Asigna canchas a una jornada según el orden de juego: el primer partido (el más temprano, y a igual hora el de menor orden) va a la cancha 1, y así hasta `courts` canchas simultáneas. Solo toca partidos Programados o Habilitados. overwrite=false respeta las canchas ya definidas.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "description": "Asigna canchas a una jornada según el orden de juego: el primer partido (el más temprano, y a igual hora el de menor orden) va a la cancha 1, y así hasta courts canchas simultáneas. Solo toca partidos Programados o Habilitados. overwrite=false respeta las canchas ya definidas.\n\nAcceso: Admin (Bearer, rol ADMIN)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1207,7 +1332,7 @@
               ],
               "variable": []
             },
-            "description": "Equipos que pueden jugar un torneo de esa rama y modalidad (público) Debe ir antes de GET /:id\n\nAcceso: Pública"
+            "description": "Equipos que pueden jugar un torneo de esa rama y modalidad (público)\n\nAcceso: Pública"
           }
         },
         {
@@ -1434,6 +1559,56 @@
           }
         },
         {
+          "name": "POST /tournaments/{id}/reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/reset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "reset"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Reiniciar el torneo (clearSchedule opcional para limpiar el calendario)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clearSchedule\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
           "name": "DELETE /tournaments/{id}",
           "request": {
             "method": "DELETE",
@@ -1455,7 +1630,79 @@
                 }
               ]
             },
-            "description": "Solo si no tiene partidos ni finalizó (no se borra historial)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "description": "Eliminar = mandar a \"Eliminados\": desaparece para todos (también para la organización) y se puede restaurar. Sus partidos se ocultan igual que al pausar.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /tournaments/{id}/restore",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/restore",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "restore"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Restaurar un torneo eliminado: vuelve a verse tal cual estaba (si estaba pausado, sigue pausado)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /tournaments/{id}/purge",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tournaments/:id/purge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tournaments",
+                ":id",
+                "purge"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Borrado definitivo de un torneo eliminado (solo desde Eliminados)\n\nAcceso: Admin (Bearer, rol ADMIN)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1507,7 +1754,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"branch\": \"\",\n  \"court\": \"\",\n  \"modality\": \"\",\n  \"scheduledAt\": \"\",\n  \"teamAId\": \"\",\n  \"teamBId\": \"\",\n  \"tournamentId\": \"\"\n}",
+              "raw": "{\n  \"branch\": \"\",\n  \"countsInStandings\": \"\",\n  \"court\": \"\",\n  \"matchdayId\": \"\",\n  \"modality\": \"\",\n  \"scheduledAt\": \"\",\n  \"stageId\": \"\",\n  \"teamAId\": \"\",\n  \"teamBId\": \"\",\n  \"tournamentId\": \"\",\n  \"venueId\": \"\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1602,6 +1849,78 @@
           }
         },
         {
+          "name": "GET /matches/{id}/sanctions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/sanctions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "sanctions"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Sanciones del partido (público): advertencias, tarjetas y expulsiones\n\nAcceso: Opcional (con token ve más)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /matches/{id}/suspended",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/matches/:id/suspended",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                ":id",
+                "suspended"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Jugadores suspendidos para este partido (por decisión del departamento de sanciones)\n\nAcceso: Opcional (con token ve más)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "GET /matches/{id}",
           "request": {
             "method": "GET",
@@ -1668,6 +1987,50 @@
                   "type": "string"
                 }
               ]
+            }
+          }
+        },
+        {
+          "name": "POST /matches/bulk-schedule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/matches/bulk-schedule",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "matches",
+                "bulk-schedule"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Armar jornada: asigna cancha, horario y sede a varios partidos a la vez (turnMinutes 10–240, default 40). Solo partidos Programados o Habilitados y no ocultos\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": \"\",\n  \"turnMinutes\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         },
@@ -1802,7 +2165,7 @@
                 }
               ]
             },
-            "description": "───────────── Suspender y reprogramar un partido (solo admin) ───────────── Suspender no toca la fecha del torneo: el partido sigue en su jornada y se juega más adelante.\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "description": "Suspender y reprogramar un partido (solo admin) Suspender no toca la fecha del torneo: el partido sigue en su jornada y se juega más adelante.\n\nAcceso: Admin (Bearer, rol ADMIN)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2468,6 +2831,90 @@
               ]
             }
           }
+        },
+        {
+          "name": "PUT /photos/teams/{id}/branch/{branch}",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/photos/teams/:id/branch/:branch",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "photos",
+                "teams",
+                ":id",
+                "branch",
+                ":branch"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "branch",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Admin: escudo del equipo para una rama\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /photos/teams/{id}/branch/{branch}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/photos/teams/:id/branch/:branch",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "photos",
+                "teams",
+                ":id",
+                "branch",
+                ":branch"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "branch",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Admin: quitar el escudo de una rama\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
         }
       ]
     },
@@ -2955,6 +3402,194 @@
       ]
     },
     {
+      "name": "Sanciones",
+      "item": [
+        {
+          "name": "GET /sanctions/reds",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sanctions/reds?status=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sanctions",
+                "reds"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": []
+            },
+            "description": "Rojas: ?status=pending (sin evaluar) | decided (evaluadas)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /sanctions/reds/count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sanctions/reds/count",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sanctions",
+                "reds",
+                "count"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Cantidad de rojas pendientes de evaluar (para el aviso del menú)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /sanctions/active",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sanctions/active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sanctions",
+                "active"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Suspendidos vigentes (admin): quién está afuera, por cuántas fechas y con qué alcance\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT /sanctions/{id}/suspension",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sanctions/:id/suspension",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sanctions",
+                ":id",
+                "suspension"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Cargar la decisión: { fechas: 0..20, sameDay: bool, scope: 'MODALITY'|'ALL', note? } (0 y false = sin suspension)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fechas\": \"\",\n  \"note\": \"\",\n  \"sameDay\": \"\",\n  \"scope\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /sanctions/{id}/suspension",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sanctions/:id/suspension",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sanctions",
+                ":id",
+                "suspension"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Deshacer la decisión (la roja vuelve a pendiente)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Búsqueda",
       "item": [
         {
@@ -3325,7 +3960,7 @@
                 }
               ]
             },
-            "description": "Sacar jugador del equipo en una rama: DELETE /teams/:id/players/:profileId?branch=MIXED\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "description": "Sacar jugador del equipo en una rama: ?branch=MIXED\n\nAcceso: Admin (Bearer, rol ADMIN)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -3568,7 +4203,7 @@
                 }
               ]
             },
-            "description": "Designar / quitar el rol de arbitro (el usuario necesita perfil)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "description": "Designar / quitar el rol de árbitro (el usuario necesita perfil)\n\nAcceso: Admin (Bearer, rol ADMIN)",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -3676,6 +4311,203 @@
               ]
             },
             "description": "Reactivar una cuenta desactivada\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sedes",
+      "item": [
+        {
+          "name": "GET /venues/public",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/venues/public",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "venues",
+                "public"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Público (todos los roles y visitantes): dónde se juega durante el año\n\nAcceso: Pública"
+          }
+        },
+        {
+          "name": "GET /venues",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/venues",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "venues"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Listar sedes (admin)\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /venues/resolve",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/venues/resolve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "venues",
+                "resolve"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Lee un enlace de Google Maps (largo o corto) y devuelve nombre, dirección y coordenadas para precargar el formulario\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /venues",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/venues",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "venues"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "description": "Crear una sede\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /venues/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/venues/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "venues",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Editar una sede\n\nAcceso: Admin (Bearer, rol ADMIN)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /venues/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/venues/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "venues",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Baja lógica: los partidos que ya la usaban conservan la sede\n\nAcceso: Admin (Bearer, rol ADMIN)",
             "auth": {
               "type": "bearer",
               "bearer": [

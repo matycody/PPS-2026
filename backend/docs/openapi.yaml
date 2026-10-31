@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
   title: Dodgeball BA Cronómetro — API REST
-  version: 3.0.0 (Sprint 3)
-  description: 'API del backend (Express + Prisma + Supabase Auth). Autenticación: header `Authorization: Bearer <access_token
-    de Supabase>`. Los eventos en tiempo real (Socket.IO) se documentan aparte. Generado a partir de backend/src/routes.'
+  version: 4.0.0 (Sprint 4)
+  description: 'API del backend (Express + Prisma + Supabase Auth). Autenticación: header `Authorization: Bearer <access_token de Supabase>`. Los eventos en tiempo real (Socket.IO) se documentan aparte.
+    Generado a partir de backend/src/routes.'
 servers:
 - url: http://localhost:3001
   description: Local
@@ -18,6 +18,7 @@ components:
 tags:
 - name: Mi cuenta
 - name: Auditoría
+- name: Acceso
 - name: Llaves (playoffs)
 - name: Favoritos
 - name: Fixture
@@ -27,10 +28,12 @@ tags:
 - name: Solicitudes de jugador
 - name: Jugadores
 - name: Perfiles
+- name: Sanciones
 - name: Búsqueda
 - name: Estadísticas
 - name: Equipos
 - name: Usuarios
+- name: Sedes
 - name: Sistema
 paths:
   /me/photo:
@@ -77,8 +80,7 @@ paths:
     delete:
       tags:
       - Mi cuenta
-      summary: 'Eliminar mi cuenta: borra datos personales y favoritos; si estaba vinculada, solo se desvincula del perfil
-        y el historial deportivo se conserva.'
+      summary: 'Eliminar mi cuenta: borra datos personales y favoritos; si estaba vinculada, solo se desvincula del perfil y el historial deportivo se conserva.'
       description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/account.js'
       parameters: []
       responses:
@@ -130,12 +132,27 @@ paths:
           description: Sin permiso
       security:
       - bearerAuth: []
+  /audit/summary:
+    get:
+      tags:
+      - Auditoría
+      summary: Resumen de movimientos del sistema (admin)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/audit.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
   /audit:
     get:
       tags:
       - Auditoría
-      summary: 'Consultar /audit — parámetros: ?user=<userId> &profile=<profileId> (movimientos de una persona) &q=texto &before=<ISO>
-        &limit=100'
+      summary: 'Consultar /audit — parámetros: ?user=<userId> &profile=<profileId> (movimientos de una persona) &q=texto &before=<ISO> &limit=100'
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/audit.js'
       parameters:
       - name: before
@@ -172,14 +189,37 @@ paths:
           description: Sin permiso
       security:
       - bearerAuth: []
+  /auth/login:
+    post:
+      tags:
+      - Acceso
+      summary: Inicio de sesión con usuario o mail + contraseña; devuelve access_token y refresh_token
+      description: 'Acceso: Pública. Origen: backend/src/routes/authLogin.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '401':
+          description: Sin sesión
+        '500':
+          description: Error
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                identifier: {}
+                password: {}
   /tournaments/{id}/stages/{stageId}/bracket:
     post:
       tags:
       - Llaves (playoffs)
-      summary: 'Armado automático de la llave. Body: teamIds (orden de siembra) | fromStandings [{stageId, top}] | (por defecto
-        equipos de la etapa o del torneo) shuffle (sorteo; default false), keepTop (cantidad de cabezas de serie que no se
-        sortean) entryRounds { teamId: ronda } para escalera/ingresos tardíos; pairing ''fold''|''adjacent'' thirdPlace (partido
-        por el tercer puesto), dates [por ronda] o startDate + intervalDays, replace'
+      summary: 'Armado automático de la llave. Body: teamIds (orden de siembra) | fromStandings [{stageId, top}] | (por defecto equipos de la etapa o del torneo) shuffle (sorteo; default false), keepTop
+        (cantidad de cabezas de serie que no se sortean) entryRounds { teamId: ronda } para escalera/ingresos tardíos; pairing ''fold''|''adjacent'' thirdPlace (partido por el tercer puesto), dates [por
+        ronda] o startDate + intervalDays, replace'
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/bracket.js'
       parameters:
       - name: id
@@ -208,8 +248,7 @@ paths:
     put:
       tags:
       - Llaves (playoffs)
-      summary: 'Llave manual. Body: { matches: [{ ref, round, slot, a, b, scheduledAt?, court? }] } a / b: null (a definir)
-        | { teamId } | { winnerOf: ref } | { loserOf: ref }'
+      summary: 'Llave manual. Body: { matches: [{ ref, round, slot, a, b, scheduledAt?, court? }] } a / b: null (a definir) | { teamId } | { winnerOf: ref } | { loserOf: ref }'
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/bracket.js'
       parameters:
       - name: id
@@ -434,8 +473,8 @@ paths:
     post:
       tags:
       - Fixture
-      summary: 'Sorteo del fixture todos contra todos de una zona. Body: shuffle (default true), doubleRound (ida y vuelta),
-        dates (lista, una por fecha) o startDate + intervalDays (default 7). Sin fechas, las jornadas quedan sin día.'
+      summary: 'Sorteo del fixture todos contra todos de una zona. Body: shuffle (default true), doubleRound (ida y vuelta), dates (lista, una por fecha) o startDate + intervalDays (default 7). Sin fechas,
+        las jornadas quedan sin día.'
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/fixture.js'
       parameters:
       - name: id
@@ -514,12 +553,28 @@ paths:
       responses:
         '200':
           description: OK
+  /tournaments/{id}/extra-matches:
+    get:
+      tags:
+      - Fixture
+      summary: 'Partidos agregados al torneo fuera del fixture (público): tienen torneo pero no zona ni llave'
+      description: 'Acceso: Pública. Origen: backend/src/routes/fixture.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
   /tournaments/{id}/matchdays/{matchdayId}:
     patch:
       tags:
       - Fixture
-      summary: Cambia el día de una jornada. Mueve solo los partidos que seguían en el día original (o sin día); los que se
-        reprogramaron a mano no se tocan, y los jugados tampoco.
+      summary: Cambia el día de una jornada. Mueve solo los partidos que seguían en el día original (o sin día); los que se reprogramaron a mano no se tocan, y los jugados tampoco.
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/fixture.js'
       parameters:
       - name: id
@@ -590,9 +645,8 @@ paths:
     post:
       tags:
       - Fixture
-      summary: 'Asigna canchas a una jornada según el orden de juego: el primer partido (el más temprano, y a igual hora el
-        de menor orden) va a la cancha 1, y así hasta `courts` canchas simultáneas. Solo toca partidos Programados o Habilitados.
-        overwrite=false respeta las canchas ya definidas.'
+      summary: 'Asigna canchas a una jornada según el orden de juego: el primer partido (el más temprano, y a igual hora el de menor orden) va a la cancha 1, y así hasta courts canchas simultáneas. Solo
+        toca partidos Programados o Habilitados. overwrite=false respeta las canchas ya definidas.'
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/fixture.js'
       parameters:
       - name: id
@@ -649,8 +703,7 @@ paths:
     post:
       tags:
       - Torneos
-      summary: 'Cierra el torneo: congela las tablas de las zonas y registra el campeón. Body: championId (opcional, para
-        definirlo a mano), force (cerrar con partidos sin terminar)'
+      summary: 'Cierra el torneo: congela las tablas de las zonas y registra el campeón. Body: championId (opcional, para definirlo a mano), force (cerrar con partidos sin terminar)'
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/lifecycle.js'
       parameters:
       - name: id
@@ -706,8 +759,6 @@ paths:
           description: Error
         '400':
           description: Datos inválidos
-        '404':
-          description: No encontrado
         '409':
           description: Conflicto
         '401':
@@ -723,17 +774,20 @@ paths:
               type: object
               properties:
                 branch: {}
+                countsInStandings: {}
                 court: {}
+                matchdayId: {}
                 modality: {}
                 scheduledAt: {}
+                stageId: {}
                 teamAId: {}
                 teamBId: {}
                 tournamentId: {}
+                venueId: {}
     get:
       tags:
       - Partidos
-      summary: 'Público: ?tournamentId=&status=LIVE,FINISHED&branch=&court=&teamId=&from=&to=&limit=&offset=&hidden=true (solo
-        admin)'
+      summary: 'Público: ?tournamentId=&status=LIVE,FINISHED&branch=&court=&teamId=&from=&to=&limit=&offset=&hidden=true (solo admin)'
       description: 'Acceso: Opcional (con token ve más). Origen: backend/src/routes/matches.js'
       parameters:
       - name: branch
@@ -797,6 +851,46 @@ paths:
       security:
       - {}
       - bearerAuth: []
+  /matches/{id}/sanctions:
+    get:
+      tags:
+      - Partidos
+      summary: 'Sanciones del partido (público): advertencias, tarjetas y expulsiones'
+      description: 'Acceso: Opcional (con token ve más). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+      security:
+      - {}
+      - bearerAuth: []
+  /matches/{id}/suspended:
+    get:
+      tags:
+      - Partidos
+      summary: Jugadores suspendidos para este partido (por decisión del departamento de sanciones)
+      description: 'Acceso: Opcional (con token ve más). Origen: backend/src/routes/matches.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+      security:
+      - {}
+      - bearerAuth: []
   /matches/{id}:
     get:
       tags:
@@ -843,6 +937,36 @@ paths:
           description: Sin permiso
       security:
       - bearerAuth: []
+  /matches/bulk-schedule:
+    post:
+      tags:
+      - Partidos
+      summary: 'Armar jornada: asigna cancha, horario y sede a varios partidos a la vez (turnMinutes 10–240, default 40). Solo partidos Programados o Habilitados y no ocultos'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/matches.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items: {}
+                turnMinutes: {}
   /matches/{id}/cancel:
     post:
       tags:
@@ -920,8 +1044,7 @@ paths:
     post:
       tags:
       - Partidos
-      summary: '───────────── Suspender y reprogramar un partido (solo admin) ───────────── Suspender no toca la fecha del
-        torneo: el partido sigue en su jornada y se juega más adelante.'
+      summary: 'Suspender y reprogramar un partido (solo admin) Suspender no toca la fecha del torneo: el partido sigue en su jornada y se juega más adelante.'
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/matches.js'
       parameters:
       - name: id
@@ -1264,12 +1387,31 @@ paths:
           description: Sin permiso
       security:
       - bearerAuth: []
+  /me/username:
+    patch:
+      tags:
+      - Mi cuenta
+      summary: Cambiar mi nombre de usuario (regex ^[a-z0-9._]{3,20}$; 409 si ya existe)
+      description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/me.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '409':
+          description: Conflicto
+        '500':
+          description: Error
+        '401':
+          description: Sin sesión
+      security:
+      - bearerAuth: []
   /me/assignments:
     get:
       tags:
       - Mi cuenta
-      summary: 'Mis partidos asignados (árbitro y/o mesa, por cuenta, por perfil o por equipo): pasados y futuros, sin los
-        ocultos'
+      summary: Consultar /me/assignments
       description: 'Acceso: Cuenta (Bearer). Origen: backend/src/routes/me.js'
       parameters: []
       responses:
@@ -1421,6 +1563,65 @@ paths:
       responses:
         '200':
           description: OK
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /photos/teams/{id}/branch/{branch}:
+    put:
+      tags:
+      - Fotos y escudos
+      summary: 'Admin: escudo del equipo para una rama'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/photos.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branch
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Fotos y escudos
+      summary: 'Admin: quitar el escudo de una rama'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/photos.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branch
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
         '404':
           description: No encontrado
         '401':
@@ -1662,8 +1863,7 @@ paths:
     delete:
       tags:
       - Perfiles
-      summary: 'Baja lógica: sale de los planteles y conserva el historial. ?permanent=true la borra del todo (solo si no
-        tiene cuenta vinculada ni partidos asignados).'
+      summary: 'Baja lógica: sale de los planteles y conserva el historial. ?permanent=true la borra del todo (solo si no tiene cuenta vinculada ni partidos asignados).'
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/profiles.js'
       parameters:
       - name: id
@@ -1745,6 +1945,114 @@ paths:
               type: object
               properties:
                 email: {}
+  /sanctions/reds:
+    get:
+      tags:
+      - Sanciones
+      summary: 'Rojas: ?status=pending (sin evaluar) | decided (evaluadas)'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/sanctions.js'
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /sanctions/reds/count:
+    get:
+      tags:
+      - Sanciones
+      summary: Cantidad de rojas pendientes de evaluar (para el aviso del menú)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/sanctions.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /sanctions/active:
+    get:
+      tags:
+      - Sanciones
+      summary: 'Suspendidos vigentes (admin): quién está afuera, por cuántas fechas y con qué alcance'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/sanctions.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /sanctions/{id}/suspension:
+    put:
+      tags:
+      - Sanciones
+      summary: 'Cargar la decisión: { fechas: 0..20, sameDay: bool, scope: ''MODALITY''|''ALL'', note? } (0 y false = sin suspension)'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/sanctions.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fechas: {}
+                note: {}
+                sameDay: {}
+                scope: {}
+    delete:
+      tags:
+      - Sanciones
+      summary: Deshacer la decisión (la roja vuelve a pendiente)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/sanctions.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
   /search:
     get:
       tags:
@@ -2017,7 +2325,7 @@ paths:
     delete:
       tags:
       - Equipos
-      summary: 'Sacar jugador del equipo en una rama: DELETE /teams/:id/players/:profileId?branch=MIXED'
+      summary: 'Sacar jugador del equipo en una rama: ?branch=MIXED'
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/teams.js'
       parameters:
       - name: id
@@ -2115,7 +2423,7 @@ paths:
     get:
       tags:
       - Torneos
-      summary: Equipos que pueden jugar un torneo de esa rama y modalidad (público) Debe ir antes de GET /:id
+      summary: Equipos que pueden jugar un torneo de esa rama y modalidad (público)
       description: 'Acceso: Pública. Origen: backend/src/routes/tournaments.js'
       parameters:
       - name: branch
@@ -2179,7 +2487,7 @@ paths:
     delete:
       tags:
       - Torneos
-      summary: Solo si no tiene partidos ni finalizó (no se borra historial)
+      summary: 'Eliminar = mandar a "Eliminados": desaparece para todos (también para la organización) y se puede restaurar. Sus partidos se ocultan igual que al pausar.'
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/tournaments.js'
       parameters:
       - name: id
@@ -2192,6 +2500,8 @@ paths:
           description: OK
         '404':
           description: No encontrado
+        '409':
+          description: Conflicto
         '401':
           description: Sin sesión
         '403':
@@ -2202,8 +2512,8 @@ paths:
     post:
       tags:
       - Torneos
-      summary: 'Pausar: el torneo y todos sus partidos (programados, habilitados, en vivo o finalizados) desaparecen para
-        todos menos la organización. No se borra ni se cambia nada: reanudar lo deja exactamente como estaba.'
+      summary: 'Pausar: el torneo y todos sus partidos (programados, habilitados, en vivo o finalizados) desaparecen para todos menos la organización. No se borra ni se cambia nada: reanudar lo deja exactamente
+        como estaba.'
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/tournaments.js'
       parameters:
       - name: id
@@ -2253,8 +2563,7 @@ paths:
     put:
       tags:
       - Torneos
-      summary: Define los equipos del torneo (reemplaza la lista). Solo en borrador. Cada equipo debe tener habilitadas la
-        rama y la modalidad del torneo.
+      summary: Define los equipos del torneo (reemplaza la lista). Solo en borrador. Cada equipo debe tener habilitadas la rama y la modalidad del torneo.
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/tournaments.js'
       parameters:
       - name: id
@@ -2281,8 +2590,7 @@ paths:
     put:
       tags:
       - Torneos
-      summary: Define la estructura del torneo (zonas o llaves) y los equipos de cada una. Reemplaza la estructura anterior.
-        Solo en borrador y antes de generar partidos.
+      summary: Define la estructura del torneo (zonas o llaves) y los equipos de cada una. Reemplaza la estructura anterior. Solo en borrador y antes de generar partidos.
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/tournaments.js'
       parameters:
       - name: id
@@ -2295,6 +2603,86 @@ paths:
           description: OK
         '400':
           description: Datos inválidos
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /tournaments/{id}/reset:
+    post:
+      tags:
+      - Torneos
+      summary: Reiniciar el torneo (clearSchedule opcional para limpiar el calendario)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/tournaments.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                clearSchedule: {}
+  /tournaments/{id}/restore:
+    post:
+      tags:
+      - Torneos
+      summary: 'Restaurar un torneo eliminado: vuelve a verse tal cual estaba (si estaba pausado, sigue pausado)'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/tournaments.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '409':
+          description: Conflicto
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /tournaments/{id}/purge:
+    delete:
+      tags:
+      - Torneos
+      summary: Borrado definitivo de un torneo eliminado (solo desde Eliminados)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/tournaments.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
         '404':
           description: No encontrado
         '409':
@@ -2390,7 +2778,7 @@ paths:
     post:
       tags:
       - Usuarios
-      summary: Designar / quitar el rol de arbitro (el usuario necesita perfil)
+      summary: Designar / quitar el rol de árbitro (el usuario necesita perfil)
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/users.js'
       parameters:
       - name: id
@@ -2466,6 +2854,127 @@ paths:
       - Usuarios
       summary: Reactivar una cuenta desactivada
       description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/users.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /venues/public:
+    get:
+      tags:
+      - Sedes
+      summary: 'Público (todos los roles y visitantes): dónde se juega durante el año'
+      description: 'Acceso: Pública. Origen: backend/src/routes/venues.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '500':
+          description: Error
+  /venues:
+    get:
+      tags:
+      - Sedes
+      summary: Listar sedes (admin)
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/venues.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+    post:
+      tags:
+      - Sedes
+      summary: Crear una sede
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/venues.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '201':
+          description: Error
+        '400':
+          description: Datos inválidos
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+  /venues/resolve:
+    post:
+      tags:
+      - Sedes
+      summary: Lee un enlace de Google Maps (largo o corto) y devuelve nombre, dirección y coordenadas para precargar el formulario
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/venues.js'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '422':
+          description: Error
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url: {}
+  /venues/{id}:
+    patch:
+      tags:
+      - Sedes
+      summary: Editar una sede
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/venues.js'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos inválidos
+        '404':
+          description: No encontrado
+        '401':
+          description: Sin sesión
+        '403':
+          description: Sin permiso
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Sedes
+      summary: 'Baja lógica: los partidos que ya la usaban conservan la sede'
+      description: 'Acceso: Admin (Bearer, rol ADMIN). Origen: backend/src/routes/venues.js'
       parameters:
       - name: id
         in: path
