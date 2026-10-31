@@ -6,6 +6,7 @@ import { api } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import { BRANCH, MODALITY, normMatch } from '../lib/format'
 import TeamBadge from '../components/TeamBadge'
+import { useDominantColor } from '../hooks/useDominantColor'
 import Roster from '../components/Roster'
 import MatchCard from '../components/MatchCard'
 import MatchRow from '../components/MatchRow'
@@ -44,6 +45,8 @@ export default function TeamPage() {
   const [tab, setTab] = useState('resumen') // resumen | partidos | posiciones | estadisticas | plantel | historial
   const [ptab, setPtab] = useState('proximos') // dentro de Partidos
   const [st, setSt] = useState(null) // /stats/teams/:id (récord, sets, títulos, historial)
+  // Fondo del banner: color dominante del escudo (el de la rama elegida, si tiene; si no, el general)
+  const bannerBg = useDominantColor((br !== 'all' && team?.branchLogos?.[br]) || team?.logo || null)
 
   useEffect(() => {
     api('GET', '/teams/' + id).then(setTeam).catch((e) => setErr(e.message))
@@ -151,7 +154,7 @@ export default function TeamPage() {
 
       {/* Banner: nombre arriba, franja con ramas y modalidades, escudo encimado */}
       <section className="overflow-hidden rounded-3xl border border-line bg-surface">
-        <div className="relative px-5 pb-16 pt-5">
+        <div className="relative px-5 pb-16 pt-5" style={bannerBg ? { background: 'linear-gradient(135deg, color-mix(in srgb, ' + bannerBg + ' 55%, #0b0b0d) 0%, color-mix(in srgb, ' + bannerBg + ' 12%, #0b0b0d) 70%)' } : undefined}>
           <div className="absolute right-3 top-3">{heart('TEAM', team.id)}</div>
           <p className="pr-10 text-lg font-light leading-tight">{team.nickname ? '"' + team.nickname + '"' : ' '}</p>
           <h1 className="pr-10 text-3xl font-extrabold leading-tight">{team.name}</h1>

@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Pencil, Trash2, ChevronUp, ChevronDown, ChevronRight, Trophy } from 'lucide-react'
 import { api } from '../../lib/api'
 import { BRANCH, MODALITY, FORMAT, TSTATUS, CRITERIA, fmtDate } from '../../lib/format'
-import { Btn, Alert, inputCls } from '../../components/ui'
+import { Btn, Alert, inputCls, Skeleton } from '../../components/ui'
 import { useConfirm } from '../../components/ConfirmProvider'
 
 const NOW_YEAR = new Date().getFullYear()
@@ -187,7 +187,7 @@ export default function TorneosPage() {
         <input type="number" className={inputCls} placeholder="Todos" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} />
       </label>
 
-      {list === null && <p className="text-muted">Cargando…</p>}
+      {list === null && <Skeleton />}
       {list?.length === 0 && <p className="text-muted">{view === 'deleted' ? 'No hay torneos eliminados.' : 'No hay torneos.'}</p>}
       {view === 'deleted' && list?.length > 0 && <p className="text-xs">Los torneos eliminados no los ve nadie. Restauralos para que vuelvan, o borralos definitivamente.</p>}
       <div className="space-y-2">

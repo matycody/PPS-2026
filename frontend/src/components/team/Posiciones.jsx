@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import { BRANCH, MODALITY, normMatch } from '../../lib/format'
 import MatchCard from '../MatchCard'
 import Forma from '../torneo/Forma'
+import { Skeleton } from '../ui'
 
 const WINDOW = 6 // si la zona es más grande, se muestran los equipos cercanos al propio
 
@@ -96,7 +97,7 @@ export default function Posiciones({ teamId, mod, br }) {
     api('GET', '/teams/' + teamId + '/posiciones').then(setList).catch(() => setList([]))
   }, [teamId])
 
-  if (list === null) return <p className="text-muted">Cargando posiciones…</p>
+  if (list === null) return <Skeleton />
   const shown = list.filter((it) => (mod === 'all' || it.tournament.modality === mod) && (br === 'all' || it.tournament.branch === br))
   if (!shown.length) return <p className="text-muted">No juega torneos con tabla de posiciones en esta categoría.</p>
 

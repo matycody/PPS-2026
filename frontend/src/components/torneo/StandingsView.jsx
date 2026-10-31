@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import TeamBadge from '../TeamBadge'
 import Forma from './Forma'
 import { socket } from '../../sockets/socket'
+import { Skeleton } from '../ui'
 
 // Lugares de ascenso (verde) y descenso (rojo): se marcan para todos los usuarios
 const ZONE_CLS = {
@@ -56,7 +57,7 @@ export default function StandingsView({ tournamentId, finished, branch = null })
   }, [tournamentId, finished])
 
   if (err) return <p className="text-danger">{err}</p>
-  if (!stages) return <p className="text-muted">Cargando…</p>
+  if (!stages) return <Skeleton />
   if (!stages.length) return <p className="text-muted">Este torneo no tiene zonas de liga.</p>
 
   return (

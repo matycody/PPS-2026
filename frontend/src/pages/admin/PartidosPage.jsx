@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Plus, Trash2, RotateCcw, ChevronDown } from 'lucide-react'
 import { api } from '../../lib/api'
 import { STATUS, MODALITY, BRANCH } from '../../lib/format'
-import { Btn, Alert, inputCls } from '../../components/ui'
+import { Btn, Alert, inputCls, Skeleton } from '../../components/ui'
 import MatchForm from '../../components/MatchForm'
 import MatchRow from '../../components/MatchRow'
 import { useConfirm } from '../../components/ConfirmProvider'
@@ -314,7 +314,7 @@ export default function PartidosPage({ readOnly = false }) {
         </select>
       </div>
 
-      {matches === null && <p className="text-muted">Cargando…</p>}
+      {matches === null && <Skeleton />}
       {matches && matches.length === 0 && (
         <p className="text-muted">{view === 'hidden' ? 'No hay partidos eliminados.' : 'No hay partidos.'}</p>
       )}

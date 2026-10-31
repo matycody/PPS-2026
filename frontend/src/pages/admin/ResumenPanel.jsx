@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
+import { Skeleton } from '../../components/ui'
 
 const when = (iso) => new Date(iso).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour12: false, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 const dm = (day) => day.slice(8) + '/' + day.slice(5, 7)
@@ -31,7 +32,7 @@ export default function ResumenPanel() {
   useEffect(() => { api('GET', '/audit/summary').then(setS).catch((e) => setErr(e.message)) }, [])
 
   if (err) return <p className="text-danger">{err}</p>
-  if (!s) return <p className="text-muted">Cargando…</p>
+  if (!s) return <Skeleton />
 
   const max = Math.max(1, ...s.perDay.map((d) => d.n))
   const secMax = Math.max(1, ...s.sections.map((x) => x.n))

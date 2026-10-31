@@ -11,6 +11,7 @@ import { dayOf, dayTab } from '../../lib/days'
 import { socket } from '../../sockets/socket'
 import { useAuthStore } from '../../stores/authStore'
 import { useFavorites } from '../../stores/favoritesStore'
+import { Skeleton } from '../ui'
 
 const CAL_BACK = 90 // días hacia atrás que se cargan
 const CAL_AHEAD = 180 // y hacia adelante
@@ -207,7 +208,7 @@ export default function HomeInicio({ byId, loading, error, children }) {
       )}
 
       {error && <p className="text-danger">{error}</p>}
-      {cal === null && calTry < 3 && <p className="text-muted">Cargando…</p>}
+      {cal === null && calTry < 3 && <Skeleton />}
 
       {v.sel === 'live' ? (
         v.live.length ? <div className="space-y-4">{v.liveSorted.map((m) => <LiveWithNext key={m.id} m={m} next={v.nextOnCourt[m.id]} featured />)}</div> : <p className="text-muted">No hay partidos en vivo.</p>
@@ -261,6 +262,17 @@ export default function HomeInicio({ byId, loading, error, children }) {
           {v.groups.length === 0 && (cal !== null || calTry >= 3) && (
             <p className="rounded-2xl border border-line bg-surface px-4 py-6 text-center text-sm font-bold text-muted">
               {all.length === 0 ? 'No hay partidos.' : 'No hay partidos esta fecha.'}
+              {all.length > 0 && v.sel && DATE_RE.test(v.sel) && (() => {
+                const withMatches = Object.keys(v.calDays).sort()
+                const next = withMatches.find((d) => d > v.sel)
+                const prev = [...withMatches].reverse().find((d) => d < v.sel)
+                const go = next ?? prev
+                return go ? (
+                  <button onClick={() => setParams({ d: go, t: 'all' })} className="mx-auto mt-3 block rounded-full border border-accent bg-accent px-4 py-2 text-sm font-bold text-black">
+                    {next ? 'Ir a la próxima fecha con partidos' : 'Ir a la última fecha con partidos'} ({dayTab(go)})
+                  </button>
+                ) : null
+              })()}
             </p>
           )}
         </>

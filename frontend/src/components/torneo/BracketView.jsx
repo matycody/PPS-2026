@@ -8,6 +8,7 @@ import GoTo from '../GoTo'
 import StatusPill from '../StatusPill'
 import BracketCanvas from './BracketCanvas'
 import BracketFullscreen from './BracketFullscreen'
+import { Skeleton } from '../ui'
 
 function Side({ team, from, sets, won, placeholder, branch }) {
   // Hasta que termina la zona se muestra el lugar ("2° Zona A") y no el equipo
@@ -52,13 +53,13 @@ export default function BracketView({ tournamentId, stageId, base = '/partido/',
     title: r.name,
     items: [...r.matches].sort((a, b) => a.slot - b.slot).map((m) => ({
       key: m.id,
-      h: m.kind === 'THIRD_PLACE' || m.provisional ? 160 : 138, // con franja arriba (tercer puesto o probable cruce)
+      h: m.kind === 'THIRD_PLACE' || m.provisional || m.paused ? 160 : 138, // con franja arriba (tercer puesto o probable cruce)
       feeders: [m.feeds.A?.matchId, m.feeds.B?.matchId].filter(Boolean),
       node: (
         <Link to={base + m.id} className="flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface">
-          {(m.kind === 'THIRD_PLACE' || m.provisional) && (
-            <p className={'truncate bg-surface-2 px-3 py-1 text-[10px] font-bold uppercase tracking-widest ' + (m.provisional ? 'text-warn' : 'text-muted')}>
-              {[m.kind === 'THIRD_PLACE' ? 'Tercer puesto' : null, m.provisional ? 'Probable cruce' : null].filter(Boolean).join(' · ')}
+          {(m.kind === 'THIRD_PLACE' || m.provisional || m.paused) && (
+            <p className={'truncate bg-surface-2 px-3 py-1 text-[10px] font-bold uppercase tracking-widest ' + (m.provisional || m.paused ? 'text-warn' : 'text-muted')}>
+              {[m.paused ? 'Pausado' : null, m.kind === 'THIRD_PLACE' ? 'Tercer puesto' : null, m.provisional ? 'Probable cruce' : null].filter(Boolean).join(' · ')}
             </p>
           )}
           <Side branch={branch} team={m.teamA} from={m.fromA} sets={m.setsA} won={m.winnerTeamId && m.winnerTeamId === m.teamA?.id} placeholder={sourceLabel(m.feeds.A)} />
@@ -74,7 +75,7 @@ export default function BracketView({ tournamentId, stageId, base = '/partido/',
   })), [data, base, branch])
 
   if (err) return <p className="text-danger">{err}</p>
-  if (!data) return <p className="text-muted">Cargando…</p>
+  if (!data) return <Skeleton />
   if (!data.rounds.length) return <p className="text-muted">Todavía no se armó la llave.</p>
 
   const canvas = <BracketCanvas rounds={rounds} colW={240} gap={32} />

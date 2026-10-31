@@ -14,7 +14,7 @@ import StatusPill from '../../components/StatusPill'
 import MatchRow from '../../components/MatchRow'
 import Versus from '../../components/Versus'
 import MatchNotice from '../../components/MatchNotice'
-import { Btn, Alert } from '../../components/ui'
+import { Btn, Alert, Skeleton } from '../../components/ui'
 import { matchInfo } from '../../lib/matchInfo'
 import { statusBorder } from '../../lib/statusStyle'
 import { usePipClock } from '../../hooks/usePipClock'
@@ -317,7 +317,7 @@ export default function DashboardPage() {
           {dayVenues.map((v) => <span key={v.name} className="rounded-full border border-line bg-surface px-2.5 py-1">{v.name} · {v.n}</span>)}
         </div>
       )}
-      {loading && <p className="text-muted">Cargando…</p>}
+      {loading && <Skeleton />}
       {error && <p className="text-danger">{error}</p>}
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
       {!loading && !error && courts.length === 0 && <p className="text-muted">No hay partidos con horario para este día.</p>}

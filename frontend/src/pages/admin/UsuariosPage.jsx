@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { Search } from 'lucide-react'
 import { api } from '../../lib/api'
-import { Btn, Alert, inputCls } from '../../components/ui'
+import { Btn, Alert, inputCls, Skeleton } from '../../components/ui'
 import { useConfirm } from '../../components/ConfirmProvider'
 import SolicitudesPanel from './SolicitudesPanel'
 
@@ -58,7 +58,7 @@ export default function UsuariosPage() {
         <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={inactive} onChange={(e) => setInactive(e.target.checked)} /> Inactivos</label>
       </div>
 
-      {list === null && <p className="text-muted">Cargando…</p>}
+      {list === null && <Skeleton />}
       {list?.length === 0 && <p className="text-muted">No hay usuarios.</p>}
       <div className="space-y-2">
         {(list ?? []).map((u) => {
