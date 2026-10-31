@@ -62,7 +62,7 @@ export default function LoginPage() {
 
   async function oauth(provider) {
     setError('')
-    const { error: err } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin } })
+    const { error: err } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin, queryParams: { prompt: 'select_account' } } })
     if (err) setError(err.message)
   }
 

@@ -37,6 +37,10 @@ async function apiFetch(method, path, body) {
   })
   const json = await res.json().catch(() => null)
   if (!res.ok) {
+    // Sesión revocada o inexistente en Supabase: se limpia solo este dispositivo y se vuelve al login
+    if (res.status === 401 && json?.code === 'SESSION_GONE' && token) {
+      supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+    }
     throw Object.assign(new Error(json?.error || json?.errors?.join(', ') || 'Error'), {
       status: res.status,
       data: json,

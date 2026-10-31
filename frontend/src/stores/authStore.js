@@ -5,6 +5,13 @@ import { api } from '../lib/api'
 let initialized = false
 let profileTimer = null
 
+// Sesión: dura mientras el dispositivo se use. Si pasa 1 mes sin abrir la web en ese dispositivo, se cierra.
+// Cada dispositivo es independiente (se puede tener la misma cuenta en varios a la vez).
+const INACTIVITY_MS = 30 * 24 * 60 * 60 * 1000
+const ACTIVE_KEY = 'lastActiveAt'
+const readActive = () => { try { return Number(localStorage.getItem(ACTIVE_KEY)) || 0 } catch { return 0 } }
+const touchActive = () => { try { localStorage.setItem(ACTIVE_KEY, String(Date.now())) } catch { /* sin storage */ } }
+
 export const useAuthStore = create((set, get) => ({
   session: null,
   user: null, // { id, email, roles, profileId }
@@ -17,7 +24,19 @@ export const useAuthStore = create((set, get) => ({
     if (initialized) return
     initialized = true
 
-    const { data } = await supabase.auth.getSession()
+    let { data } = await supabase.auth.getSession()
+    // Un mes sin entrar desde este dispositivo: se cierra solo la sesión de acá (las demás siguen)
+    const last = readActive()
+    if (data.session && last && Date.now() - last > INACTIVITY_MS) {
+      await supabase.auth.signOut({ scope: 'local' })
+      data = { session: null }
+    }
+    touchActive()
+    // Mientras la web está abierta o vuelve a primer plano, se renueva la marca de actividad (como mucho cada 10 min)
+    let lastTouch = Date.now()
+    const keepAlive = () => { if (Date.now() - lastTouch > 10 * 60 * 1000) { lastTouch = Date.now(); touchActive() } }
+    window.addEventListener('focus', keepAlive)
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) keepAlive() })
     await get().syncSession(data.session)
 
     supabase.auth.onAuthStateChange((event, session) => {
@@ -56,7 +75,7 @@ export const useAuthStore = create((set, get) => ({
     } catch (err) {
       console.error('[auth] GET /me falló:', err.message)
       if (err.status === 401) {
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' }) // solo este dispositivo
       } else {
         set({ user: null, menu: [], loading: false })
       }
@@ -81,6 +100,6 @@ export const useAuthStore = create((set, get) => ({
   },
 
   signOut: async () => {
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' }) // cerrar sesión acá no cierra las de otros dispositivos
   },
 }))
