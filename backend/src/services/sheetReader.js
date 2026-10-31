@@ -49,15 +49,17 @@ async function forModel(buffer) {
   return sharp(buffer).rotate().resize(2000, 2000, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
 }
 
-async function readSheet(buffer) {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error('Falta GEMINI_API_KEY en el servidor');
-  const img = await forModel(buffer);
+const RETRYABLE = new Set([429, 500, 502, 503, 504]);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Modelos de respaldo si el principal está saturado (GEMINI_FALLBACK_MODELS, separados por coma)
+const models = () => [MODEL(), ...(process.env.GEMINI_FALLBACK_MODELS || 'gemini-2.5-flash,gemini-2.5-flash-lite').split(',').map((m) => m.trim()).filter(Boolean)]
+  .filter((m, i, a) => a.indexOf(m) === i);
+
+async function callModel(model, key, img) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
-  let res;
   try {
-    res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + MODEL() + ':generateContent', {
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
       method: 'POST',
       signal: ctl.signal,
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
@@ -66,16 +68,38 @@ async function readSheet(buffer) {
         generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: SCHEMA },
       }),
     });
+    const json = await res.json().catch(() => null);
+    return { res, json };
   } finally {
     clearTimeout(timer);
   }
-  const json = await res.json().catch(() => null);
-  if (!res.ok) throw new Error('Gemini respondió ' + res.status + (json?.error?.message ? ': ' + String(json.error.message).slice(0, 160) : ''));
-  const text = json?.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join('');
-  if (!text) throw new Error('Gemini no devolvió datos');
-  let data;
-  try { data = JSON.parse(text); } catch { throw new Error('Gemini devolvió un formato inesperado'); }
-  return { data, model: MODEL() };
+}
+
+async function readSheet(buffer) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error('Falta GEMINI_API_KEY en el servidor');
+  const img = await forModel(buffer);
+  let lastErr;
+  for (const model of models()) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt) await sleep(2500);
+      let out;
+      try { out = await callModel(model, key, img); } catch (e) { lastErr = new Error('Gemini no respondió a tiempo'); continue; }
+      const { res, json } = out;
+      if (!res.ok) {
+        lastErr = new Error('Gemini respondió ' + res.status + (json?.error?.message ? ': ' + String(json.error.message).slice(0, 160) : ''));
+        if (RETRYABLE.has(res.status)) continue; // reintenta y luego pasa al modelo de respaldo
+        if (res.status === 404) break; // modelo inexistente: probar el siguiente
+        throw lastErr;
+      }
+      const text = json?.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join('');
+      if (!text) { lastErr = new Error('Gemini no devolvió datos'); continue; }
+      let data;
+      try { data = JSON.parse(text); } catch { lastErr = new Error('Gemini devolvió un formato inesperado'); continue; }
+      return { data, model };
+    }
+  }
+  throw lastErr || new Error('Gemini no disponible');
 }
 
 module.exports = { readSheet };
