@@ -61,7 +61,7 @@ export default function StandingsView({ tournamentId, finished, branch = null })
             {s.relegations > 0 && <span className="ml-2 text-danger">↓ {s.relegations}</span>}
           </p>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[500px] text-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead className="text-xs text-muted">
                 <tr>
                   <th className="px-3 py-2 text-left">#</th>
@@ -70,6 +70,8 @@ export default function StandingsView({ tournamentId, finished, branch = null })
                   <th className="px-2 py-2">G</th>
                   <th className="px-2 py-2">E</th>
                   <th className="px-2 py-2">P</th>
+                  <th className="px-2 py-2">SG</th>
+                  <th className="px-2 py-2">SP</th>
                   <th className="px-2 py-2">DS</th>
                   <th className="px-3 py-2 font-extrabold text-fg">Pts</th>
                   <th className="px-2 py-2">Últimas</th>
@@ -89,6 +91,8 @@ export default function StandingsView({ tournamentId, finished, branch = null })
                     <td className="px-2 py-2">{r.won}</td>
                     <td className="px-2 py-2">{r.drawn}</td>
                     <td className="px-2 py-2">{r.lost}</td>
+                    <td className="px-2 py-2">{r.setsFor}</td>
+                    <td className="px-2 py-2">{r.setsAgainst}</td>
                     <td className="px-2 py-2">{r.setDiff > 0 ? '+' + r.setDiff : r.setDiff}</td>
                     <td className="px-3 py-2 font-extrabold">{r.points}</td>
                     <td className="px-2 py-2"><Forma form={r.form} /></td>
@@ -98,19 +102,13 @@ export default function StandingsView({ tournamentId, finished, branch = null })
             </table>
           </div>
           {(s.promotions > 0 || s.relegations > 0) && (
-            <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-line px-3 py-2 text-xs text-muted">
-              {s.promotions > 0 && <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-full bg-live" />Ascenso</span>}
-              {s.relegations > 0 && <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-full bg-danger" />Descenso</span>}
-            </div>
-          )}
-          {(s.promotions > 0 || s.relegations > 0) && (
             <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 pt-2 text-[11px] font-bold">
               {s.promotions > 0 && <span className="flex items-center gap-1.5 text-live"><span className="h-2.5 w-2.5 rounded-sm bg-live" /> {s.promotions === 1 ? 'Asciende' : 'Ascienden ' + s.promotions}</span>}
               {s.relegations > 0 && <span className="flex items-center gap-1.5 text-danger"><span className="h-2.5 w-2.5 rounded-sm bg-danger" /> {s.relegations === 1 ? 'Desciende' : 'Descienden ' + s.relegations}</span>}
             </div>
           )}
           <p className="px-4 pb-3 pt-2 text-[11px] text-muted">
-            PJ jugados · G ganados · E empatados · P perdidos · DS diferencia de sets · Últimas: V ganó, E empató, D perdió
+            PJ jugados · G ganados · E empatados · P perdidos · SG sets ganados · SP sets perdidos · DS diferencia de sets · Últimas: V ganó, E empató, D perdió
           </p>
         </div>
       ))}
