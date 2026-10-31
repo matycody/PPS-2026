@@ -32,6 +32,7 @@ export default function HomeInicio({ byId, loading, error, children }) {
   const dPick = sp.get('d')
   const tPick = sp.get('t') || 'all'
   const [phasePick, setPhasePick] = useState('all')
+  const [openGroups, setOpenGroups] = useState(() => new Set()) // torneos expandidos en "Sin programación"
   const [cal, setCal] = useState(readCal) // lo último guardado se muestra al instante y se actualiza apenas llega lo nuevo
   const [calTry, setCalTry] = useState(0)
   const uid = useAuthStore((s) => s.user?.id)
@@ -110,6 +111,8 @@ export default function HomeInicio({ byId, loading, error, children }) {
       if (!g) groups.push((g = { id: tid(m), name: m.tournament?.name ?? 'Amistosos', modality: m.modality, branch: m.branch, list: [] }))
       g.list.push(m)
     })
+    // Sin programación: los partidos de equipos favoritos van primero dentro de cada torneo
+    if (sel === 'none' && favTeams.size) groups.forEach((g) => { g.list = [...g.list.filter(isFav), ...g.list.filter((m) => !isFav(m))] })
 
     groups.sort((a, b) => favTours.has(b.id) - favTours.has(a.id))
     const mine = favTeams.size && sel && sel !== 'live' ? dayList.filter((m) => isFav(m) && (tCur === 'all' || tid(m) === tCur)).sort(byStatus) : []
@@ -244,7 +247,10 @@ export default function HomeInicio({ byId, loading, error, children }) {
               <h2 className="pt-2 text-xs font-bold uppercase tracking-widest text-muted">Todos los partidos</h2>
             </section>
           )}
-          {v.groups.map((g) => (
+          {v.groups.map((g) => {
+            const capped = v.sel === 'none' && v.tCur === 'all' && !openGroups.has(g.id) && g.list.length > 3
+            const rows = capped ? g.list.slice(0, 3) : g.list
+            return (
             <section key={g.id} className="overflow-hidden rounded-2xl border border-line bg-surface">
               <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
                 {g.id !== 'none'
@@ -255,10 +261,14 @@ export default function HomeInicio({ byId, loading, error, children }) {
                 </span>
               </div>
               <div className="divide-y divide-line">
-                {g.list.map((m) => (m.status === 'LIVE' ? <div key={m.id} className="p-2"><MatchCard m={m} /></div> : <MatchRow key={m.id} m={m} flat />))}
+                {rows.map((m) => (m.status === 'LIVE' ? <div key={m.id} className="p-2"><MatchCard m={m} /></div> : <MatchRow key={m.id} m={m} flat />))}
               </div>
+              {capped && (
+                <button onClick={() => setOpenGroups((p) => new Set(p).add(g.id))} className="w-full border-t border-line py-2.5 text-xs font-extrabold uppercase tracking-wide text-accent">Ver los {g.list.length - 3} restantes</button>
+              )}
             </section>
-          ))}
+            )
+          })}
           {v.groups.length === 0 && (cal !== null || calTry >= 3) && (
             <p className="rounded-2xl border border-line bg-surface px-4 py-6 text-center text-sm font-bold text-muted">
               {all.length === 0 ? 'No hay partidos.' : 'No hay partidos esta fecha.'}
