@@ -74,20 +74,22 @@ export default function PlanillasPage() {
     <div className="space-y-4">
       <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Planillas de juego</h1>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
-      <input className={inputCls} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar equipo o quién la cargó…" />
-      <div className="grid grid-cols-2 gap-2">
-        <select className={inputCls + ' col-span-2'} value={tn} onChange={(e) => setTn(e.target.value)}>
-          <option value="">Todos los torneos</option>
-          {tournaments.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-          <option value="_none">Partidos sueltos (sin torneo)</option>
-        </select>
-        <label className="text-[11px] font-bold uppercase tracking-widest text-muted">Desde<input type="date" className={inputCls + ' mt-1'} value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} /></label>
-        <label className="text-[11px] font-bold uppercase tracking-widest text-muted">Hasta<input type="date" className={inputCls + ' mt-1'} value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} /></label>
-      </div>
-      <div className="flex flex-wrap gap-2 text-sm font-bold">
-        {FILTERS.map(([id, label]) => (
-          <button key={id} onClick={() => setSt(id)} className={'rounded-full border px-4 py-1.5 ' + (st === id ? 'border-accent text-accent' : 'border-line text-muted')}>{label}</button>
-        ))}
+      <div className="space-y-3 rounded-3xl border border-line bg-surface p-3">
+        <input className={inputCls} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar equipo o quién la cargó…" />
+        <div className="grid grid-cols-2 gap-2">
+          <select className={inputCls + ' col-span-2'} value={tn} onChange={(e) => setTn(e.target.value)}>
+            <option value="">Todos los torneos</option>
+            {tournaments.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            <option value="_none">Partidos sueltos (sin torneo)</option>
+          </select>
+          <label className="block text-[11px] font-bold uppercase tracking-widest text-muted">Desde<input type="date" className={inputCls + ' mt-1'} value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} /></label>
+          <label className="block text-[11px] font-bold uppercase tracking-widest text-muted">Hasta<input type="date" className={inputCls + ' mt-1'} value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} /></label>
+        </div>
+        <div className="flex flex-wrap gap-2 text-sm font-bold">
+          {FILTERS.map(([id, label]) => (
+            <button key={id} onClick={() => setSt(id)} className={'rounded-full border px-4 py-1.5 ' + (st === id ? 'border-accent text-accent' : 'border-line text-muted')}>{label}</button>
+          ))}
+        </div>
       </div>
 
       {items === null && !err && <p className="text-muted">Cargando…</p>}
