@@ -71,7 +71,7 @@ function StructureTab({ t, reload, setErr }) {
   const draft = t.status === 'DRAFT' || (!!t.pausedAt && t.status !== 'FINISHED')
   const [stages, setStages] = useState(() =>
     t.stages.map((s) => ({
-      key: s.id, name: s.name, type: s.type, phase: s.phase, tier: s.tier ?? '', promotions: s.promotions, relegations: s.relegations, playoffUp: s.playoffUp ?? 0, playoffDown: s.playoffDown ?? 0,
+      key: s.id, name: s.name, type: s.type, phase: s.phase, tier: s.tier ?? '', promotions: s.promotions, relegations: s.relegations, playoffPositions: s.playoffPositions ?? [],
       teams: s.teams.map((x) => x.teamId),
     }))
   )
@@ -85,14 +85,14 @@ function StructureTab({ t, reload, setErr }) {
     const n = stages.filter((s) => s.type === type).length
     setStages((a) => [...a, {
       key: crypto.randomUUID(), name: type === 'LEAGUE' ? 'Zona ' + letter(n) : n ? 'Llave ' + (n + 1) : 'Playoffs',
-      type, phase: type === 'LEAGUE' ? 1 : 2, tier: '', promotions: 0, relegations: 0, playoffUp: 0, playoffDown: 0, teams: [],
+      type, phase: type === 'LEAGUE' ? 1 : 2, tier: '', promotions: 0, relegations: 0, playoffPositions: [], teams: [],
     }])
   }
   function autoDistribute() {
     const n = Math.max(1, Math.min(Number(zones) || 1, enrolled.length))
     const shuffled = [...enrolled].sort(() => Math.random() - 0.5)
     const leagues = Array.from({ length: n }, (_, i) => ({
-      key: crypto.randomUUID(), name: 'Zona ' + letter(i), type: 'LEAGUE', phase: 1, tier: '', promotions: 0, relegations: 0, playoffUp: 0, playoffDown: 0, teams: [],
+      key: crypto.randomUUID(), name: 'Zona ' + letter(i), type: 'LEAGUE', phase: 1, tier: '', promotions: 0, relegations: 0, playoffPositions: [], teams: [],
     }))
     shuffled.forEach((x, i) => leagues[i % n].teams.push(x.id))
     setStages((a) => [...leagues, ...a.filter((s) => s.type !== 'LEAGUE')])
@@ -110,7 +110,7 @@ function StructureTab({ t, reload, setErr }) {
       stages: stages.map((s) => ({
         name: s.name.trim(), type: s.type, phase: Number(s.phase), tier: s.tier === '' ? null : Number(s.tier),
         promotions: Number(s.promotions) || 0, relegations: Number(s.relegations) || 0,
-        playoffUp: Number(s.playoffUp) || 0, playoffDown: Number(s.playoffDown) || 0,
+        playoffPositions: s.type === 'LEAGUE' ? s.playoffPositions : [],
         teams: s.type === 'LEAGUE' ? s.teams : [],
       })),
     }
@@ -162,11 +162,6 @@ function StructureTab({ t, reload, setErr }) {
               <>
                 <label>Ascienden<input disabled={!draft} type="number" min="0" className={inputCls} value={s.promotions} onChange={(e) => setStage(i, { promotions: e.target.value })} /></label>
                 <label>Descienden<input disabled={!draft} type="number" min="0" className={inputCls} value={s.relegations} onChange={(e) => setStage(i, { relegations: e.target.value })} /></label>
-                <label>Playoff de ascenso<input disabled={!draft} type="number" min="0" className={inputCls} value={s.playoffUp} onChange={(e) => setStage(i, { playoffUp: e.target.value })} /></label>
-                <label>Playoff de permanencia<input disabled={!draft} type="number" min="0" className={inputCls} value={s.playoffDown} onChange={(e) => setStage(i, { playoffDown: e.target.value })} /></label>
-                <p className="col-span-full text-xs text-muted">
-                  Los playoff de ascenso y de permanencia son solo para definir ascensos y descensos (ej.: el 2.º de una categoría contra el penúltimo de la de arriba). No son los playoffs del torneo. Los equipos en esos lugares se ven en amarillo en la tabla.
-                </p>
               </>
             )}
           </div>
@@ -185,6 +180,41 @@ function StructureTab({ t, reload, setErr }) {
               </select>
             </div>
           ))}
+        </div>
+      )}
+      {leagueIdx.length > 0 && (
+        <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted">Playoff de ascenso / permanencia</p>
+            <p className="mt-1 text-xs text-muted">
+              Elegí, para cada zona, qué puestos juegan un playoff para definir ascensos y descensos (por ejemplo, el 2.º de una categoría contra el penúltimo de la de arriba). Podés elegir cuántos y cuáles, sin restricciones. No son los playoffs del torneo. Esos puestos se ven en amarillo en la tabla. Los puestos de ascenso y descenso directo no se pueden elegir.
+            </p>
+          </div>
+          {leagueIdx.map((i) => {
+            const z = stages[i]
+            const n = z.teams.length
+            const direct = (pos) => pos <= (Number(z.promotions) || 0) || pos > n - (Number(z.relegations) || 0)
+            return (
+              <div key={z.key}>
+                <p className="mb-1 text-sm font-bold">{z.name} <span className="font-normal text-muted">· {z.playoffPositions.length} en playoff</span></p>
+                {n === 0 ? <p className="text-xs text-muted">Primero asigná equipos a la zona.</p> : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {Array.from({ length: n }, (_, k) => k + 1).map((pos) => {
+                      const on = z.playoffPositions.includes(pos)
+                      const blocked = direct(pos)
+                      return (
+                        <button key={pos} type="button" disabled={!draft || blocked}
+                          onClick={() => setStage(i, { playoffPositions: on ? z.playoffPositions.filter((x) => x !== pos) : [...z.playoffPositions, pos].sort((x, y) => x - y) })}
+                          className={'h-9 w-9 rounded-xl border text-sm font-extrabold disabled:opacity-40 ' + (on ? 'border-warn bg-warn text-black' : 'border-line bg-bg')}>
+                          {pos}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
       {draft && <Btn tone="accent" disabled={busy} onClick={save} className="w-full">Guardar estructura</Btn>}

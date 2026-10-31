@@ -16,7 +16,7 @@ const ZONE_POS = { PROMOTION: 'bg-live text-black', RELEGATION: 'bg-danger text-
 function zoneOf(s, pos, total) {
   if (pos <= s.promotions) return 'PROMOTION'
   if (pos > total - s.relegations) return 'RELEGATION'
-  if (pos <= s.promotions + (s.playoffUp || 0) || pos > total - s.relegations - (s.playoffDown || 0)) return 'PLAYOFF'
+  if ((s.playoffPositions ?? []).includes(pos)) return 'PLAYOFF'
   return null
 }
 
@@ -67,7 +67,7 @@ export default function StandingsView({ tournamentId, finished, branch = null })
             {s.name}
             {s.promotions > 0 && <span className="ml-2 text-live">↑ {s.promotions}</span>}
             {s.relegations > 0 && <span className="ml-2 text-danger">↓ {s.relegations}</span>}
-            {(s.playoffUp > 0 || s.playoffDown > 0) && <span className="ml-2 text-warn">⇅ {(s.playoffUp || 0) + (s.playoffDown || 0)}</span>}
+            {(s.playoffPositions?.length > 0) && <span className="ml-2 text-warn">⇅ {s.playoffPositions.length}</span>}
           </p>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
@@ -113,11 +113,11 @@ export default function StandingsView({ tournamentId, finished, branch = null })
               </tbody>
             </table>
           </div>
-          {(s.promotions > 0 || s.relegations > 0 || s.playoffUp > 0 || s.playoffDown > 0) && (
+          {(s.promotions > 0 || s.relegations > 0 || s.playoffPositions?.length > 0) && (
             <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 pt-2 text-[11px] font-bold">
               {s.promotions > 0 && <span className="flex items-center gap-1.5 text-live"><span className="h-2.5 w-2.5 rounded-sm bg-live" /> {s.promotions === 1 ? 'Asciende' : 'Ascienden ' + s.promotions}</span>}
               {s.relegations > 0 && <span className="flex items-center gap-1.5 text-danger"><span className="h-2.5 w-2.5 rounded-sm bg-danger" /> {s.relegations === 1 ? 'Desciende' : 'Descienden ' + s.relegations}</span>}
-              {(s.playoffUp > 0 || s.playoffDown > 0) && <span className="flex items-center gap-1.5 text-warn"><span className="h-2.5 w-2.5 rounded-sm bg-warn" /> Playoff de ascenso/permanencia</span>}
+              {(s.playoffPositions?.length > 0) && <span className="flex items-center gap-1.5 text-warn"><span className="h-2.5 w-2.5 rounded-sm bg-warn" /> Playoff de ascenso/permanencia</span>}
             </div>
           )}
           <p className="px-4 pb-3 pt-2 text-[11px] text-muted">
