@@ -525,6 +525,40 @@ router.put('/:id/stages', ...admin, async (req, res) => {
     });
     if (errors.length) return res.status(400).json({ error: errors.join('. ') });
 
+    // Cambios no estructurales (ascensos, descensos, nivel) sobre zonas/llaves ya existentes:
+    // se actualizan en el lugar, sin tocar partidos, fechas, llaves ni posiciones.
+    const existing = await prisma.stage.findMany({
+      where: { tournamentId: t.id },
+      include: { teams: { select: { teamId: true, seed: true, entryRound: true } } },
+    });
+    const key = (x) => `${x.name.toLowerCase()}|${x.type}|${x.phase}`;
+    const teamsSig = (arr) =>
+      arr.map((x) => `${x.teamId}:${x.seed ?? ''}:${x.entryRound ?? ''}`).sort().join(',');
+    const byKey = new Map(existing.map((e) => [key(e), e]));
+    const sameStructure =
+      existing.length === stages.length &&
+      stages.every((s) => {
+        const e = byKey.get(key(s));
+        return e && (s.type === 'KNOCKOUT' || teamsSig(e.teams) === teamsSig(s.teams)); // los equipos de las llaves los maneja el armado de la llave
+      });
+
+    if (sameStructure) {
+      await prisma.$transaction(
+        stages.map((s) =>
+          prisma.stage.update({
+            where: { id: byKey.get(key(s)).id },
+            data: { tier: s.tier, promotions: s.promotions, relegations: s.relegations },
+          }),
+        ),
+      );
+    } else {
+      if (hasMatches && req.body?.confirmWipe !== true) {
+        return res.status(409).json({
+          code: 'WIPE_REQUIRED',
+          error:
+            'Cambiar zonas, llaves o equipos borra el fixture y los playoffs ya armados. Confirmá para continuar.',
+        });
+      }
     await prisma.$transaction(
       async (tx) => {
         if (hasMatches) await wipeMatches(tx, { tournamentId: t.id }); // pausado: el fixture se rehace
@@ -549,6 +583,7 @@ router.put('/:id/stages', ...admin, async (req, res) => {
       },
       { timeout: 30000 },
     );
+    }
 
     const saved = await prisma.stage.findMany({
       where: { tournamentId: t.id },
