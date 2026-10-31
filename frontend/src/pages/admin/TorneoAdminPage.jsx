@@ -71,7 +71,7 @@ function StructureTab({ t, reload, setErr }) {
   const draft = t.status === 'DRAFT' || (!!t.pausedAt && t.status !== 'FINISHED')
   const [stages, setStages] = useState(() =>
     t.stages.map((s) => ({
-      key: s.id, name: s.name, type: s.type, phase: s.phase, tier: s.tier ?? '', promotions: s.promotions, relegations: s.relegations,
+      key: s.id, name: s.name, type: s.type, phase: s.phase, tier: s.tier ?? '', promotions: s.promotions, relegations: s.relegations, playoffUp: s.playoffUp ?? 0, playoffDown: s.playoffDown ?? 0,
       teams: s.teams.map((x) => x.teamId),
     }))
   )
@@ -85,14 +85,14 @@ function StructureTab({ t, reload, setErr }) {
     const n = stages.filter((s) => s.type === type).length
     setStages((a) => [...a, {
       key: crypto.randomUUID(), name: type === 'LEAGUE' ? 'Zona ' + letter(n) : n ? 'Llave ' + (n + 1) : 'Playoffs',
-      type, phase: type === 'LEAGUE' ? 1 : 2, tier: '', promotions: 0, relegations: 0, teams: [],
+      type, phase: type === 'LEAGUE' ? 1 : 2, tier: '', promotions: 0, relegations: 0, playoffUp: 0, playoffDown: 0, teams: [],
     }])
   }
   function autoDistribute() {
     const n = Math.max(1, Math.min(Number(zones) || 1, enrolled.length))
     const shuffled = [...enrolled].sort(() => Math.random() - 0.5)
     const leagues = Array.from({ length: n }, (_, i) => ({
-      key: crypto.randomUUID(), name: 'Zona ' + letter(i), type: 'LEAGUE', phase: 1, tier: '', promotions: 0, relegations: 0, teams: [],
+      key: crypto.randomUUID(), name: 'Zona ' + letter(i), type: 'LEAGUE', phase: 1, tier: '', promotions: 0, relegations: 0, playoffUp: 0, playoffDown: 0, teams: [],
     }))
     shuffled.forEach((x, i) => leagues[i % n].teams.push(x.id))
     setStages((a) => [...leagues, ...a.filter((s) => s.type !== 'LEAGUE')])
@@ -110,6 +110,7 @@ function StructureTab({ t, reload, setErr }) {
       stages: stages.map((s) => ({
         name: s.name.trim(), type: s.type, phase: Number(s.phase), tier: s.tier === '' ? null : Number(s.tier),
         promotions: Number(s.promotions) || 0, relegations: Number(s.relegations) || 0,
+        playoffUp: Number(s.playoffUp) || 0, playoffDown: Number(s.playoffDown) || 0,
         teams: s.type === 'LEAGUE' ? s.teams : [],
       })),
     }
@@ -161,6 +162,11 @@ function StructureTab({ t, reload, setErr }) {
               <>
                 <label>Ascienden<input disabled={!draft} type="number" min="0" className={inputCls} value={s.promotions} onChange={(e) => setStage(i, { promotions: e.target.value })} /></label>
                 <label>Descienden<input disabled={!draft} type="number" min="0" className={inputCls} value={s.relegations} onChange={(e) => setStage(i, { relegations: e.target.value })} /></label>
+                <label>Playoff de ascenso<input disabled={!draft} type="number" min="0" className={inputCls} value={s.playoffUp} onChange={(e) => setStage(i, { playoffUp: e.target.value })} /></label>
+                <label>Playoff de permanencia<input disabled={!draft} type="number" min="0" className={inputCls} value={s.playoffDown} onChange={(e) => setStage(i, { playoffDown: e.target.value })} /></label>
+                <p className="col-span-full text-xs text-muted">
+                  Los playoff de ascenso y de permanencia son solo para definir ascensos y descensos (ej.: el 2.º de una categoría contra el penúltimo de la de arriba). No son los playoffs del torneo. Los equipos en esos lugares se ven en amarillo en la tabla.
+                </p>
               </>
             )}
           </div>

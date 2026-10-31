@@ -9,8 +9,16 @@ import { socket } from '../../sockets/socket'
 const ZONE_CLS = {
   PROMOTION: 'border-l-4 border-l-live bg-live/15',
   RELEGATION: 'border-l-4 border-l-danger bg-danger/15',
+  PLAYOFF: 'border-l-4 border-l-warn bg-warn/15',
 }
-const ZONE_POS = { PROMOTION: 'bg-live text-black', RELEGATION: 'bg-danger text-white' }
+const ZONE_POS = { PROMOTION: 'bg-live text-black', RELEGATION: 'bg-danger text-white', PLAYOFF: 'bg-warn text-black' }
+
+function zoneOf(s, pos, total) {
+  if (pos <= s.promotions) return 'PROMOTION'
+  if (pos > total - s.relegations) return 'RELEGATION'
+  if (pos <= s.promotions + (s.playoffUp || 0) || pos > total - s.relegations - (s.playoffDown || 0)) return 'PLAYOFF'
+  return null
+}
 
 // Tabla en vivo (calculada) o congelada, según el estado del torneo
 export default function StandingsView({ tournamentId, finished, branch = null }) {
@@ -59,6 +67,7 @@ export default function StandingsView({ tournamentId, finished, branch = null })
             {s.name}
             {s.promotions > 0 && <span className="ml-2 text-live">↑ {s.promotions}</span>}
             {s.relegations > 0 && <span className="ml-2 text-danger">↓ {s.relegations}</span>}
+            {(s.playoffUp > 0 || s.playoffDown > 0) && <span className="ml-2 text-warn">⇅ {(s.playoffUp || 0) + (s.playoffDown || 0)}</span>}
           </p>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
@@ -78,9 +87,11 @@ export default function StandingsView({ tournamentId, finished, branch = null })
                 </tr>
               </thead>
               <tbody>
-                {s.rows.map((r, i) => (
-                  <tr key={r.team.id} className={'border-t border-line text-center ' + (ZONE_CLS[r.zone] ?? 'border-l-4 border-l-transparent')}>
-                    <td className={'px-3 py-2 text-left font-extrabold ' + (ZONE_POS[r.zone] ?? '')}>{i + 1}</td>
+                {s.rows.map((r, i) => {
+                  const zone = r.zone !== undefined ? r.zone : zoneOf(s, i + 1, s.rows.length)
+                  return (
+                  <tr key={r.team.id} className={'border-t border-line text-center ' + (ZONE_CLS[zone] ?? 'border-l-4 border-l-transparent')}>
+                    <td className={'px-3 py-2 text-left font-extrabold ' + (ZONE_POS[zone] ?? '')}>{i + 1}</td>
                     <td className="px-2 py-2 text-left">
                       <Link to={'/equipo/' + r.team.id} className="flex items-center gap-2">
                         <TeamBadge team={r.team} size="sm" branch={branch} />
@@ -97,14 +108,16 @@ export default function StandingsView({ tournamentId, finished, branch = null })
                     <td className="px-3 py-2 font-extrabold">{r.points}</td>
                     <td className="px-2 py-2"><Forma form={r.form} /></td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
-          {(s.promotions > 0 || s.relegations > 0) && (
+          {(s.promotions > 0 || s.relegations > 0 || s.playoffUp > 0 || s.playoffDown > 0) && (
             <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 pt-2 text-[11px] font-bold">
               {s.promotions > 0 && <span className="flex items-center gap-1.5 text-live"><span className="h-2.5 w-2.5 rounded-sm bg-live" /> {s.promotions === 1 ? 'Asciende' : 'Ascienden ' + s.promotions}</span>}
               {s.relegations > 0 && <span className="flex items-center gap-1.5 text-danger"><span className="h-2.5 w-2.5 rounded-sm bg-danger" /> {s.relegations === 1 ? 'Desciende' : 'Descienden ' + s.relegations}</span>}
+              {(s.playoffUp > 0 || s.playoffDown > 0) && <span className="flex items-center gap-1.5 text-warn"><span className="h-2.5 w-2.5 rounded-sm bg-warn" /> Playoff de ascenso/permanencia</span>}
             </div>
           )}
           <p className="px-4 pb-3 pt-2 text-[11px] text-muted">
