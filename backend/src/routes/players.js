@@ -10,7 +10,7 @@ const router = express.Router();
 
 const teamSel = { select: { id: true, name: true, logo: true } };
 const matchSelect = {
-  id: true, status: true, court: true, branch: true, modality: true, scheduledAt: true, finishedAt: true, statusReason: true,
+  id: true, status: true, court: true, branch: true, modality: true, scheduledAt: true, timeSet: true, finishedAt: true, statusReason: true,
   tournament: { select: { id: true, name: true } },
   venue: { select: VENUE_SELECT },
   teamA: teamSel,

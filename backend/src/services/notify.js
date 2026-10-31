@@ -90,6 +90,7 @@ async function notifyMatch(io, matchId) {
       modality: m.modality,
       status: m.status,
       scheduledAt: m.scheduledAt,
+      timeSet: m.scheduledAt ? !!m.timeSet : false,
       readyAt: m.readyAt,
       finishedAt: m.finishedAt,
       statusReason: m.statusReason ?? null,

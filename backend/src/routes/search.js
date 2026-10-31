@@ -19,7 +19,7 @@ const plain = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 const teamSel = { select: { id: true, name: true, logo: true } };
 const matchSelect = {
-  id: true, status: true, court: true, branch: true, modality: true, scheduledAt: true, finishedAt: true,
+  id: true, status: true, court: true, branch: true, modality: true, scheduledAt: true, timeSet: true, finishedAt: true,
   tournament: { select: { id: true, name: true } },
   venue: { select: VENUE_SELECT },
   teamA: teamSel,

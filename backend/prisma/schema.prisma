@@ -105,6 +105,7 @@ model Team {
   id   String  @id @default(uuid())
   name String
   logo String?
+  news News[]
 
   nickname    String? @db.VarChar(40) // apodo del equipo (banner público)
   city        String? @db.VarChar(60)
@@ -202,6 +203,7 @@ model Match {
   modality     Modality
   status       MatchStatus @default(SCHEDULED)
   scheduledAt  DateTime? // informativa
+  timeSet      Boolean   @default(false) // false = solo se conoce el día; el horario se carga después (no se muestra)
   teamAId      String?
   teamBId      String?
   readyAt      DateTime?
@@ -596,4 +598,25 @@ model PlayerSuspension {
   profile  Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   @@index([profileId])
+}
+
+
+// Noticias de la liga: las publica la organización (después se define quién más puede redactar)
+model News {
+  id          String    @id @default(uuid())
+  title       String    @db.VarChar(140)
+  summary     String?   @db.VarChar(280) // bajada corta que se ve en el listado
+  body        String    @db.Text
+  imageUrl    String?   @db.VarChar(500) // portada opcional
+  teamId      String? // si es de un equipo, aparece en "Mi equipo"
+  authorId    String
+  authorName  String    @db.VarChar(80) // se guarda el nombre para mostrarlo aunque la cuenta cambie
+  publishedAt DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime? // baja lógica
+
+  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@index([publishedAt])
+  @@index([teamId])
 }

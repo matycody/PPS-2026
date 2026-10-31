@@ -99,6 +99,7 @@ function serialize(match, isAdmin) {
     modality: match.modality,
     status: match.status,
     scheduledAt: match.scheduledAt,
+    timeSet: match.scheduledAt ? !!match.timeSet : false,
     readyAt: match.readyAt,
     finishedAt: match.finishedAt,
     statusReason: match.statusReason ?? null,
@@ -245,7 +246,7 @@ router.post('/', ...admin, async (req, res) => {
     const match = await prisma.$transaction(async (tx) => {
       const place = plan ? await placeInFixture(tx, plan, scheduledAt) : {};
       return tx.match.create({
-        data: { tournamentId, court, branch, modality, scheduledAt, teamAId, teamBId, venueId: ven.venueId ?? null, ...place },
+        data: { tournamentId, court, branch, modality, scheduledAt, timeSet: scheduledAt ? req.body.timeSet !== false : false, teamAId, teamBId, venueId: ven.venueId ?? null, ...place },
       });
     });
     await notifyMatch(req.app.get('io'), match.id);
@@ -446,6 +447,8 @@ router.patch('/:id', ...admin, async (req, res) => {
       const before = match.scheduledAt ? match.scheduledAt.getTime() : null;
       const after = data.scheduledAt ? data.scheduledAt.getTime() : null;
       if (before !== after) changes.push('fecha: ' + fmtDate(match.scheduledAt) + ' → ' + fmtDate(data.scheduledAt));
+      if (req.body.timeSet !== undefined) data.timeSet = !!req.body.timeSet && after !== null;
+      else if (before !== after) data.timeSet = after !== null;
     }
     if ('teamAId' in data && data.teamAId !== match.teamAId) {
       changes.push('equipo A: ' + nameOf(match.teamAId) + ' → ' + nameOf(data.teamAId));
@@ -578,14 +581,15 @@ router.post('/bulk-schedule', ...admin, async (req, res) => {
       const sameVenue = next.venueId === undefined || next.venueId === m.venueId;
       const before = m.scheduledAt ? m.scheduledAt.getTime() : null;
       const after = next.scheduledAt ? next.scheduledAt.getTime() : null;
-      if (sameCourt && sameVenue && before === after) continue;
+      const sameTs = !next.scheduledAt || m.timeSet;
+      if (sameCourt && sameVenue && before === after && sameTs) continue;
       const parts = [];
       if (!sameCourt) parts.push('cancha: ' + (m.court ?? 'sin asignar') + ' → ' + (next.court ?? 'sin asignar'));
       if (before !== after) parts.push('fecha: ' + fmtDate(m.scheduledAt) + ' → ' + fmtDate(next.scheduledAt));
       if (!sameVenue) parts.push('sede: ' + (next.venueName ?? 'sin sede'));
       updates.push({
         id: m.id,
-        data: { court: next.court, scheduledAt: next.scheduledAt, ...(next.venueId !== undefined ? { venueId: next.venueId } : {}) },
+        data: { court: next.court, scheduledAt: next.scheduledAt, timeSet: next.scheduledAt != null, ...(next.venueId !== undefined ? { venueId: next.venueId } : {}) },
       });
       logs.push(buildLogData(
         { id: m.id, court: next.court, teamAId: m.teamAId, teamBId: m.teamBId, teamA: m.teamA, teamB: m.teamB },

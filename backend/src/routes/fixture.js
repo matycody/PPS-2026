@@ -254,6 +254,7 @@ router.get('/:id/matchdays', async (req, res) => {
               statusReason: true,
               originalScheduledAt: true,
               scheduledAt: true,
+              timeSet: true,
               modality: true,
               teamAId: true,
               teamBId: true,

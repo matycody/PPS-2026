@@ -167,6 +167,7 @@ router.get('/assignments', authenticate, async (req, res) => {
           modality: r.match.modality,
           status: r.match.status,
           scheduledAt: r.match.scheduledAt,
+          timeSet: r.match.scheduledAt ? !!r.match.timeSet : false,
           finishedAt: r.match.finishedAt,
           teamA: r.match.teamA,
           teamB: r.match.teamB,

@@ -68,6 +68,7 @@ app.use("/search", require("./src/routes/search"));
 app.use("/matches", require("./src/middleware/bracketAdvance"));
 app.use("/matches", require("./src/routes/matches"));
 app.use("/venues", require("./src/routes/venues"));
+app.use("/news", require("./src/routes/news"));
 app.use("/sanctions", require("./src/routes/sanctions"));
 app.use("/audit", require("./src/routes/audit"));
 app.use("/users", require("./src/routes/users"));

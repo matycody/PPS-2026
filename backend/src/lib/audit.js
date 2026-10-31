@@ -1,11 +1,14 @@
 const prisma = require('../db');
 
 // Se registran los cambios (no las lecturas) de estas secciones
-const PREFIXES = ['/users', '/profiles', '/player-requests', '/teams', '/tournaments', '/matches', '/me', '/venues'];
+const PREFIXES = ['/users', '/profiles', '/player-requests', '/teams', '/tournaments', '/matches', '/me', '/venues', '/news'];
 const SECRET = /pass|token|secret/i;
 const ID = /\/(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|c[a-z0-9]{20,})(?=\/|$)/gi;
 
 const LABELS = {
+  'POST /news': 'Publicó una noticia',
+  'PATCH /news/:id': 'Editó una noticia',
+  'DELETE /news/:id': 'Eliminó una noticia',
   'POST /venues': 'Creó una sede',
   'PATCH /venues/:id': 'Editó una sede',
   'DELETE /venues/:id': 'Eliminó una sede',

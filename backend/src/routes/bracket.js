@@ -172,6 +172,7 @@ async function view(stageId, withPaused = false) {
       court: true,
       venue: { select: VENUE_SELECT },
       scheduledAt: true,
+      timeSet: true,
       teamAId: true,
       teamBId: true,
       nextMatchId: true,
