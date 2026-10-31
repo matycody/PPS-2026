@@ -128,22 +128,7 @@ function StructureTab({ t, reload, setErr }) {
 
   const where = (teamId) => stages.findIndex((s) => s.type === 'LEAGUE' && s.teams.includes(teamId))
 
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted">
-        Zonas de liga (con ascensos y descensos) y llaves de eliminación. {draft ? '' : 'La estructura solo se edita en borrador o con el torneo pausado.'}
-      </p>
-      {draft && (
-        <div className="flex flex-wrap items-end gap-2 rounded-2xl bg-surface-2 p-3">
-          <label className="w-24 text-xs text-muted">Zonas
-            <input type="number" min="1" className={inputCls} value={zones} onChange={(e) => setZones(e.target.value)} />
-          </label>
-          <Btn onClick={autoDistribute}>Repartir equipos al azar</Btn>
-          <Btn onClick={() => addStage('LEAGUE')}><Plus size={16} /> Zona</Btn>
-          <Btn onClick={() => addStage('KNOCKOUT')}><Plus size={16} /> Llave</Btn>
-        </div>
-      )}
-      {stages.map((s, i) => (
+  const renderStage = (s, i) => (
         <div key={s.key} className="space-y-3 rounded-3xl border border-line bg-surface p-4">
           <div className="flex items-center gap-2">
             <input disabled={!draft} className={inputCls} value={s.name} onChange={(e) => setStage(i, { name: e.target.value })} />
@@ -167,21 +152,24 @@ function StructureTab({ t, reload, setErr }) {
           </div>
           {s.type === 'LEAGUE' && <p className="text-xs text-muted">{s.teams.length} equipos</p>}
         </div>
-      ))}
-      {leagueIdx.length > 0 && (
-        <div className="space-y-1 rounded-3xl border border-line bg-surface p-4">
-          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-muted">Equipos por zona</p>
-          {enrolled.map((x) => (
-            <div key={x.id} className="flex items-center gap-2 text-sm">
-              <span className="min-w-0 flex-1 truncate">{x.name}</span>
-              <select disabled={!draft} className="rounded-xl border border-line bg-bg px-2 py-1" value={where(x.id)} onChange={(e) => assign(x.id, Number(e.target.value))}>
-                <option value={-1}>Sin zona</option>
-                {leagueIdx.map((i) => <option key={i} value={i}>{stages[i].name}</option>)}
-              </select>
-            </div>
-          ))}
+  )
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted">
+        Zonas de liga (con ascensos y descensos) y llaves de eliminación. {draft ? '' : 'La estructura solo se edita en borrador o con el torneo pausado.'}
+      </p>
+      {draft && (
+        <div className="flex flex-wrap items-end gap-2 rounded-2xl bg-surface-2 p-3">
+          <label className="w-24 text-xs text-muted">Zonas
+            <input type="number" min="1" className={inputCls} value={zones} onChange={(e) => setZones(e.target.value)} />
+          </label>
+          <Btn onClick={autoDistribute}>Repartir equipos al azar</Btn>
+          <Btn onClick={() => addStage('LEAGUE')}><Plus size={16} /> Zona</Btn>
+          <Btn onClick={() => addStage('KNOCKOUT')}><Plus size={16} /> Llave</Btn>
         </div>
       )}
+      {stages.map((s, i) => (s.type === 'LEAGUE' ? renderStage(s, i) : null))}
       {leagueIdx.length > 0 && (
         <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
           <div>
@@ -215,6 +203,21 @@ function StructureTab({ t, reload, setErr }) {
               </div>
             )
           })}
+        </div>
+      )}
+      {stages.map((s, i) => (s.type !== 'LEAGUE' ? renderStage(s, i) : null))}
+      {leagueIdx.length > 0 && (
+        <div className="space-y-1 rounded-3xl border border-line bg-surface p-4">
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-muted">Equipos por zona</p>
+          {enrolled.map((x) => (
+            <div key={x.id} className="flex items-center gap-2 text-sm">
+              <span className="min-w-0 flex-1 truncate">{x.name}</span>
+              <select disabled={!draft} className="rounded-xl border border-line bg-bg px-2 py-1" value={where(x.id)} onChange={(e) => assign(x.id, Number(e.target.value))}>
+                <option value={-1}>Sin zona</option>
+                {leagueIdx.map((i) => <option key={i} value={i}>{stages[i].name}</option>)}
+              </select>
+            </div>
+          ))}
         </div>
       )}
       {draft && <Btn tone="accent" disabled={busy} onClick={save} className="w-full">Guardar estructura</Btn>}
