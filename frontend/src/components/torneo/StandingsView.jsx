@@ -5,10 +5,12 @@ import TeamBadge from '../TeamBadge'
 import Forma from './Forma'
 import { socket } from '../../sockets/socket'
 
+// Lugares de ascenso (verde) y descenso (rojo): se marcan para todos los usuarios
 const ZONE_CLS = {
-  PROMOTION: 'border-l-4 border-l-live',
-  RELEGATION: 'border-l-4 border-l-danger',
+  PROMOTION: 'border-l-4 border-l-live bg-live/15',
+  RELEGATION: 'border-l-4 border-l-danger bg-danger/15',
 }
+const ZONE_POS = { PROMOTION: 'text-live', RELEGATION: 'text-danger' }
 
 // Tabla en vivo (calculada) o congelada, según el estado del torneo
 export default function StandingsView({ tournamentId, finished, branch = null }) {
@@ -76,7 +78,7 @@ export default function StandingsView({ tournamentId, finished, branch = null })
               <tbody>
                 {s.rows.map((r, i) => (
                   <tr key={r.team.id} className={'border-t border-line text-center ' + (ZONE_CLS[r.zone] ?? 'border-l-4 border-l-transparent')}>
-                    <td className="px-3 py-2 text-left font-bold">{i + 1}</td>
+                    <td className={'px-3 py-2 text-left font-extrabold ' + (ZONE_POS[r.zone] ?? '')}>{i + 1}</td>
                     <td className="px-2 py-2 text-left">
                       <Link to={'/equipo/' + r.team.id} className="flex items-center gap-2">
                         <TeamBadge team={r.team} size="sm" branch={branch} />
@@ -95,6 +97,12 @@ export default function StandingsView({ tournamentId, finished, branch = null })
               </tbody>
             </table>
           </div>
+          {(s.promotions > 0 || s.relegations > 0) && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 pt-2 text-[11px] font-bold">
+              {s.promotions > 0 && <span className="flex items-center gap-1.5 text-live"><span className="h-2.5 w-2.5 rounded-sm bg-live" /> {s.promotions === 1 ? 'Asciende' : 'Ascienden ' + s.promotions}</span>}
+              {s.relegations > 0 && <span className="flex items-center gap-1.5 text-danger"><span className="h-2.5 w-2.5 rounded-sm bg-danger" /> {s.relegations === 1 ? 'Desciende' : 'Descienden ' + s.relegations}</span>}
+            </div>
+          )}
           <p className="px-4 pb-3 pt-2 text-[11px] text-muted">
             PJ jugados · G ganados · E empatados · P perdidos · DS diferencia de sets · Últimas: V ganó, E empató, D perdió
           </p>
