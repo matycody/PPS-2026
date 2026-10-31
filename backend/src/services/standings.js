@@ -110,6 +110,7 @@ function buildTable(stage, t, matches, criteria) {
     if (pos > total - stage.relegations) return 'RELEGATION';
     return null;
   };
+  const notStarted = [...rows.values()].every((r) => r.played === 0); // sin partidos: se marca por el orden de la lista
   let index = 0;
   const out = [];
   for (const g of groups) {
@@ -121,7 +122,7 @@ function buildTable(stage, t, matches, criteria) {
     const zone = zones.size === 1 ? [...zones][0] : null;
     for (const r of sorted) {
       index++;
-      out.push({ ...r, position, tied, zone: tied ? zone : zoneAt(index) });
+      out.push({ ...r, position, tied, zone: tied && !notStarted ? zone : zoneAt(index) });
     }
   }
   return { rows: out, matchesWithoutSets };
