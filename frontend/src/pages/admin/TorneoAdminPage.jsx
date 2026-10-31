@@ -70,7 +70,7 @@ function TeamsTab({ t, reload, setErr }) {
 function StructureTab({ t, reload, setErr }) {
   const draft = t.status === 'DRAFT' || (!!t.pausedAt && t.status !== 'FINISHED')
   const [stages, setStages] = useState(() =>
-    t.stages.map((s) => ({
+    t.stages.filter((s) => !s.isPromotion).map((s) => ({
       key: s.id, name: s.name, type: s.type, phase: s.phase, tier: s.tier ?? '', promotions: s.promotions, relegations: s.relegations, playoffPositions: s.playoffPositions ?? [],
       teams: s.teams.map((x) => x.teamId),
     }))
@@ -81,7 +81,7 @@ function StructureTab({ t, reload, setErr }) {
   const setStage = (i, patch) => setStages((a) => a.map((s, k) => (k === i ? { ...s, ...patch } : s)))
   const leagueIdx = stages.map((s, i) => (s.type === 'LEAGUE' ? i : -1)).filter((i) => i >= 0)
 
-  const [showPromo, setShowPromo] = useState(() => t.stages.some((x) => (x.playoffPositions ?? []).length > 0))
+  const [showPromo, setShowPromo] = useState(() => t.stages.some((x) => !x.isPromotion && (x.playoffPositions ?? []).length > 0))
   const hidePromo = () => { setStages((a) => a.map((z) => ({ ...z, playoffPositions: [] }))); setShowPromo(false) }
 
   function addStage(type) {
@@ -119,11 +119,13 @@ function StructureTab({ t, reload, setErr }) {
     }
     try {
       try {
-        await api('PUT', '/tournaments/' + t.id + '/stages', body)
+        const r = await api('PUT', '/tournaments/' + t.id + '/stages', body)
+        if (r?.promotionWarning) setErr(r.promotionWarning)
       } catch (e) {
         if (e.data?.code !== 'WIPE_REQUIRED') throw e
         if (!window.confirm(e.message + '\n\n¿Borrar fixture y playoffs y rehacer la estructura?')) { setBusy(false); return }
-        await api('PUT', '/tournaments/' + t.id + '/stages', { ...body, confirmWipe: true })
+        const r2 = await api('PUT', '/tournaments/' + t.id + '/stages', { ...body, confirmWipe: true })
+        if (r2?.promotionWarning) setErr(r2.promotionWarning)
       }
       await reload()
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
@@ -446,9 +448,10 @@ function BracketsSection({ t, setErr }) {
         <div key={s.id} className="space-y-3">
           <div className="flex items-center gap-2">
             <p className="flex-1 text-xs font-bold uppercase tracking-widest text-muted">{s.name}</p>
-            {counts[s.id] > 0 && t.status !== 'FINISHED' && editor?.id !== s.id && <Btn onClick={() => startEdit(s)}>Editar cruces</Btn>}
-            {counts[s.id] > 0 && editor?.id !== s.id && <Btn tone="danger" onClick={() => drop(s)}>Eliminar llave</Btn>}
+            {!s.isPromotion && counts[s.id] > 0 && t.status !== 'FINISHED' && editor?.id !== s.id && <Btn onClick={() => startEdit(s)}>Editar cruces</Btn>}
+            {!s.isPromotion && counts[s.id] > 0 && editor?.id !== s.id && <Btn tone="danger" onClick={() => drop(s)}>Eliminar llave</Btn>}
           </div>
+          {s.isPromotion && <p className="text-xs text-muted">Este cruce se arma solo con los puestos que elegiste en Estructura. Hasta que terminen las zonas se muestra como "Probable cruce". Para cambiarlo, modificá los puestos en Estructura.</p>}
           {editor?.id === s.id ? (
             <BracketEditor t={t} stage={s} initial={editor.initial} create={editor.create} setErr={setErr} onSaved={saved} onCancel={() => setEditor(null)} />
           ) : (

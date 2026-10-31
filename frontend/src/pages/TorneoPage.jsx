@@ -99,7 +99,7 @@ export default function TorneoPage() {
     ['resumen', 'Resumen'],
     ['partidos', 'Partidos'],
     ...(hasLeague ? [['tabla', 'Clasificación']] : []),
-    ...(knockouts.length ? [['llave', 'Playoffs']] : []),
+    ...(knockouts.length ? [['llave', knockouts.every((s) => s.isPromotion) ? 'Promoción' : 'Playoffs']] : []),
     ['equipos', 'Equipos'],
     ['estadisticas', 'Estadísticas'],
     ['info', 'Info'],
