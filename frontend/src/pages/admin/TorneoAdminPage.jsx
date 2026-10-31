@@ -445,7 +445,7 @@ function BracketsSection({ t, setErr }) {
     <div className="space-y-6">
       <p className="text-xs text-muted">Llaves de eliminación: acá se arman los cruces. Los resultados se cargan desde Fixture y se ven en Playoffs.</p>
       {knockouts.map((s) => (
-        <div key={s.id} className="space-y-3">
+        <div key={s.id} className="space-y-3 rounded-3xl border border-line bg-bg p-3">
           <div className="flex items-center gap-2">
             <p className="flex-1 text-xs font-bold uppercase tracking-widest text-muted">{s.name}</p>
             {!s.isPromotion && counts[s.id] > 0 && t.status !== 'FINISHED' && editor?.id !== s.id && <Btn onClick={() => startEdit(s)}>Editar cruces</Btn>}
@@ -481,7 +481,7 @@ function BracketsSection({ t, setErr }) {
                   </details>
                 </>
               )}
-              <BracketView branch={t.branch} tournamentId={t.id} stageId={s.id} base="/admin/partidos/" reloadKey={tick} />
+              <BracketView branch={t.branch} tournamentId={t.id} stageId={s.id} base="/admin/partidos/" reloadKey={tick} roundTitle={s.isPromotion ? 'Promoción ' + t.name : null} />
             </>
           )}
         </div>
@@ -496,9 +496,9 @@ function BracketTab({ t, goStructure }) {
   return (
     <div className="space-y-6">
       {knockouts.map((s) => (
-        <div key={s.id} className="space-y-3">
+        <div key={s.id} className="rounded-3xl border border-line bg-bg p-3 space-y-3">
           <p className="text-xs font-bold uppercase tracking-widest text-muted">{s.name}</p>
-          <BracketView branch={t.branch} tournamentId={t.id} stageId={s.id} base="/admin/partidos/" />
+          <BracketView branch={t.branch} tournamentId={t.id} stageId={s.id} base="/admin/partidos/" roundTitle={s.isPromotion ? 'Promoción ' + t.name : null} />
         </div>
       ))}
       <button onClick={goStructure} className="text-sm font-bold text-accent">Editar cruces en Estructura</button>

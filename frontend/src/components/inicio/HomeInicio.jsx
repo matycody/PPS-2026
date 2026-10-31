@@ -32,6 +32,7 @@ export default function HomeInicio({ byId, loading, error, children }) {
   const dPick = sp.get('d')
   const tPick = sp.get('t') || 'all'
   const [phasePick, setPhasePick] = useState('all')
+  const [mineOpen, setMineOpen] = useState(false) // "Tus partidos" completo en Sin programación
   const [openGroups, setOpenGroups] = useState(() => new Set()) // torneos expandidos en "Sin programación"
   const [cal, setCal] = useState(readCal) // lo último guardado se muestra al instante y se actualiza apenas llega lo nuevo
   const [calTry, setCalTry] = useState(0)
@@ -115,7 +116,18 @@ export default function HomeInicio({ byId, loading, error, children }) {
     if (sel === 'none' && favTeams.size) groups.forEach((g) => { g.list = [...g.list.filter(isFav), ...g.list.filter((m) => !isFav(m))] })
 
     groups.sort((a, b) => favTours.has(b.id) - favTours.has(a.id))
-    const mine = favTeams.size && sel && sel !== 'live' ? dayList.filter((m) => isFav(m) && (tCur === 'all' || tid(m) === tCur)).sort(byStatus) : []
+    const mineAll = favTeams.size && sel && sel !== 'live' ? dayList.filter((m) => isFav(m) && (tCur === 'all' || tid(m) === tCur)).sort(byStatus) : []
+    // Sin programación: hasta 3 partidos por cada equipo favorito (un partido entre dos favoritos cuenta para ambos)
+    let mine = mineAll
+    if (sel === 'none' && !mineOpen) {
+      const cnt = {}
+      mine = mineAll.filter((m) => {
+        const ids = [m.teamA?.id, m.teamB?.id].filter((id) => favTeams.has(id))
+        if (!ids.some((id) => (cnt[id] ?? 0) < 3)) return false
+        ids.forEach((id) => { cnt[id] = (cnt[id] ?? 0) + 1 })
+        return true
+      })
+    }
     const favDays = new Set(Object.keys(calDays).filter((d) => calDays[d].some(isFav)))
     // En vivo: por cancha (la 1 arriba de todo, sin cancha al final)
     const liveSorted = [...live].sort((a, b) => (a.court || 999) - (b.court || 999) || byTime(a, b))
@@ -129,8 +141,8 @@ export default function HomeInicio({ byId, loading, error, children }) {
         .sort(byStatus)[0]
       if (next) nextOnCourt[m.id] = next
     })
-    return { mine, favDays, liveSorted, nextOnCourt, autoRaw, dayCount: dayList.length, live, calDays, tabs, sel, tournaments, tCur, phaseOpts, phaseCur, shown, groups, hasUndated: undated.length > 0 }
-  }, [all, cal, calTry, lock, dPick, tPick, phasePick, favTeams, favTours, favReady])
+    return { mine, mineTotal: mineAll.length, favDays, liveSorted, nextOnCourt, autoRaw, dayCount: dayList.length, live, calDays, tabs, sel, tournaments, tCur, phaseOpts, phaseCur, shown, groups, hasUndated: undated.length > 0 }
+  }, [all, cal, calTry, lock, dPick, tPick, phasePick, favTeams, favTours, favReady, mineOpen])
 
   useEffect(() => { if (lock === null && v.autoRaw) setLock(v.autoRaw) }, [lock, v.autoRaw])
 
@@ -240,6 +252,9 @@ export default function HomeInicio({ byId, loading, error, children }) {
                   <div className="divide-y divide-line">
                     {v.mine.map((m) => (m.status === 'LIVE' ? <div key={m.id} className="p-2"><MatchCard m={m} /></div> : <MatchRow key={m.id} m={m} flat />))}
                   </div>
+                  {v.sel === 'none' && !mineOpen && v.mineTotal > v.mine.length && (
+                    <button onClick={() => setMineOpen(true)} className="w-full border-t border-line py-2.5 text-xs font-extrabold uppercase tracking-wide text-accent">Ver los {v.mineTotal - v.mine.length} restantes</button>
+                  )}
                 </div>
               ) : (
                 <p className="rounded-2xl border border-line bg-surface px-4 py-4 text-sm font-semibold text-muted">No seguís partidos en este día.</p>

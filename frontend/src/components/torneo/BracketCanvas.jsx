@@ -45,7 +45,7 @@ export default function BracketCanvas({ rounds, colW = 240, gap = 32, footer, af
   })))
 
   return (
-    <div className="flex items-start gap-4 overflow-x-auto pb-2">
+    <div className="flex items-start gap-4 overflow-x-auto rounded-2xl bg-bg p-3">
       <div className="shrink-0" style={{ width }}>
         <div className="mb-2 flex">
           {rounds.map((r, ci) => (

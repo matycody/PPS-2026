@@ -34,7 +34,7 @@ function sourceLabel(f) {
 }
 
 // base: prefijo del enlace al partido (público o de admin)
-export default function BracketView({ tournamentId, stageId, base = '/partido/', reloadKey, branch = null }) {
+export default function BracketView({ tournamentId, stageId, base = '/partido/', reloadKey, branch = null, roundTitle = null }) {
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
   const [full, setFull] = useState(false)
@@ -50,7 +50,7 @@ export default function BracketView({ tournamentId, stageId, base = '/partido/',
   // Cada partido se centra entre los que lo alimentan; los que arrancan con equipos se apilan
   const rounds = useMemo(() => (data?.rounds ?? []).map((r) => ({
     key: r.round,
-    title: r.name,
+    title: roundTitle ?? r.name, // en la promoción el cruce no es una final: se identifica con "Promoción <torneo>"
     items: [...r.matches].sort((a, b) => a.slot - b.slot).map((m) => ({
       key: m.id,
       h: m.kind === 'THIRD_PLACE' || m.provisional || m.paused ? 160 : 138, // con franja arriba (tercer puesto o probable cruce)

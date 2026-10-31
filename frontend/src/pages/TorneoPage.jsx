@@ -187,9 +187,9 @@ export default function TorneoPage() {
       {tab === 'tabla' && <StandingsView branch={t.branch} tournamentId={t.id} finished={t.status === 'FINISHED'} />}
 
       {tab === 'llave' && knockouts.map((s) => (
-        <div key={s.id} className="space-y-2">
+        <div key={s.id} className="rounded-3xl border border-line bg-bg p-3 space-y-2">
           <div className="text-xs font-bold uppercase tracking-widest text-muted">{s.name}</div>
-          <BracketView branch={t.branch} tournamentId={t.id} stageId={s.id} />
+          <BracketView branch={t.branch} tournamentId={t.id} stageId={s.id} roundTitle={s.isPromotion ? 'Promoción ' + t.name : null} />
         </div>
       ))}
 
