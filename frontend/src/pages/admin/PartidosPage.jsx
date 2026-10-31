@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Trash2, RotateCcw, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, RotateCcw, ChevronDown, CalendarDays, Search, X } from 'lucide-react'
 import { api } from '../../lib/api'
 import { STATUS, MODALITY, BRANCH } from '../../lib/format'
 import { Btn, Alert, inputCls, Skeleton } from '../../components/ui'
 import MatchForm from '../../components/MatchForm'
 import MatchRow from '../../components/MatchRow'
 import { useConfirm } from '../../components/ConfirmProvider'
+
+const CHIP_STRIP = '-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+const chip = (on) => 'shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
 
 // Solo se puede ocultar un partido que no esté en curso
 const canHide = (status) => status === 'SCHEDULED' || status === 'FINISHED' || status === 'CANCELLED'
@@ -289,6 +292,49 @@ export default function PartidosPage({ readOnly = false }) {
         </div>
       )}
 
+      {readOnly ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <label className="relative min-w-0 flex-1">
+              <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
+              <input className={inputCls + ' !pl-10'} placeholder="Buscar equipo, modalidad o rama" value={q} onChange={(e) => setQ(e.target.value)} />
+              {q && <button onClick={() => setQ('')} aria-label="Borrar búsqueda" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted"><X size={16} /></button>}
+            </label>
+            <label className={'relative grid h-11 w-11 shrink-0 place-items-center rounded-full border ' + (date ? 'border-accent text-accent' : 'border-line bg-surface')} aria-label="Elegir fecha">
+              <CalendarDays size={18} />
+              <input type="date" className="absolute inset-0 h-full w-full opacity-0" value={date} onChange={(e) => setDate(e.target.value)} />
+            </label>
+          </div>
+          {date && (
+            <button onClick={() => setDate('')} className="rounded-full border border-accent bg-accent px-3.5 py-1.5 text-xs font-bold text-black">
+              {new Date(date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: 'long' })} ✕
+            </button>
+          )}
+          <div className={CHIP_STRIP}><div className="flex gap-2">
+            {PERIODS.map((p) => (
+              <button key={p.id} onClick={() => { setPeriod(p.id); setDate('') }} aria-pressed={!date && period === p.id} className={chip(!date && period === p.id)}>{p.id === 'all' ? 'Todos' : p.label}</button>
+            ))}
+          </div></div>
+          {(tournaments ?? []).length > 0 && (
+            <div className={CHIP_STRIP}><div className="flex gap-2">
+              <button onClick={() => setTournamentId('')} aria-pressed={!tournamentId} className={chip(!tournamentId)}>Todos los torneos</button>
+              {(tournaments ?? []).map((t) => (
+                <button key={t.id} onClick={() => setTournamentId(t.id)} aria-pressed={tournamentId === t.id} className={chip(tournamentId === t.id)}>{t.name}</button>
+              ))}
+            </div></div>
+          )}
+          <div className={CHIP_STRIP}><div className="flex gap-2">
+            <button onClick={() => setStatus('')} aria-pressed={!status} className={chip(!status) + ' !py-1.5 !text-xs'}>Todos los estados</button>
+            {Object.entries(STATUS).map(([k, st]) => (
+              <button key={k} onClick={() => setStatus(k)} aria-pressed={status === k} className={chip(status === k) + ' !py-1.5 !text-xs'}>{st.label}</button>
+            ))}
+          </div></div>
+          {(teamId || q || tournamentId || status || date || period !== 'upcoming') && (
+            <button onClick={() => { setQ(''); setTournamentId(''); setStatus(''); setTeamId(''); setDate(''); setPeriod('upcoming') }} className="text-xs font-bold text-accent">Limpiar filtros</button>
+          )}
+        </div>
+      ) : (
+        <>
       <div className={'grid gap-2 ' + (view === 'active' ? 'grid-cols-[1fr_auto]' : 'grid-cols-1')}>
         <input className={inputCls} placeholder="Buscar equipo, modalidad o rama" value={q} onChange={(e) => setQ(e.target.value)} />
         {view === 'active' && <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} aria-label="Filtrar por día" />}
@@ -313,6 +359,8 @@ export default function PartidosPage({ readOnly = false }) {
           {(teams ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
       </div>
+        </>
+      )}
 
       {matches === null && <Skeleton />}
       {matches && matches.length === 0 && (
