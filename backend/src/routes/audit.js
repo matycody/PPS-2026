@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { humanLabel } = require('../lib/audit');
 
 const router = express.Router();
 router.use(authenticate, requireRole('ADMIN'));
@@ -71,7 +72,7 @@ router.get('/summary', async (req, res) => {
     const since = new Date(Date.now() - DAYS * 864e5);
     const logs = await prisma.auditLog.findMany({
       where: { createdAt: { gte: since }, status: { lt: 400 } },
-      select: { createdAt: true, actorId: true, actorEmail: true, path: true, label: true },
+      select: { createdAt: true, actorId: true, actorEmail: true, method: true, path: true, label: true },
       orderBy: { createdAt: 'desc' },
       take: 20000,
     });
@@ -115,7 +116,7 @@ router.get('/summary', async (req, res) => {
       perDay: Object.entries(perDay).map(([day, n]) => ({ day, n })),
       sections: SECTIONS.map(([k, label]) => ({ key: k, label, n: sections[k] })),
       topActors: [...actors.values()].sort((a, b) => b.n - a.n).slice(0, 5),
-      last: logs[0] ? { at: logs[0].createdAt, label: logs[0].label, by: logs[0].actorEmail } : null,
+      last: logs[0] ? { at: logs[0].createdAt, label: humanLabel(logs[0].method, logs[0].path, logs[0].label), by: logs[0].actorEmail } : null,
       state: {
         users,
         teams,
@@ -153,7 +154,7 @@ router.get('/', async (req, res) => {
       });
     }
     const list = await prisma.auditLog.findMany({ where: { AND: and }, orderBy: { createdAt: 'desc' }, take: limit });
-    res.json(list);
+    res.json(list.map((l) => ({ ...l, label: humanLabel(l.method, l.path, l.label) })));
   } catch (err) {
     fail(res, err);
   }

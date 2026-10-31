@@ -570,7 +570,8 @@ router.post('/bulk-schedule', ...admin, async (req, res) => {
 
     const editorLbl = await editorLabel(req.user);
     const changed = [];
-    const ops = [];
+    const updates = [];
+    const logs = [];
     for (const m of matches) {
       const next = plan.get(m.id);
       const sameCourt = next.court === m.court;
@@ -582,19 +583,26 @@ router.post('/bulk-schedule', ...admin, async (req, res) => {
       if (!sameCourt) parts.push('cancha: ' + (m.court ?? 'sin asignar') + ' → ' + (next.court ?? 'sin asignar'));
       if (before !== after) parts.push('fecha: ' + fmtDate(m.scheduledAt) + ' → ' + fmtDate(next.scheduledAt));
       if (!sameVenue) parts.push('sede: ' + (next.venueName ?? 'sin sede'));
-      ops.push(prisma.match.update({
-        where: { id: m.id },
+      updates.push({
+        id: m.id,
         data: { court: next.court, scheduledAt: next.scheduledAt, ...(next.venueId !== undefined ? { venueId: next.venueId } : {}) },
-      }));
-      ops.push(prisma.matchResultLog.create({
-        data: buildLogData(
-          { id: m.id, court: next.court, teamAId: m.teamAId, teamBId: m.teamBId, teamA: m.teamA, teamB: m.teamB },
-          req.user.id, editorLbl, 'MATCH_EDIT', 'Programó la jornada (' + parts.join(', ') + ')'
-        ),
-      }));
+      });
+      logs.push(buildLogData(
+        { id: m.id, court: next.court, teamAId: m.teamAId, teamBId: m.teamBId, teamA: m.teamA, teamB: m.teamB },
+        req.user.id, editorLbl, 'MATCH_EDIT', 'Programó la jornada (' + parts.join(', ') + ')'
+      ));
       changed.push(m.id);
     }
-    if (ops.length) await prisma.$transaction(ops);
+    // Una jornada completa son decenas de escrituras: el límite por defecto (5 s) no alcanza. Los registros van en una sola consulta.
+    if (updates.length) {
+      await prisma.$transaction(
+        async (tx) => {
+          for (const u of updates) await tx.match.update({ where: { id: u.id }, data: u.data });
+          await tx.matchResultLog.createMany({ data: logs });
+        },
+        { timeout: 60000, maxWait: 10000 },
+      );
+    }
     for (const id of changed) await notifyMatch(req.app.get('io'), id);
     res.json({ updated: changed.length, unchanged: matches.length - changed.length });
   } catch (err) {
