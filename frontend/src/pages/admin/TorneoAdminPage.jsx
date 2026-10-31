@@ -81,6 +81,9 @@ function StructureTab({ t, reload, setErr }) {
   const setStage = (i, patch) => setStages((a) => a.map((s, k) => (k === i ? { ...s, ...patch } : s)))
   const leagueIdx = stages.map((s, i) => (s.type === 'LEAGUE' ? i : -1)).filter((i) => i >= 0)
 
+  const [showPromo, setShowPromo] = useState(() => t.stages.some((x) => (x.playoffPositions ?? []).length > 0))
+  const hidePromo = () => { setStages((a) => a.map((z) => ({ ...z, playoffPositions: [] }))); setShowPromo(false) }
+
   function addStage(type) {
     const n = stages.filter((s) => s.type === type).length
     setStages((a) => [...a, {
@@ -167,13 +170,17 @@ function StructureTab({ t, reload, setErr }) {
           <Btn onClick={autoDistribute}>Repartir equipos al azar</Btn>
           <Btn onClick={() => addStage('LEAGUE')}><Plus size={16} /> Zona</Btn>
           <Btn onClick={() => addStage('KNOCKOUT')}><Plus size={16} /> Llave</Btn>
+          {!showPromo && <Btn disabled={!draft || !leagueIdx.length} onClick={() => setShowPromo(true)}><Plus size={16} /> Playoff de ascenso/permanencia</Btn>}
         </div>
       )}
       {stages.map((s, i) => (s.type === 'LEAGUE' ? renderStage(s, i) : null))}
-      {leagueIdx.length > 0 && (
+      {showPromo && leagueIdx.length > 0 && (
         <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-muted">Playoff de ascenso / permanencia</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted">Playoff de ascenso / permanencia</p>
+              {draft && <button aria-label="Quitar playoff de ascenso/permanencia" onClick={hidePromo}><Trash2 size={18} className="text-danger" /></button>}
+            </div>
             <p className="mt-1 text-xs text-muted">
               Elegí, para cada zona, qué puestos juegan un playoff para definir ascensos y descensos (por ejemplo, el 2.º de una categoría contra el penúltimo de la de arriba). Podés elegir cuántos y cuáles, sin restricciones. No son los playoffs del torneo. Esos puestos se ven en amarillo en la tabla. Los puestos de ascenso y descenso directo no se pueden elegir.
             </p>
