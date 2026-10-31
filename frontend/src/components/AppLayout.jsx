@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { Menu, Search, ChevronLeft, LogIn } from 'lucide-react'
 import Drawer from './Drawer'
-import BottomNav, { bottomItems } from './BottomNav'
+import BottomNav from './BottomNav'
 import { useAuthStore } from '../stores/authStore'
 import UserAvatar from './UserAvatar'
 import { useMenuPrefs } from '../stores/menuPrefsStore'
@@ -17,9 +17,7 @@ const OWN_BACK = /^\/(liga|admin\/(torneos|equipos|partidos))\/[^/]+$/
 function BackBar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { user, menu } = useAuthStore()
-  const root = pathname === '/' || bottomItems(user, menu).some((i) => i.to === pathname)
-  if (root || OWN_BACK.test(pathname)) return null
+  if (pathname === '/' || OWN_BACK.test(pathname)) return null // solo el Inicio no lleva "Volver"
   const back = () => (window.history.state && window.history.state.idx > 0 ? navigate(-1) : navigate('/'))
   return (
     <button type="button" onClick={back} className="mb-2 inline-flex items-center gap-1 rounded-full border border-line bg-surface py-1.5 pl-2 pr-3.5 text-sm font-bold text-muted active:bg-surface-2">
