@@ -1,6 +1,6 @@
 ﻿import {
   Home, Heart, User, CalendarDays, Users, BarChart3, ClipboardList, Gamepad2,
-  LayoutDashboard, Trophy, Shield, UserCog, History as HistoryIcon, Timer, BookOpen, Info, Newspaper, MapPin, Gavel,
+  LayoutDashboard, Trophy, Shield, UserCog, History as HistoryIcon, Timer, BookOpen, Info, Newspaper, MapPin, Gavel, ClipboardCheck,
 } from 'lucide-react'
 
 // Claves que manda el backend en GET /me → menu (importar_excel no se usa)
@@ -21,6 +21,7 @@ export const ITEMS = {
   sanciones: { to: '/admin/sanciones', label: 'Sanciones', Icon: Gavel },
   personas: { to: '/admin/personas', label: 'Personas', Icon: UserCog },
   usuarios: { to: '/admin/usuarios', label: 'Usuarios y roles', Icon: Shield },
+  planillas: { to: '/admin/planillas', label: 'Planillas de juego', Icon: ClipboardCheck },
   registro_ediciones: { to: '/admin/ediciones', label: 'Registro de ediciones', Icon: HistoryIcon },
 }
 
@@ -29,7 +30,7 @@ export const SECTIONS = [
   { title: 'Mi actividad', keys: ['mis_partidos', 'mi_equipo', 'mis_estadisticas', 'favoritos'] },
   { title: 'Funciones de árbitro', keys: ['mis_partidos_asignados'] },
   { title: 'Mesa', keys: ['control_mesa'] },
-  { title: 'Administración', keys: ['dashboard_canchas', 'torneos', 'partidos', 'equipos', 'sedes', 'sanciones', 'personas', 'usuarios', 'registro_ediciones'] },
+  { title: 'Administración', keys: ['dashboard_canchas', 'torneos', 'partidos', 'equipos', 'sedes', 'sanciones', 'personas', 'usuarios', 'planillas', 'registro_ediciones'] },
 ]
 
 // Rutas fijas del frontend (no dependen del menú del backend)

@@ -116,7 +116,7 @@ export default function MatchRoster({ teamA, teamB, branch, hideTitle, noLink, m
 }
 
 // Para la mesa: cerrado por defecto, carga los jugadores recién al abrirlo
-export function MatchRosterToggle(props) {
+export function MatchRosterToggle({ sheet, ...props }) {
   const [open, setOpen] = useState(false)
   return (
     <section className="rounded-3xl border border-line bg-surface">
@@ -125,7 +125,7 @@ export function MatchRosterToggle(props) {
         <span className="flex-1 text-xs font-bold uppercase tracking-widest text-muted">Jugadores</span>
         <ChevronDown size={18} className={'shrink-0 text-muted transition-transform ' + (open ? 'rotate-180' : '')} />
       </button>
-      {open && <div className="border-t border-line p-3"><MatchRoster {...props} hideTitle noLink /></div>}
+      {open && <div className="border-t border-line p-3">{sheet}<MatchRoster {...props} hideTitle noLink /></div>}
     </section>
   )
 }

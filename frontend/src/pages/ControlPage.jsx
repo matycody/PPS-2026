@@ -509,11 +509,11 @@ export default function ControlPage() {
         <SanctionsCard suspended={suspended} m={m} tick={tick} items={sanctions} nameA={a?.name} nameB={b?.name} always control={{ can, send }} />
       )}
 
-      {perms && (perms.isAdmin || (perms.isTable && !perms.tableLockedBy)) && m.status !== 'CANCELLED' && (
-        <MatchSheetPanel match={m} teamA={a} teamB={b} onConfirmed={() => setSheetTick((x) => x + 1)} />
-      )}
-
-      <MatchRosterToggle teamA={a} teamB={b} branch={m.branch} matchId={m.id} attendanceKey={sheetTick} />
+      <MatchRosterToggle
+        teamA={a} teamB={b} branch={m.branch} matchId={m.id} attendanceKey={sheetTick}
+        sheet={perms && (perms.isAdmin || (perms.isTable && !perms.tableLockedBy)) && m.status !== 'CANCELLED'
+          ? <MatchSheetPanel embedded match={m} teamA={a} teamB={b} onConfirmed={() => setSheetTick((x) => x + 1)} /> : null}
+      />
     </div>
   )
 }

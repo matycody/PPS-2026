@@ -10,7 +10,7 @@ const BADGE = {
 
 // Planilla de juego antes del partido: la mesa saca la foto, la herramienta propone quién juega
 // y la mesa confirma. Quien no figura firmado queda en gris en la lista de jugadores (para todos).
-export default function MatchSheetPanel({ match, teamA, teamB, onConfirmed }) {
+export default function MatchSheetPanel({ match, teamA, teamB, onConfirmed, embedded = false }) {
   const [open, setOpen] = useState(false)
   const [phase, setPhase] = useState('idle') // idle | reading | review | done
   const [data, setData] = useState(null) // respuesta del servidor
@@ -92,15 +92,20 @@ export default function MatchSheetPanel({ match, teamA, teamB, onConfirmed }) {
   }
   const nPresent = data ? data.roster.filter((p) => present[p.profileId]).length : 0
 
+  const Wrap = embedded ? 'div' : 'section'
   return (
-    <section className="rounded-3xl border border-line bg-surface">
-      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-center gap-3 p-4 text-left">
-        <ClipboardCheck size={18} className="shrink-0 text-muted" />
-        <span className="flex-1 text-xs font-bold uppercase tracking-widest text-muted">Planilla de juego</span>
-        <ChevronDown size={18} className={'shrink-0 text-muted transition-transform ' + (open ? 'rotate-180' : '')} />
-      </button>
-      {open && (
-        <div className="space-y-3 border-t border-line p-4">
+    <Wrap className={embedded ? 'mb-3 rounded-2xl border border-line bg-bg' : 'rounded-3xl border border-line bg-surface'}>
+      {embedded ? (
+        <p className="flex items-center gap-2 px-4 pt-3 text-xs font-bold uppercase tracking-widest text-muted"><ClipboardCheck size={16} /> Planilla de juego</p>
+      ) : (
+        <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-center gap-3 p-4 text-left">
+          <ClipboardCheck size={18} className="shrink-0 text-muted" />
+          <span className="flex-1 text-xs font-bold uppercase tracking-widest text-muted">Planilla de juego</span>
+          <ChevronDown size={18} className={'shrink-0 text-muted transition-transform ' + (open ? 'rotate-180' : '')} />
+        </button>
+      )}
+      {(embedded || open) && (
+        <div className={'space-y-3 p-4' + (embedded ? '' : ' border-t border-line')}>
           {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
 
           {(phase === 'idle' || phase === 'done') && (
@@ -173,6 +178,6 @@ export default function MatchSheetPanel({ match, teamA, teamB, onConfirmed }) {
           )}
         </div>
       )}
-    </section>
+    </Wrap>
   )
 }

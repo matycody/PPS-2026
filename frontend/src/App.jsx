@@ -36,6 +36,7 @@ import AdminMatchPage from './pages/admin/AdminMatchPage'
 import PersonasPage from './pages/admin/PersonasPage'
 import UsuariosPage from './pages/admin/UsuariosPage'
 import EdicionesPage from './pages/admin/EdicionesPage'
+import PlanillasPage from './pages/admin/PlanillasPage'
 import AppLayout from './components/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useAuthStore } from './stores/authStore'
@@ -150,6 +151,9 @@ function App() {
             </Route>
             <Route element={<ProtectedRoute need="usuarios" />}>
               <Route path="/admin/usuarios" element={<UsuariosPage />} />
+            </Route>
+            <Route element={<ProtectedRoute need="planillas" />}>
+              <Route path="/admin/planillas" element={<PlanillasPage />} />
             </Route>
             <Route element={<ProtectedRoute need="registro_ediciones" />}>
               <Route path="/admin/ediciones" element={<EdicionesPage />} />
