@@ -27,7 +27,7 @@ function byNumber(a, b) {
   return a.name.localeCompare(b.name, 'es')
 }
 
-function TeamRoster({ team, side, matchBranch, noLink, suspended, sanctions }) {
+function TeamRoster({ team, side, matchBranch, noLink, suspended, sanctions, absent }) {
   const items = sanctions?.items ?? []
   const liveById = new Map((sanctions?.tick?.sanctions ?? []).map((x) => [x.id, x]))
   const left = sanctions ? playing(side, sanctions.tick, items) : 6
@@ -67,7 +67,7 @@ function TeamRoster({ team, side, matchBranch, noLink, suspended, sanctions }) {
                   const n = personNumber(r)
                   const nm = splitName(r)
                   return (
-                    <div key={r.profileId + r.branch} className="flex items-center rounded-xl bg-surface-2 text-xs">
+                    <div key={r.profileId + r.branch} className={'flex items-center rounded-xl bg-surface-2 text-xs ' + (absent?.has(r.profileId) ? 'opacity-40 grayscale' : '')}>
                       <L to={'/jugador/' + r.profileId} className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-2">
                         <span className="w-8 shrink-0 font-mono text-[11px] font-bold text-muted">{n != null ? '#' + n : ''}</span>
                         <span className="min-w-0 flex-1 break-words font-semibold leading-tight">
@@ -93,18 +93,23 @@ function TeamRoster({ team, side, matchBranch, noLink, suspended, sanctions }) {
   )
 }
 
-export default function MatchRoster({ teamA, teamB, branch, hideTitle, noLink, matchId, sanctions }) {
+export default function MatchRoster({ teamA, teamB, branch, hideTitle, noLink, matchId, sanctions, attendanceKey }) {
   const [suspended, setSuspended] = useState(null)
+  const [absent, setAbsent] = useState(null) // quienes NO figuran jugando en la planilla confirmada (se ven en gris)
   useEffect(() => {
     if (!matchId) return
     api('GET', '/matches/' + matchId + '/suspended').then((r) => setSuspended(new Set((r.items ?? []).map((i) => i.profileId)))).catch(() => {})
   }, [matchId])
+  useEffect(() => {
+    if (!matchId) return
+    api('GET', '/matches/' + matchId + '/attendance').then((r) => setAbsent(r.confirmed ? new Set((r.items ?? []).filter((i) => !i.present).map((i) => i.profileId)) : null)).catch(() => {})
+  }, [matchId, attendanceKey])
   return (
     <div className="space-y-4">
       {!hideTitle && <p className="text-xs font-bold uppercase tracking-widest text-muted">Jugadores disponibles</p>}
       <div className="grid grid-cols-2 items-start gap-3">
-        <TeamRoster team={teamA} side="A" sanctions={sanctions} matchBranch={branch} noLink={noLink} suspended={suspended} />
-        <TeamRoster team={teamB} side="B" sanctions={sanctions} matchBranch={branch} noLink={noLink} suspended={suspended} />
+        <TeamRoster team={teamA} side="A" sanctions={sanctions} matchBranch={branch} noLink={noLink} suspended={suspended} absent={absent} />
+        <TeamRoster team={teamB} side="B" sanctions={sanctions} matchBranch={branch} noLink={noLink} suspended={suspended} absent={absent} />
       </div>
     </div>
   )

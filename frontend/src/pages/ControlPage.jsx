@@ -8,6 +8,7 @@ import { normMatch, MODALITY, courtLabel } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import Versus from '../components/Versus'
 import { MatchRosterToggle } from '../components/MatchRoster'
+import MatchSheetPanel from '../components/MatchSheetPanel'
 import SoundToggle from '../components/SoundToggle'
 import { useMatchSound } from '../hooks/useMatchSound'
 import { useWakeLock } from '../hooks/useWakeLock'
@@ -215,6 +216,7 @@ export default function ControlPage() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
+  const [sheetTick, setSheetTick] = useState(0)
   const sanctions = useSanctions(id)
   const [suspended, setSuspended] = useState([])
   useEffect(() => {
@@ -507,7 +509,11 @@ export default function ControlPage() {
         <SanctionsCard suspended={suspended} m={m} tick={tick} items={sanctions} nameA={a?.name} nameB={b?.name} always control={{ can, send }} />
       )}
 
-      <MatchRosterToggle teamA={a} teamB={b} branch={m.branch} matchId={m.id} />
+      {perms && (perms.isAdmin || (perms.isTable && !perms.tableLockedBy)) && !['FINISHED', 'CANCELLED'].includes(m.status) && (
+        <MatchSheetPanel match={m} teamA={a} teamB={b} onConfirmed={() => setSheetTick((x) => x + 1)} />
+      )}
+
+      <MatchRosterToggle teamA={a} teamB={b} branch={m.branch} matchId={m.id} attendanceKey={sheetTick} />
     </div>
   )
 }

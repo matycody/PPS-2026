@@ -82,3 +82,21 @@ export async function apiUpload(path, file) {
   if (!res.ok) throw Object.assign(new Error(json?.error || 'Error al subir la imagen'), { status: res.status })
   return json
 }
+
+// Foto de la planilla de juego: se guarda el original y se lee; la mesa confirma después
+export async function apiUploadSheet(matchId, file) {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  const res = await fetch(BASE + '/matches/' + matchId + '/sheet/photo', {
+    method: 'POST',
+    headers: {
+      'ngrok-skip-browser-warning': 'true',
+      'Content-Type': file.type,
+      ...(token ? { Authorization: 'Bearer ' + token } : {}),
+    },
+    body: file,
+  })
+  const json = await res.json().catch(() => null)
+  if (!res.ok) throw Object.assign(new Error(json?.error || 'No se pudo subir la planilla'), { status: res.status })
+  return json
+}
