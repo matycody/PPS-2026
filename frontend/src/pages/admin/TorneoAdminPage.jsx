@@ -106,14 +106,21 @@ function StructureTab({ t, reload, setErr }) {
   }
   async function save() {
     setBusy(true); setErr('')
+    const body = {
+      stages: stages.map((s) => ({
+        name: s.name.trim(), type: s.type, phase: Number(s.phase), tier: s.tier === '' ? null : Number(s.tier),
+        promotions: Number(s.promotions) || 0, relegations: Number(s.relegations) || 0,
+        teams: s.type === 'LEAGUE' ? s.teams : [],
+      })),
+    }
     try {
-      await api('PUT', '/tournaments/' + t.id + '/stages', {
-        stages: stages.map((s) => ({
-          name: s.name.trim(), type: s.type, phase: Number(s.phase), tier: s.tier === '' ? null : Number(s.tier),
-          promotions: Number(s.promotions) || 0, relegations: Number(s.relegations) || 0,
-          teams: s.type === 'LEAGUE' ? s.teams : [],
-        })),
-      })
+      try {
+        await api('PUT', '/tournaments/' + t.id + '/stages', body)
+      } catch (e) {
+        if (e.data?.code !== 'WIPE_REQUIRED') throw e
+        if (!window.confirm(e.message + '\n\n¿Borrar fixture y playoffs y rehacer la estructura?')) { setBusy(false); return }
+        await api('PUT', '/tournaments/' + t.id + '/stages', { ...body, confirmWipe: true })
+      }
       await reload()
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
