@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Camera, ChevronDown, ClipboardCheck } from 'lucide-react'
 import { api, apiUploadSheet } from '../lib/api'
 import { Btn, Alert } from './ui'
@@ -19,6 +19,28 @@ export default function MatchSheetPanel({ match, teamA, teamB, onConfirmed }) {
   const [err, setErr] = useState('')
   const [summary, setSummary] = useState(null)
   const fileRef = useRef(null)
+  const [saved, setSaved] = useState(null) // planilla confirmada con su foto (también tras recargar)
+  const confirmed = !!saved
+  const loadSaved = () => api('GET', '/matches/' + match.id + '/sheet').then((r) => setSaved(r.sheet)).catch(() => {})
+
+  useEffect(() => { loadSaved() }, [match.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const reject = async () => {
+    if (!window.confirm('¿Anular la planilla confirmada? Vuelven a figurar todos los jugadores como disponibles. La foto queda guardada para auditoría.')) return
+    setBusy(true)
+    setErr('')
+    try {
+      await api('POST', '/matches/' + match.id + '/sheet/reject', {})
+      setSaved(null)
+      setSummary(null)
+      setPhase('idle')
+      onConfirmed?.()
+    } catch (ex) {
+      setErr(ex.message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const pick = async (e) => {
     const file = e.target.files?.[0]
@@ -53,6 +75,7 @@ export default function MatchSheetPanel({ match, teamA, teamB, onConfirmed }) {
       const players = data.roster.map((p) => ({ profileId: p.profileId, present: !!present[p.profileId] }))
       const r = await api('POST', '/matches/' + match.id + '/sheet/' + data.sheetId + '/confirm', { players })
       setSummary(r)
+      loadSaved()
       setPhase('done')
       onConfirmed?.()
     } catch (ex) {
@@ -82,12 +105,14 @@ export default function MatchSheetPanel({ match, teamA, teamB, onConfirmed }) {
 
           {(phase === 'idle' || phase === 'done') && (
             <>
-              {phase === 'done' && summary && (
+              {confirmed && phase === 'done' && summary && (
                 <p className="rounded-xl bg-surface-2 px-3 py-2 text-sm font-semibold">Planilla confirmada: juegan {summary.present} y {summary.absent} no. Los que no juegan se ven en gris en Jugadores.</p>
               )}
+              {saved?.imageUrl && <a href={saved.imageUrl} target="_blank" rel="noreferrer" className="block text-sm font-bold text-accent">Ver la planilla cargada › <span className="text-xs font-normal text-muted">({saved.present} juegan · {saved.absent} no)</span></a>}
               <p className="text-xs text-muted">Sacale una foto a la planilla con los jugadores y firmas. La herramienta propone quién juega y vos confirmás. La foto original queda guardada para la organización.</p>
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pick} />
-              <Btn tone="accent" className="w-full" onClick={() => fileRef.current?.click()}><Camera size={16} /> {phase === 'done' ? 'Cargar otra planilla' : 'Sacar o subir foto'}</Btn>
+              <Btn tone="accent" className="w-full" onClick={() => fileRef.current?.click()}><Camera size={16} /> {confirmed ? 'Cargar otra planilla' : 'Sacar o subir foto'}</Btn>
+              {confirmed && <Btn tone="danger" className="w-full" onClick={reject} disabled={busy}>Anular planilla (se cargó una equivocada)</Btn>}
             </>
           )}
 

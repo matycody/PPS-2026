@@ -509,7 +509,7 @@ export default function ControlPage() {
         <SanctionsCard suspended={suspended} m={m} tick={tick} items={sanctions} nameA={a?.name} nameB={b?.name} always control={{ can, send }} />
       )}
 
-      {perms && (perms.isAdmin || (perms.isTable && !perms.tableLockedBy)) && !['FINISHED', 'CANCELLED'].includes(m.status) && (
+      {perms && (perms.isAdmin || (perms.isTable && !perms.tableLockedBy)) && m.status !== 'CANCELLED' && (
         <MatchSheetPanel match={m} teamA={a} teamB={b} onConfirmed={() => setSheetTick((x) => x + 1)} />
       )}
 
