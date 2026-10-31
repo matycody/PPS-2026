@@ -67,7 +67,9 @@ async function resolveToken(token) {
   if (error || !data?.user) {
     // Motivo real del rechazo (sin el token): distingue un proyecto de Supabase distinto, una URL mal cargada o un token vencido
     if (error) console.warn('[auth] Supabase rechazó el token:', error.status || '-', error.code || '-', error.message);
-    return { status: 401, error: 'Token inválido' };
+    // Sesión revocada o inexistente (no un fallo pasajero de Supabase): el frontend limpia solo ese dispositivo
+    const gone = error && [400, 401, 403].includes(error.status);
+    return { status: 401, error: 'Token inválido', ...(gone ? { code: 'SESSION_GONE' } : {}) };
   }
 
   if (!data.user.email_confirmed_at) {
@@ -91,7 +93,7 @@ function resolveUser(req) {
 async function authenticate(req, res, next) {
   try {
     const result = await resolveUser(req);
-    if (result.error) return res.status(result.status).json({ error: result.error });
+    if (result.error) return res.status(result.status).json({ error: result.error, ...(result.code ? { code: result.code } : {}) });
     req.user = result.user;
     next();
   } catch (err) {
