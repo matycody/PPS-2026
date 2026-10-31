@@ -18,7 +18,7 @@ const MENU = {
   TABLE: ['control_mesa'], // quien no es jugador lo recibe solo si tiene una mesa asignada en un partido activo
   ADMIN: [
     'dashboard_canchas', 'torneos', 'partidos', 'equipos', 'sedes', 'sanciones',
-    'personas', 'importar_excel', 'usuarios', 'registro_ediciones',
+    'personas', 'importar_excel', 'usuarios', 'planillas', 'registro_ediciones',
   ],
 };
 

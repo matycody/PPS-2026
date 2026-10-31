@@ -70,6 +70,7 @@ app.use("/matches", require("./src/routes/matches"));
 app.use("/matches", require("./src/routes/sheets"));
 app.use("/venues", require("./src/routes/venues"));
 app.use("/news", require("./src/routes/news"));
+app.use("/sheets", require("./src/routes/sheetsAdmin"));
 app.use("/sanctions", require("./src/routes/sanctions"));
 app.use("/audit", require("./src/routes/audit"));
 app.use("/users", require("./src/routes/users"));
