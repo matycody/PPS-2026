@@ -455,8 +455,7 @@ model Stage {
   tier         Int?
   promotions   Int       @default(0)
   relegations  Int       @default(0)
-  playoffUp    Int       @default(0) // lugares de playoff de ascenso (justo debajo de los ascensos directos)
-  playoffDown  Int       @default(0) // lugares de playoff de permanencia (justo arriba de los descensos directos)
+  playoffPositions Int[] @default([]) // posiciones (a elección de la organización) que juegan el playoff de ascenso/permanencia
 
   tournament Tournament      @relation(fields: [tournamentId], references: [id])
   teams      StageTeam[]

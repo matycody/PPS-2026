@@ -108,8 +108,7 @@ function buildTable(stage, t, matches, criteria) {
   const zoneAt = (pos) => {
     if (pos <= stage.promotions) return 'PROMOTION';
     if (pos > total - stage.relegations) return 'RELEGATION';
-    if (pos <= stage.promotions + (stage.playoffUp ?? 0)) return 'PLAYOFF';
-    if (pos > total - stage.relegations - (stage.playoffDown ?? 0)) return 'PLAYOFF';
+    if ((stage.playoffPositions ?? []).includes(pos)) return 'PLAYOFF';
     return null;
   };
   const notStarted = [...rows.values()].every((r) => r.played === 0); // sin partidos: se marca por el orden de la lista
@@ -170,8 +169,7 @@ async function computeStandingsRaw(tournamentId, stageId = null, withPaused = fa
       tier: s.tier,
       promotions: s.promotions,
       relegations: s.relegations,
-      playoffUp: s.playoffUp,
-      playoffDown: s.playoffDown,
+      playoffPositions: s.playoffPositions,
       ...buildTable(s, t, matches.filter((m) => m.stageId === s.id), criteria),
     })),
   };
