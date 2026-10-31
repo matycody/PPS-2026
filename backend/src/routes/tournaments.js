@@ -475,6 +475,11 @@ router.put('/:id/stages', ...admin, async (req, res) => {
       if (tier !== null && !posInt(tier)) errors.push(`${label}: nivel inválido (entero desde 1)`);
       const promotions = s?.promotions ?? 0;
       const relegations = s?.relegations ?? 0;
+      const playoffUp = s?.playoffUp ?? 0;
+      const playoffDown = s?.playoffDown ?? 0;
+      if (!Number.isInteger(playoffUp) || playoffUp < 0 || !Number.isInteger(playoffDown) || playoffDown < 0) {
+        errors.push(`${label}: los lugares de playoff de promoción deben ser enteros desde 0`);
+      }
       if (!Number.isInteger(promotions) || promotions < 0 || !Number.isInteger(relegations) || relegations < 0) {
         errors.push(`${label}: ascensos y descensos deben ser enteros desde 0`);
       }
@@ -510,8 +515,8 @@ router.put('/:id/stages', ...admin, async (req, res) => {
       // Las zonas necesitan equipos desde el inicio; las llaves de playoffs se completan después
       if (s?.type === 'LEAGUE') {
         if (teams.length < 2) errors.push(`${label}: una zona necesita al menos 2 equipos`);
-        if (promotions + relegations > teams.length) {
-          errors.push(`${label}: ascensos + descensos superan la cantidad de equipos`);
+        if (promotions + relegations + playoffUp + playoffDown > teams.length) {
+          errors.push(`${label}: ascensos + descensos + playoffs de promoción superan la cantidad de equipos`);
         }
         const used = leagueTeamsByPhase.get(s.phase) ?? new Set();
         if (teams.some((x) => used.has(x.teamId))) {
@@ -521,7 +526,7 @@ router.put('/:id/stages', ...admin, async (req, res) => {
         leagueTeamsByPhase.set(s.phase, used);
       }
 
-      stages.push({ name, type: s?.type, phase: s?.phase, tier, promotions, relegations, teams });
+      stages.push({ name, type: s?.type, phase: s?.phase, tier, promotions, relegations, playoffUp, playoffDown, teams });
     });
     if (errors.length) return res.status(400).json({ error: errors.join('. ') });
 
@@ -547,7 +552,7 @@ router.put('/:id/stages', ...admin, async (req, res) => {
         stages.map((s) =>
           prisma.stage.update({
             where: { id: byKey.get(key(s)).id },
-            data: { tier: s.tier, promotions: s.promotions, relegations: s.relegations },
+            data: { tier: s.tier, promotions: s.promotions, relegations: s.relegations, playoffUp: s.playoffUp, playoffDown: s.playoffDown },
           }),
         ),
       );
@@ -576,6 +581,8 @@ router.put('/:id/stages', ...admin, async (req, res) => {
               tier: s.tier,
               promotions: s.promotions,
               relegations: s.relegations,
+              playoffUp: s.playoffUp,
+              playoffDown: s.playoffDown,
               teams: { create: s.teams },
             },
           });

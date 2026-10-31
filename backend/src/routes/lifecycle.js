@@ -157,7 +157,7 @@ router.get('/:id/final-standings', async (req, res) => {
       where: { tournamentId: t.id, standings: { some: {} } },
       orderBy: [{ phase: 'asc' }, { tier: 'asc' }, { name: 'asc' }],
       select: {
-        id: true, name: true, phase: true, tier: true, promotions: true, relegations: true,
+        id: true, name: true, phase: true, tier: true, promotions: true, relegations: true, playoffUp: true, playoffDown: true,
         standings: { orderBy: [{ position: 'asc' }], include: { team: { select: TEAM_SELECT } } },
       },
     });
