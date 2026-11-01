@@ -55,7 +55,12 @@ async function main() {
   console.log(APPLY ? '== GRABANDO ==' : '== SIMULACIÓN (no graba; usá --aplicar) ==');
   for (const bloque of RESULTADOS) {
     const t = await prisma.tournament.findFirst({ where: { deletedAt: null, name: { equals: bloque.torneo, mode: 'insensitive' } } });
-    if (!t) { console.log('\nNo existe el torneo: ' + bloque.torneo); continue; }
+    if (!t) {
+      const all = await prisma.tournament.findMany({ where: { deletedAt: null }, select: { name: true, status: true }, orderBy: { name: 'asc' } });
+      console.log('\nNo existe el torneo: ' + bloque.torneo + '\nTorneos que hay en esta base (' + all.length + '):');
+      all.forEach((x) => console.log('  - ' + x.name + ' [' + x.status + ']'));
+      continue;
+    }
     console.log('\n' + t.name);
     for (const [na, nb, pa, pb] of bloque.partidos) {
       const m = await prisma.match.findFirst({
