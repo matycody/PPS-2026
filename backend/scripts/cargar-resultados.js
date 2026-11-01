@@ -52,15 +52,33 @@ function buildSets(modality, pa, pb) {
   });
 }
 
+// Busca el equipo tolerando mayúsculas, tildes y errores de tipeo (ej: "Berserker" / "Berseker")
+const norm = (x) => String(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+function dist(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+let TEAMS = null;
+async function resolveTeam(name) {
+  if (!TEAMS) TEAMS = await prisma.team.findMany({ select: { id: true, name: true } });
+  const n = norm(name);
+  const hit = TEAMS.find((t) => norm(t.name) === n) || TEAMS.find((t) => norm(t.name).includes(n) || n.includes(norm(t.name)))
+    || TEAMS.map((t) => [t, dist(norm(t.name), n)]).filter(([, d]) => d <= 2).sort((a, b) => a[1] - b[1]).map(([t]) => t)[0];
+  if (hit && hit.name.toLowerCase() !== String(name).toLowerCase()) console.log(`  (el equipo "${name}" figura en la base como "${hit.name}")`);
+  return hit || null;
+}
+
 // Crea el torneo independiente (solo playoff): equipos inscriptos, una etapa de eliminación y sus partidos ya finalizados
 async function crearTorneo(b) {
   const c = b.crear;
   const names = [...new Set(b.partidos.flatMap((p) => [p[0], p[1]]))];
   const teams = [];
   for (const n of names) {
-    const tm = await prisma.team.findFirst({ where: { name: { equals: n, mode: 'insensitive' } } });
+    const tm = await resolveTeam(n);
     if (!tm) { console.log('\nNo existe el equipo "' + n + '" en esta base: no se puede crear ' + b.torneo); return null; }
-    teams.push(tm);
+    teams.push({ ...tm, alias: n });
   }
   console.log('\n' + b.torneo + ' no existe: ' + (APPLY ? 'se crea' : 'se crearía') + ' (' + c.branch + ' ' + c.modality + ', ' + names.length + ' equipos, ' + b.partidos.length + ' partidos, ' + c.day + ')');
   if (!APPLY) {
@@ -81,8 +99,8 @@ async function crearTorneo(b) {
     const stage = await tx.stage.create({ data: { tournamentId: t.id, name: 'Playoff', type: 'KNOCKOUT', phase: 1 } });
     await tx.stageTeam.createMany({ data: teams.map((tm, i) => ({ stageId: stage.id, teamId: tm.id, seed: i + 1 })) });
     for (const [i, [na, nb, , , hh]] of b.partidos.entries()) {
-      const ta = teams.find((x) => x.name.toLowerCase() === na.toLowerCase());
-      const tb = teams.find((x) => x.name.toLowerCase() === nb.toLowerCase());
+      const ta = teams.find((x) => x.alias === na);
+      const tb = teams.find((x) => x.alias === nb);
       await tx.match.create({
         data: { tournamentId: t.id, stageId: stage.id, round: 1, slot: i + 1, branch: c.branch, modality: c.modality, status: 'FINISHED', teamAId: ta.id, teamBId: tb.id, scheduledAt: at(hh), timeSet: true, finishedAt: new Date(at(hh).getTime() + 45 * 60000), venueId: venue.id },
       });
@@ -106,18 +124,16 @@ async function main() {
     }
     console.log('\n' + t.name);
     for (const [na, nb, pa, pb] of bloque.partidos) {
-      const m = await prisma.match.findFirst({
+      const ra = await resolveTeam(na), rb = await resolveTeam(nb);
+      const m = ra && rb && await prisma.match.findFirst({
         where: {
           tournamentId: t.id, hiddenAt: null,
-          OR: [
-            { teamA: { name: { equals: na, mode: 'insensitive' } }, teamB: { name: { equals: nb, mode: 'insensitive' } } },
-            { teamA: { name: { equals: nb, mode: 'insensitive' } }, teamB: { name: { equals: na, mode: 'insensitive' } } },
-          ],
+          OR: [{ teamAId: ra.id, teamBId: rb.id }, { teamAId: rb.id, teamBId: ra.id }],
         },
         include: { teamA: true, teamB: true, sets: true },
       });
       if (!m) { console.log(`  ${na} vs ${nb}: no se encontró el partido`); continue; }
-      const swap = m.teamA.name.toLowerCase() !== na.toLowerCase(); // el partido está guardado al revés
+      const swap = m.teamAId !== ra.id; // el partido está guardado al revés
       const [ptsA, ptsB] = swap ? [pb, pa] : [pa, pb];
       let sets;
       try { sets = buildSets(m.modality, ptsA, ptsB); } catch (e) { console.log(`  ${m.teamA.name} vs ${m.teamB.name}: ${e.message}`); continue; }
