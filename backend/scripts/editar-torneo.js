@@ -61,6 +61,7 @@ const TORNEOS = [
 ];
 
 const APPLY = process.argv.includes('--aplicar');
+const ESTRUCTURA = process.argv.includes('--estructura');
 const solo = process.argv.indexOf('--solo') > -1 ? process.argv[process.argv.indexOf('--solo') + 1].toLowerCase() : null;
 const at = (day, hh) => new Date(day + 'T' + (hh || '12:00') + ':00-03:00');
 const norm = (x) => String(x).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -98,6 +99,13 @@ async function editar(T) {
   }
   const t = cand[0];
   console.log('  Torneo en la base: "' + t.name + '" [' + t.status + ']');
+  if (ESTRUCTURA) {
+    const st = await prisma.stage.findMany({ where: { tournamentId: t.id }, orderBy: [{ phase: 'asc' }, { name: 'asc' }] });
+    const mm = await prisma.match.findMany({ where: { tournamentId: t.id, hiddenAt: null, stage: { type: 'KNOCKOUT' } }, include: { teamA: true, teamB: true, stage: true }, orderBy: [{ round: 'asc' }, { slot: 'asc' }] });
+    st.forEach((x) => console.log(`  etapa "${x.name}" ${x.type} fase ${x.phase} playoff=${JSON.stringify(x.playoffPositions)} promo=${x.isPromotion}`));
+    mm.forEach((x) => console.log(`   r${x.round} s${x.slot} [${x.stage.name}] ${x.teamA?.name ?? '?'} vs ${x.teamB?.name ?? '?'} · A<-${JSON.stringify(x.teamAFrom)} B<-${JSON.stringify(x.teamBFrom)} · next=${x.nextMatchId ? 'sí' : 'no'} loser=${x.loserMatchId ? 'sí' : 'no'} · ${x.status}`));
+    return;
+  }
   console.log('  Tabla esperada (3 por victoria, 1 por empate) para controlar contra la web:');
   tabla(T).forEach((r, i) => console.log(`    ${i + 1}. ${r.n.padEnd(16)} ${String(r.pts).padStart(2)} pts  J${r.pj} G${r.g} E${r.e} P${r.p}  ${r.f}-${r.c}`));
 
