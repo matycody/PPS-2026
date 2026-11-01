@@ -61,8 +61,8 @@ const TORNEOS = [
       ['A', 5, '2026-06-07', 'sanfer', [['Panthers', 'Hydra', 24, 12, '12:00'], ['Freestyle', 'PCH', 3, 27, '13:00']]],
       ['B', 5, '2026-06-07', 'sanfer', [['Morán', 'Berserker', 14, 20, '13:00'], ['Hokory', 'Lamadrid', 7, 29, '14:00'], [L, 'Marvin', 20, 14, '14:00']]],
     ],
-    // Promoción: 4° del Grupo A (PCH) vs 2° del Grupo B (Berserker)
-    promocion: { dia: '2026-07-12', sede: 'almafuerte', cruces: [[['A', 4, 'PCH'], ['B', 2, 'Berserker'], '14:00', 20, 8]] },
+    // Promoción: 2° del Grupo B (Berserker, local) vs 4° del Grupo A (PCH): quedó 8-20
+    promocion: { dia: '2026-07-12', sede: 'almafuerte', cruces: [[['B', 2, 'Berserker'], ['A', 4, 'PCH'], '14:00', 8, 20]] },
   },
 ];
 

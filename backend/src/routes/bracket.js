@@ -164,6 +164,7 @@ async function view(stageId, withPaused = false) {
       id: true,
       hiddenByPause: true,
       tournamentId: true,
+      modality: true,
       round: true,
       slot: true,
       status: true,
@@ -186,6 +187,16 @@ async function view(stageId, withPaused = false) {
       sets: { select: { number: true, winnerTeamId: true }, orderBy: { number: 'asc' } },
     },
   });
+  // Marcador en puntos (el que se ve en las fechas): Foam 1 por set; Cloth 2 por set y 1 a cada uno si empatan
+  const points = (m) => {
+    let a = 0;
+    let b = 0;
+    for (const st of m.sets) {
+      if (!st.winnerTeamId) { if (m.modality === 'CLOTH') { a += 1; b += 1; } } else if (st.winnerTeamId === m.teamAId) a += m.modality === 'CLOTH' ? 2 : 1;
+      else if (st.winnerTeamId === m.teamBId) b += m.modality === 'CLOTH' ? 2 : 1;
+    }
+    return { a, b };
+  };
   // Mientras la liga del torneo no termina, los cruces son probables aunque ya tengan equipos
   const leagueOpen = await openLeagueTournaments(matches.map((m) => m.tournamentId));
   // Lugares de zona ("2° Zona A") y si esa zona ya terminó
@@ -238,6 +249,8 @@ async function view(stageId, withPaused = false) {
       teamB: m.teamB,
       setsA: score ? score.setsA : 0,
       setsB: score ? score.setsB : 0,
+      pointsA: points(m).a,
+      pointsB: points(m).b,
       winnerTeamId: res ? res.winnerTeamId : null,
       nextMatchId: m.nextMatchId,
       nextSide: m.nextSide,
