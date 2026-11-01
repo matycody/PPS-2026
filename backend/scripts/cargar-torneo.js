@@ -22,8 +22,8 @@ const TORNEOS = [
   {
     nombre: 'Mixto Foam - Apertura 2026', branch: 'MIXED', modality: 'FOAM', year: 2026, edition: 'Apertura', desde: '2026-03-08', hasta: '2026-07-12',
     zonas: [
-      { nombre: 'Grupo A', tier: 1, equipos: ['Hydra', 'Panthers', 'Noazar', 'Freestyle', 'Berserker'] },
-      { nombre: 'Grupo B', tier: 2, equipos: ['PCH', L, 'Marvin', 'Lamadrid', 'Hokory', 'Morán', OB] },
+      { nombre: 'Grupo A', tier: 1, desc: 1, playoff: [4], equipos: ['Hydra', 'Panthers', 'Noazar', 'Freestyle', 'Berserker'] }, // el último desciende; el anteúltimo juega la promoción
+      { nombre: 'Grupo B', tier: 2, asc: 1, playoff: [3], equipos: ['PCH', L, 'Marvin', 'Lamadrid', 'Hokory', 'Morán', OB] }, // el primero asciende; en este torneo la promoción la jugó el 3° (Marvin)
     ],
     // [zona, número de fecha, día, sede, [[local, visitante, puntos local, puntos visitante, hora]]]
     fechas: [
@@ -42,6 +42,27 @@ const TORNEOS = [
     ],
     // Cruce de promoción, con el resultado que se jugó. [zona, puesto, equipo] contra [zona, puesto, equipo], hora, puntos del primero y del segundo
     promocion: { dia: '2026-07-12', sede: 'almafuerte', cruces: [[['A', 4, 'Freestyle'], ['B', 3, 'Marvin'], '13:00', 8, 4]] }, // Berserker vs PCH es la promoción del Mixto Cloth (otro torneo)
+  },
+  {
+    nombre: 'Mixto Cloth - Apertura 2026', branch: 'MIXED', modality: 'CLOTH', year: 2026, edition: 'Apertura', desde: '2026-03-08', hasta: '2026-07-12',
+    zonas: [
+      { nombre: 'Grupo A', tier: 1, desc: 1, playoff: [4], equipos: ['Panthers', 'Noazar', 'Hydra', 'PCH', 'Freestyle'] },
+      { nombre: 'Grupo B', tier: 2, asc: 1, playoff: [2], equipos: ['Lamadrid', 'Berserker', 'Morán', 'Marvin', L, 'Hokory'] },
+    ],
+    fechas: [
+      ['B', 1, '2026-03-08', null, [[L, 'Morán', 15, 15, '10:00'], ['Lamadrid', 'Berserker', 16, 16, '11:00'], ['Hokory', 'Marvin', 8, 22, '13:00']]],
+      ['A', 1, '2026-03-08', null, [['Freestyle', 'Noazar', 4, 36, '17:00'], ['PCH', 'Hydra', 12, 16, '18:00']]],
+      ['A', 2, '2026-03-29', 'besada', [['Hydra', 'Noazar', 12, 24, '08:45'], ['PCH', 'Panthers', 20, 10, '10:00']]],
+      ['B', 2, '2026-03-29', 'besada', [['Berserker', 'Marvin', 14, 20, '14:00'], [L, 'Hokory', 15, 15, '15:00'], ['Lamadrid', 'Morán', 19, 15, '16:00']]],
+      ['A', 3, '2026-04-19', 'mupol', [['Hydra', 'Freestyle', 32, 4, '13:00'], ['Noazar', 'Panthers', 6, 28, '14:00']]],
+      ['B', 3, '2026-04-19', 'mupol', [['Marvin', 'Morán', 17, 21, '14:00'], [L, 'Lamadrid', 11, 21, '15:00'], ['Berserker', 'Hokory', 31, 7, '15:00']]],
+      ['A', 4, '2026-05-17', 'orione', [['Noazar', 'PCH', 16, 12, '12:00'], ['Panthers', 'Freestyle', 22, 14, '13:00']]],
+      ['B', 4, '2026-05-17', 'orione', [[L, 'Berserker', 13, 15, '13:00'], ['Marvin', 'Lamadrid', 19, 21, '14:00'], ['Morán', 'Hokory', 16, 12, '14:00']]],
+      ['A', 5, '2026-06-07', 'sanfer', [['Panthers', 'Hydra', 24, 12, '12:00'], ['Freestyle', 'PCH', 3, 27, '13:00']]],
+      ['B', 5, '2026-06-07', 'sanfer', [['Morán', 'Berserker', 14, 20, '13:00'], ['Hokory', 'Lamadrid', 7, 29, '14:00'], [L, 'Marvin', 20, 14, '14:00']]],
+    ],
+    // Promoción: 4° del Grupo A (PCH) vs 2° del Grupo B (Berserker)
+    promocion: { dia: '2026-07-12', sede: 'almafuerte', cruces: [[['A', 4, 'PCH'], ['B', 2, 'Berserker'], '14:00', 20, 8]] },
   },
 ];
 
@@ -105,7 +126,7 @@ async function cargar(T) {
   const nMatches = T.fechas.reduce((n, f) => n + f[4].length, 0);
   console.log(`  ${T.zonas.length} zonas, ${team.size} equipos, ${T.fechas.length} fechas, ${nMatches} partidos${T.promocion ? ' + ' + T.promocion.cruces.length + ' de promoción (' + T.promocion.cruces.map((c) => c[0][2] + ' ' + c[3] + '-' + c[4] + ' ' + c[1][2]).join(', ') + ')' : ''}`);
   for (const z of T.zonas) {
-    console.log('  ' + z.nombre + ' (control contra la web):');
+    console.log('  ' + z.nombre + ' (control contra la web)' + (z.asc ? ' · asciende el 1°' : '') + (z.desc ? ' · desciende el último' : '') + (z.playoff ? ' · promoción: puesto ' + z.playoff.join(', ') : '') + ':');
     tabla(T, z).forEach((r, i) => console.log(`    ${i + 1}. ${r.n.padEnd(22)} ${String(r.pts).padStart(2)} pts  J${r.pj} G${r.g} E${r.e} P${r.p}  ${r.f}-${r.c}`));
   }
   if (existing) console.log('  (se borra el torneo existente y se vuelve a cargar)');
@@ -122,7 +143,7 @@ async function cargar(T) {
     const stage = {};
     for (const z of T.zonas) {
       const key = z.nombre.slice(-1);
-      stage[key] = await tx.stage.create({ data: { tournamentId: t.id, name: z.nombre, type: 'LEAGUE', phase: 1, tier: z.tier } });
+      stage[key] = await tx.stage.create({ data: { tournamentId: t.id, name: z.nombre, type: 'LEAGUE', phase: 1, tier: z.tier, promotions: z.asc || 0, relegations: z.desc || 0, playoffPositions: z.playoff || [] } });
       await tx.stageTeam.createMany({ data: z.equipos.map((n, i) => ({ stageId: stage[key].id, teamId: team.get(n).id, seed: i + 1 })) });
     }
     for (const [z, num, day, sede, ms] of T.fechas) {
