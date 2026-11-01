@@ -36,6 +36,8 @@ export default function HomeInicio({ byId, loading, error, children }) {
   const [openGroups, setOpenGroups] = useState(() => new Set()) // torneos expandidos en "Sin programación"
   const [cal, setCal] = useState(readCal) // lo último guardado se muestra al instante y se actualiza apenas llega lo nuevo
   const [calTry, setCalTry] = useState(0)
+  const [hist, setHist] = useState([]) // jornadas que se piden a pedido (más antiguas o más lejanas que la ventana inicial)
+  const [ext, setExt] = useState({ back: 0, ahead: 0, loading: null, doneBack: false, doneAhead: false })
   const uid = useAuthStore((s) => s.user?.id)
   const { teams: favTeams, tournaments: favTours, loaded: favLoaded, load: loadFavs, clear: clearFavs } = useFavorites()
   useEffect(() => { if (uid) loadFavs(); else clearFavs() }, [uid])
@@ -68,13 +70,35 @@ export default function HomeInicio({ byId, loading, error, children }) {
     return () => { alive = false; socket.off('connect', load) }
   }, [calTry])
 
+  // Opcional: 90 días más hacia atrás o hacia adelante. El servidor entrega 200 partidos por pedido, así que se pide por tandas
+  const loadMore = async (dir) => {
+    if (ext.loading) return
+    setExt((e) => ({ ...e, loading: dir }))
+    const day = (d) => new Date(Date.now() + d * 864e5).toLocaleDateString('en-CA')
+    const lo = dir === 'back' ? CAL_BACK + ext.back : CAL_AHEAD + ext.ahead
+    const [from, to] = dir === 'back' ? [day(-(lo + 90)), day(-lo + 1)] : [day(lo), day(lo + 91)]
+    let got = 0
+    try {
+      for (let offset = 0; offset < 2000; offset += 200) {
+        const rows = await api('GET', '/matches?status=LIVE,READY,SCHEDULED,SUSPENDED,FINISHED&limit=200&offset=' + offset + '&from=' + from + '&to=' + to)
+        got += rows.length
+        setHist((prev) => [...prev, ...rows.map(normMatch)])
+        if (rows.length < 200) break
+      }
+      setExt((e) => ({ ...e, [dir]: e[dir] + 90, loading: null, ...(got === 0 ? (dir === 'back' ? { doneBack: true } : { doneAhead: true }) : {}) }))
+    } catch {
+      setExt((e) => ({ ...e, loading: null }))
+    }
+  }
+
   // Los datos en vivo (socket) pisan a los cargados
   const all = useMemo(() => {
     const mp = new Map()
+    hist.forEach((m) => mp.set(m.id, m))
     ;(cal ?? []).forEach((m) => mp.set(m.id, m))
     Object.values(byId).forEach((m) => mp.set(m.id, { ...mp.get(m.id), ...m }))
     return [...mp.values()].filter((m) => m.status !== 'CANCELLED')
-  }, [cal, byId])
+  }, [cal, byId, hist])
 
   const v = useMemo(() => {
     const live = all.filter((m) => m.status === 'LIVE').sort(byTime)
@@ -171,6 +195,11 @@ export default function HomeInicio({ byId, loading, error, children }) {
       <div className="flex items-center gap-2">
         <div className={strip + ' min-w-0 flex-1'}>
           <div className="flex gap-2">
+            {!ext.doneBack && (
+              <button onClick={() => loadMore('back')} disabled={!!ext.loading} className="shrink-0 whitespace-nowrap rounded-full border border-dashed border-line bg-surface px-3.5 py-2 text-sm font-bold text-muted disabled:opacity-60">
+                {ext.loading === 'back' ? 'Cargando…' : '‹ 90 días antes'}
+              </button>
+            )}
             {v.tabs.map((d) => (
               <Fragment key={d}>
                 {d === liveBefore && liveTab}
@@ -183,6 +212,11 @@ export default function HomeInicio({ byId, loading, error, children }) {
             {liveBefore === null && liveTab}
             {v.hasUndated && (
               <button id="daytab-none" onClick={() => setParams({ d: 'none', t: null })} aria-pressed={v.sel === 'none'} className={pill(v.sel === 'none')}>Sin programación</button>
+            )}
+            {!ext.doneAhead && (
+              <button onClick={() => loadMore('ahead')} disabled={!!ext.loading} className="shrink-0 whitespace-nowrap rounded-full border border-dashed border-line bg-surface px-3.5 py-2 text-sm font-bold text-muted disabled:opacity-60">
+                {ext.loading === 'ahead' ? 'Cargando…' : '90 días después ›'}
+              </button>
             )}
           </div>
         </div>
