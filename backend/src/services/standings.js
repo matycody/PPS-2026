@@ -15,6 +15,19 @@ function matchResult(match) {
   return setsA + setsB === 0 ? null : { setsA, setsB };
 }
 
+// Puntos de juego de cada equipo (los que se ven en el marcador): Foam 1 por set ganado;
+// Cloth 2 por set ganado y 1 a cada uno si el set se empata.
+function matchPoints(match) {
+  let a = 0;
+  let b = 0;
+  const cloth = match.modality === 'CLOTH';
+  for (const s of match.sets) {
+    if (!s.winnerTeamId) { if (cloth) { a += 1; b += 1; } } else if (s.winnerTeamId === match.teamAId) a += cloth ? 2 : 1;
+    else if (s.winnerTeamId === match.teamBId) b += cloth ? 2 : 1;
+  }
+  return { a, b };
+}
+
 function outcomePoints(t, mine, theirs) {
   if (mine > theirs) return t.pointsWin;
   if (mine === theirs) return t.pointsDraw;
@@ -32,7 +45,8 @@ function criterionValues(criterion, rows, results, t) {
     }
     return values;
   }
-  const field = { SET_DIFFERENCE: 'setDiff', SETS_WON: 'setsFor', WINS: 'won' }[criterion];
+  // Se desempata por puntos de juego (no por sets): SET_DIFFERENCE = diferencia de puntos, SETS_WON = puntos a favor
+  const field = { SET_DIFFERENCE: 'pointDiff', SETS_WON: 'pointsFor', WINS: 'won' }[criterion];
   for (const r of rows) values.set(r.teamId, r[field]);
   return values;
 }
@@ -62,7 +76,7 @@ function buildTable(stage, t, matches, criteria) {
   const rows = new Map(
     stage.teams.map((x) => [
       x.teamId,
-      { teamId: x.teamId, team: x.team, played: 0, won: 0, drawn: 0, lost: 0, points: 0, setsFor: 0, setsAgainst: 0, setDiff: 0, form: [] },
+      { teamId: x.teamId, team: x.team, played: 0, won: 0, drawn: 0, lost: 0, points: 0, setsFor: 0, setsAgainst: 0, setDiff: 0, pointsFor: 0, pointsAgainst: 0, pointDiff: 0, form: [] },
     ]),
   );
   const results = [];
@@ -79,12 +93,16 @@ function buildTable(stage, t, matches, criteria) {
     const b = rows.get(m.teamBId);
     if (!a || !b) continue;
     results.push({ a: a.teamId, b: b.teamId, setsA: r.setsA, setsB: r.setsB });
-    for (const [row, mine, theirs] of [[a, r.setsA, r.setsB], [b, r.setsB, r.setsA]]) {
+    const pts = matchPoints(m);
+    for (const [row, mine, theirs, pf, pa] of [[a, r.setsA, r.setsB, pts.a, pts.b], [b, r.setsB, r.setsA, pts.b, pts.a]]) {
       row.form.push(mine > theirs ? 'V' : mine === theirs ? 'E' : 'D'); // últimos resultados, del más viejo al más nuevo
       row.played++;
       row.setsFor += mine;
       row.setsAgainst += theirs;
       row.setDiff = row.setsFor - row.setsAgainst;
+      row.pointsFor += pf;
+      row.pointsAgainst += pa;
+      row.pointDiff = row.pointsFor - row.pointsAgainst;
       row.points += outcomePoints(t, mine, theirs);
       if (mine > theirs) row.won++;
       else if (mine === theirs) row.drawn++;
@@ -147,7 +165,7 @@ async function computeStandingsRaw(tournamentId, stageId = null, withPaused = fa
   const matches = stages.length
     ? await prisma.match.findMany({
         where: { stageId: { in: stages.map((s) => s.id) }, status: 'FINISHED', ...(withPaused ? { OR: [{ hiddenAt: null }, { hiddenByPause: true }] } : { hiddenAt: null }) },
-        select: { stageId: true, teamAId: true, teamBId: true, finishedAt: true, scheduledAt: true, sets: { select: { winnerTeamId: true } } },
+        select: { stageId: true, modality: true, teamAId: true, teamBId: true, finishedAt: true, scheduledAt: true, sets: { select: { winnerTeamId: true } } },
       })
     : [];
   const criteria = t.tiebreakers.map((x) => x.criterion);
@@ -178,4 +196,4 @@ async function computeStandingsRaw(tournamentId, stageId = null, withPaused = fa
 // Con memoria corta: el Inicio pide las tablas de cada torneo en cada carga
 const computeStandings = (tournamentId, stageId = null, withPaused = false) => memo('standings|' + tournamentId + '|' + (stageId ?? '') + '|' + (withPaused ? 'p' : ''), () => computeStandingsRaw(tournamentId, stageId, withPaused));
 
-module.exports = { computeStandings, buildTable };
+module.exports = { computeStandings, buildTable, matchPoints };

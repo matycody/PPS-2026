@@ -105,8 +105,8 @@ router.post('/:id/close', ...admin, async (req, res) => {
           won: r.won,
           drawn: r.drawn,
           lost: r.lost,
-          setsFor: r.setsFor,
-          setsAgainst: r.setsAgainst,
+          setsFor: r.pointsFor, // se congelan los puntos de juego (PJ / PC)
+          setsAgainst: r.pointsAgainst,
           tied: !!r.tied,
           zone: r.zone || null,
         });

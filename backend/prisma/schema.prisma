@@ -429,6 +429,7 @@ enum StageType {
   KNOCKOUT
 }
 
+// Los nombres quedan por compatibilidad: SET_DIFFERENCE se calcula como diferencia de PUNTOS y SETS_WON como puntos a favor
 enum TiebreakerCriterion {
   HEAD_TO_HEAD
   SET_DIFFERENCE
@@ -513,8 +514,8 @@ model StageStanding {
   won         Int
   drawn       Int
   lost        Int
-  setsFor     Int
-  setsAgainst Int
+  setsFor     Int // al congelar la tabla guarda los puntos de juego a favor (PJ)
+  setsAgainst Int // y en contra (PC)
   stage       Stage   @relation(fields: [stageId], references: [id])
   team        Team    @relation(fields: [teamId], references: [id])
   tied        Boolean @default(false)

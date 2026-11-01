@@ -168,7 +168,7 @@ router.get('/:id/posiciones', async (req, res) => {
       if (zone) {
         const data = await computeStandings(t.id, zone.id);
         const z = data && data.stages[0];
-        rows = z ? z.rows.map((r) => ({ position: r.position, tied: r.tied, team: r.team, played: r.played, won: r.won, drawn: r.drawn, lost: r.lost, points: r.points, setDiff: r.setDiff, form: r.form })) : [];
+        rows = z ? z.rows.map((r) => ({ position: r.position, tied: r.tied, team: r.team, played: r.played, won: r.won, drawn: r.drawn, lost: r.lost, points: r.points, setDiff: r.setDiff, pointDiff: r.pointDiff, form: r.form })) : [];
         const own = await prisma.match.findMany({ where: { stageId: zone.id, hiddenAt: null }, select: { status: true } });
         zoneDone = own.length > 0 && own.every((x) => x.status === 'FINISHED' || x.status === 'CANCELLED');
       }
