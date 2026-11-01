@@ -15,6 +15,8 @@ const SEDES = {
   glow: { token: 'glow', name: 'Glow, Floresta', address: 'Glow, Floresta, CABA' },
   moran: { token: 'clubmoran', name: 'Club Morán', address: 'Club Morán' },
   pueyrredon: { token: 'pueyrredon', name: 'Club Social Atlético Pueyrredón', address: 'Prilidiano Pueyrredón 1320, Burzaco' },
+  orione: { token: 'orione', name: 'Polideportivo Don Orione', address: 'Av. Eva Perón 780, Don Orione' },
+  cedem: { token: 'cedem', name: 'CEDEM N°1', address: 'CEDEM N°1' },
   cef: { token: 'cef164', name: 'Cef 164, Guernica', address: 'Cef 164, Guernica' },
   sanfer: { token: 'sanfernando', name: 'Polideportivo N°8 San Fernando', address: 'French 1500, San Fernando' },
 };
@@ -150,6 +152,44 @@ const TORNEOS = [
       [4, 2, 'Berserker', 'Hydra', 10, 22, null, null, null], // 3er y 4to puesto
     ],
   },
+  {
+    nombre: 'Cloth Mixto Clausura 2026', buscar: ['mixto', 'cloth'], excluir: ['apertura'], modality: 'CLOTH', rearmarZonas: 'siempre',
+    // Igual que el Apertura: el último del A desciende, el 1° del B asciende y juegan la promoción el 4° del A y el 2° del B
+    zonasConfig: { A: { tier: 1, desc: 1, playoff: [4] }, B: { tier: 2, asc: 1, playoff: [2] } },
+    // Fecha 5: todavía sin jugar (mañana 1/11); el día sale del cronograma de la organización
+    liga: [
+      [1, '2026-08-02', [['Hydra', 'PCH', 14, 12, '13:00', 'orione', null, 1], ['Lamadrid', 'Panthers', 12, 22, '14:00', 'orione', null, 1]], 'A'],
+      [1, '2026-08-02', [['Berserker', 'Linces by Pueyrredón', 18, 18, '10:00', 'orione', null, 2], ['Marvin', 'Morán', 15, 17, '13:00', 'orione', null, 2], ['Freestyle', 'Hokory', 14, 18, '14:00', 'orione', null, 2]], 'B'],
+      [2, '2026-08-16', [['PCH', 'Panthers', 15, 15, '12:00', 'cedem', null, 1], ['Hydra', 'Noazar', 27, 7, '12:00', 'cedem', null, 2]], 'A'],
+      [2, '2026-08-16', [['Linces by Pueyrredón', 'Morán', 15, 13, '13:00', 'cedem', null, 2], ['Freestyle', 'Marvin', 14, 36, '13:00', 'cedem', null, 1], ['Berserker', 'Hokory', 16, 14, '14:00', 'cedem', null, 2]], 'B'],
+      [3, '2026-09-06', [['Panthers', 'Noazar', 18, 18, '14:00', 'cedem', null, 2], ['PCH', 'Lamadrid', 17, 11, '15:00', 'cedem', null, 1]], 'A'],
+      [3, '2026-09-06', [['Freestyle', 'Berserker', 16, 20, '10:00', 'cedem', null, 1], ['Linces by Pueyrredón', 'Marvin', 19, 15, '10:00', 'cedem', null, 2], ['Morán', 'Hokory', 11, 17, '14:00', 'cedem', null, 1]], 'B'],
+      [4, '2026-09-20', [['Panthers', 'Hydra', 16, 16, '14:00', 'cedem', null, 1], ['Noazar', 'Lamadrid', 21, 13, '16:00', 'cedem', null, 1]], 'A'],
+      [4, '2026-09-20', [['Hokory', 'Marvin', 7, 25, '14:00', 'cedem', null, 2], ['Freestyle', 'Linces by Pueyrredón', 15, 23, '15:00', 'cedem', null, 2], ['Morán', 'Berserker', 10, 18, '15:00', 'cedem', null, 1]], 'B'],
+      [5, '2026-11-01', [['Noazar', 'PCH', null, null, null, 'sanfer'], ['Lamadrid', 'Hydra', null, null, null, 'sanfer']], 'A'],
+      [5, '2026-11-01', [['Freestyle', 'Morán', null, null, null, 'sanfer'], ['Hokory', 'Linces by Pueyrredón', null, null, null, 'sanfer'], ['Marvin', 'Berserker', null, null, null, 'sanfer']], 'B'],
+    ],
+    llave: [],
+  },
+  {
+    nombre: 'Foam Mixto Clausura 2026', buscar: ['mixto', 'foam'], excluir: ['apertura'], modality: 'FOAM', rearmarZonas: 'siempre',
+    // Mismo criterio que el Apertura: el último del A desciende, el 1° del B asciende y juegan la promoción el anteúltimo del A (5°) y el 2° del B
+    zonasConfig: { A: { tier: 1, desc: 1, playoff: [5] }, B: { tier: 2, asc: 1, playoff: [2] } },
+    // Los partidos sin hora ni cancha no se veían en las capturas: sus marcadores salen de despejar las tablas (día y sede de la fecha)
+    liga: [
+      [1, '2026-08-02', [['Hydra', 'Freestyle', 9, 7, '10:00', 'orione', null, 1], ['Panthers', 'PCH', 12, 1, '11:00', 'orione', null, 1], ['Linces by Pueyrredón', 'Noazar', 7, 7, '12:00', 'orione', null, 1]], 'A'],
+      [1, '2026-08-02', [['Morán', 'Hokory', 2, 11, '11:00', 'orione', null, 2], ['Berserker', 'Lamadrid', 9, 7, '12:00', 'orione', null, 2], ['Marvin', 'Old Blue', 18, 4, null, 'orione']], 'B'],
+      [2, '2026-08-16', [['PCH', 'Freestyle', 9, 6, '10:00', 'cedem', null, 1], ['Panthers', 'Noazar', 7, 7, '14:00', 'cedem', null, 1], ['Hydra', 'Linces by Pueyrredón', 10, 4, null, 'cedem']], 'A'],
+      [2, '2026-08-16', [['Morán', 'Lamadrid', 4, 9, '10:00', 'cedem', null, 2], ['Hokory', 'Marvin', 6, 8, '11:00', 'cedem', null, 2], ['Berserker', 'Old Blue', 20, 0, '11:00', 'cedem', null, 1]], 'B'],
+      [3, '2026-09-06', [['PCH', 'Hydra', 5, 9, '11:00', 'cedem', null, 1], ['Freestyle', 'Noazar', 8, 8, '12:00', 'cedem', null, 1], ['Panthers', 'Linces by Pueyrredón', 10, 3, null, 'cedem']], 'A'],
+      [3, '2026-09-06', [['Hokory', 'Old Blue', 16, 2, '11:00', 'cedem', null, 2], ['Berserker', 'Morán', 8, 3, '12:00', 'cedem', null, 2], ['Marvin', 'Lamadrid', 11, 7, '13:00', 'cedem', null, 2]], 'B'],
+      [4, '2026-09-20', [['Freestyle', 'Panthers', 4, 13, '10:45', 'cedem', null, 1], ['Noazar', 'Hydra', 4, 9, '12:00', 'cedem', null, 1], ['PCH', 'Linces by Pueyrredón', 7, 4, null, 'cedem']], 'A'],
+      [4, '2026-09-20', [['Marvin', 'Morán', 8, 6, '10:45', 'cedem', null, 2], ['Berserker', 'Hokory', 4, 8, '12:00', 'cedem', null, 2], ['Lamadrid', 'Old Blue', 26, 5, '13:00', 'cedem', null, 2]], 'B'],
+      [5, '2026-11-01', [['Linces by Pueyrredón', 'Freestyle', null, null, null, 'sanfer'], ['Noazar', 'PCH', null, null, null, 'sanfer'], ['Hydra', 'Panthers', null, null, null, 'sanfer']], 'A'],
+      [5, '2026-11-01', [['Berserker', 'Marvin', null, null, null, 'sanfer'], ['Lamadrid', 'Hokory', null, null, null, 'sanfer'], ['Old Blue', 'Morán', null, null, null, 'sanfer']], 'B'],
+    ],
+    llave: [],
+  },
 ];
 
 const APPLY = process.argv.includes('--aplicar');
@@ -175,6 +215,7 @@ function tabla(T, zona) {
   for (const [, , ms, z = 'A'] of T.liga) {
     if (zona && z !== zona) continue;
     for (const [a, b, pa, pb] of ms) {
+      if (pa == null) continue; // todavía sin jugar
       const A = row(a), B = row(b);
       A.pj++; B.pj++; A.f += pa; A.c += pb; B.f += pb; B.c += pa;
       if (pa === pb) { A.e++; B.e++; A.pts++; B.pts++; } else if (pa > pb) { A.g++; B.p++; A.pts += 3; } else { B.g++; A.p++; B.pts += 3; }
@@ -249,7 +290,7 @@ async function rearmarZonas(t, T, stages) {
 async function editar(T) {
   console.log('\n' + T.nombre);
   const all = await prisma.tournament.findMany({ where: { deletedAt: null }, select: { id: true, name: true, status: true } });
-  const cand = all.filter((t) => T.buscar.every((w) => norm(t.name).includes(norm(w))));
+  const cand = all.filter((t) => T.buscar.every((w) => norm(t.name).includes(norm(w))) && !(T.excluir || []).some((w) => norm(t.name).includes(norm(w))));
   if (cand.length !== 1) {
     console.log(cand.length ? '  Hay más de un torneo que coincide: ' + cand.map((c) => c.name).join(' | ') : '  No encontré un torneo con ' + T.buscar.join(' + ') + ' en el nombre. Torneos que hay:');
     if (!cand.length) all.forEach((x) => console.log('   - ' + x.name + ' [' + x.status + ']'));
@@ -273,6 +314,15 @@ async function editar(T) {
 
   const stages = await prisma.stage.findMany({ where: { tournamentId: t.id } });
   let ms = await prisma.match.findMany({ where: { tournamentId: t.id, hiddenAt: null }, include: { stage: true, teamA: true, teamB: true, sets: true } });
+  if (T.zonasConfig) {
+    for (const [z, c] of Object.entries(T.zonasConfig)) {
+      const st = stages.find((x) => x.type === 'LEAGUE' && x.name.trim().slice(-1).toUpperCase() === z);
+      if (!st) { console.log('  No encontré la zona ' + z + ' para cargar su ascenso/descenso'); continue; }
+      const data = { tier: c.tier, promotions: c.asc || 0, relegations: c.desc || 0, playoffPositions: c.playoff || [] };
+      console.log(`  Zona ${z} (${st.name}): nivel ${c.tier}${c.asc ? ' · asciende el 1°' : ''}${c.desc ? ' · desciende el último' : ''}${c.playoff ? ' · promoción: puesto ' + c.playoff.join(', ') : ''}`);
+      if (APPLY) await prisma.stage.update({ where: { id: st.id }, data });
+    }
+  }
   let rearmarZ = false;
   if (T.rearmarZonas) {
     const lg = ms.filter((x) => x.stage?.type === 'LEAGUE');
@@ -283,7 +333,7 @@ async function editar(T) {
       const esperado = new Set();
       for (const f of T.liga.filter((q) => (q[3] || 'A') === z)) for (const m of f[2]) for (const n of [m[0], m[1]]) { const tm = await resolveTeam(n); if (tm) esperado.add(tm.id); }
       const real = new Set(sts.filter((x) => x.stageId === st?.id).map((x) => x.teamId));
-      if (!st || esperado.size !== real.size || [...esperado].some((id) => !real.has(id))) difiere = true;
+      if (!st || T.rearmarZonas === 'siempre' || esperado.size !== real.size || [...esperado].some((id) => !real.has(id))) difiere = true;
     }
     if (difiere) {
       if (lg.some((x) => x.sets.length || x.status !== 'SCHEDULED')) console.log('  Las zonas de la base son distintas pero ya hay partidos jugados: no se rearman.');
@@ -321,14 +371,14 @@ async function editar(T) {
   };
 
   for (const [fecha, dia, lista, zona] of T.liga) {
-    for (const [a, b, pa, pb, hh, sede, diaPropio] of lista) {
+    for (const [a, b, pa, pb, hh, sede, diaPropio, cancha] of lista) {
       let r = rearmarZ && !APPLY ? null : await buscar('LEAGUE', a, b);
       if (!r && rearmarZ && !APPLY) {
         const ra = await resolveTeam(a), rb = await resolveTeam(b);
         if (ra && rb) r = { m: { id: null, teamAId: null, teamBId: null, sets: [], matchdayId: null }, ra, rb };
       }
       if (!r) { faltan++; console.log(`  Fecha ${fecha}: ${a} vs ${b}: NO se encontró el partido`); continue; }
-      plan.push({ ...r, a, b, pa, pb, dia: diaPropio || dia, hh, sede, fecha, fechaDia: dia, etiqueta: 'Fecha ' + fecha + (zona ? ' Gr.' + zona : '') });
+      plan.push({ ...r, a, b, pa, pb, dia: diaPropio || dia, hh, sede, cancha, fecha, fechaDia: dia, etiqueta: 'Fecha ' + fecha + (zona ? ' Gr.' + zona : '') });
     }
   }
   for (const [ronda, slot, a, b, pa, pb, dia, hh, sede] of T.llave) {
@@ -349,10 +399,11 @@ async function editar(T) {
     const swap = p.m.teamAId !== p.ra.id;
     const vacio = !p.m.teamAId || !p.m.teamBId;
     const [ptsA, ptsB] = swap && !vacio ? [p.pb, p.pa] : [p.pa, p.pb];
-    p.sets = buildSets(T.modality, ptsA, ptsB);
+    p.sinResultado = p.pa == null;
+    p.sets = p.sinResultado ? [] : buildSets(T.modality, ptsA, ptsB);
     p.vacio = vacio;
     p.ptsA = ptsA; p.ptsB = ptsB;
-    console.log(`  ${p.etiqueta}: ${p.a} ${p.pa}-${p.pb} ${p.b} · ${p.dia || 'sin día nuevo'}${p.hh ? ' ' + p.hh : ''}${p.sede ? ' · ' + SEDES[p.sede].name : ''} · ${p.sets.length} sets (tenía ${p.m.sets.length})${vacio ? ' · llena los equipos' : ''}`);
+    console.log(`  ${p.etiqueta}: ${p.a} ${p.sinResultado ? 'vs' : p.pa + '-' + p.pb} ${p.b} · ${p.dia || 'sin día nuevo'}${p.hh ? ' ' + p.hh : ''}${p.sede ? ' · ' + SEDES[p.sede].name : ''}${p.cancha ? ' · cancha ' + p.cancha : ''} · ${p.sinResultado ? 'sin jugar' : p.sets.length + ' sets (tenía ' + p.m.sets.length + ')'}${vacio ? ' · llena los equipos' : ''}`);
   }
   if (!APPLY) return;
   if (faltan) { console.log('  Faltan partidos: no se graba este torneo hasta resolverlo.'); return; }
@@ -363,18 +414,19 @@ async function editar(T) {
   await prisma.$transaction(async (tx) => {
     for (const p of plan) {
       const m = p.m;
-      await tx.matchSet.deleteMany({ where: { matchId: m.id } });
       const tA = p.vacio ? p.ra.id : m.teamAId, tB = p.vacio ? p.rb.id : m.teamBId;
-      await tx.matchSet.createMany({ data: p.sets.map((s, i) => ({ matchId: m.id, number: i + 1, winnerTeamId: s.w === 'A' ? tA : s.w === 'B' ? tB : null, half: s.half, matchSecond: s.second })) });
-      const data = { status: 'FINISHED' };
+      if (!p.sinResultado) await tx.matchSet.deleteMany({ where: { matchId: m.id } });
+      if (!p.sinResultado) await tx.matchSet.createMany({ data: p.sets.map((s, i) => ({ matchId: m.id, number: i + 1, winnerTeamId: s.w === 'A' ? tA : s.w === 'B' ? tB : null, half: s.half, matchSecond: s.second })) });
+      const data = p.sinResultado ? {} : { status: 'FINISHED' };
       if (p.vacio) { data.teamAId = tA; data.teamBId = tB; }
+      if (p.cancha) data.court = p.cancha;
       if (p.dia) {
         const when = at(p.dia, p.hh);
         data.scheduledAt = when; data.timeSet = !!p.hh;
-        data.finishedAt = new Date(when.getTime() + 45 * 60000);
+        if (!p.sinResultado) data.finishedAt = new Date(when.getTime() + 45 * 60000);
         if (p.sede) data.venueId = vid[p.sede];
-      } else data.finishedAt = m.finishedAt || new Date();
-      await tx.match.update({ where: { id: m.id }, data });
+      } else if (!p.sinResultado) data.finishedAt = m.finishedAt || new Date();
+      if (Object.keys(data).length) await tx.match.update({ where: { id: m.id }, data });
       if (p.fecha && m.matchdayId) mdFecha.set(m.matchdayId, p.dia);
     }
     for (const p of plan) if (p.fecha && p.m.matchdayId && p.fechaDia && p.dia === p.fechaDia) await tx.matchday.update({ where: { id: p.m.matchdayId }, data: { date: at(p.dia, '12:00') } });
