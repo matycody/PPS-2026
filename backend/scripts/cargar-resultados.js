@@ -96,16 +96,32 @@ async function crearTorneo(b) {
       data: { name: b.torneo, branch: c.branch, modality: c.modality, year: c.year, edition: c.edition, format: 'CUP', status: 'FINISHED', startsAt: at('00:00'), endsAt: at('23:59') },
     });
     await tx.tournamentTeam.createMany({ data: teams.map((tm) => ({ tournamentId: t.id, teamId: tm.id })) });
-    const stage = await tx.stage.create({ data: { tournamentId: t.id, name: 'Playoff', type: 'KNOCKOUT', phase: 1 } });
+    const stage = await tx.stage.create({ data: { tournamentId: t.id, name: 'Promoción', type: 'LEAGUE', phase: 1 } });
+    const md = await tx.matchday.create({ data: { stageId: stage.id, number: 1, date: at('12:00') } });
     await tx.stageTeam.createMany({ data: teams.map((tm, i) => ({ stageId: stage.id, teamId: tm.id, seed: i + 1 })) });
     for (const [i, [na, nb, , , hh]] of b.partidos.entries()) {
       const ta = teams.find((x) => x.alias === na);
       const tb = teams.find((x) => x.alias === nb);
       await tx.match.create({
-        data: { tournamentId: t.id, stageId: stage.id, round: 1, slot: i + 1, branch: c.branch, modality: c.modality, status: 'FINISHED', teamAId: ta.id, teamBId: tb.id, scheduledAt: at(hh), timeSet: true, finishedAt: new Date(at(hh).getTime() + 45 * 60000), venueId: venue.id },
+        data: { tournamentId: t.id, stageId: stage.id, matchdayId: md.id, branch: c.branch, modality: c.modality, status: 'FINISHED', teamAId: ta.id, teamBId: tb.id, scheduledAt: at(hh), timeSet: true, finishedAt: new Date(at(hh).getTime() + 45 * 60000), venueId: venue.id },
       });
     }
     return t;
+  });
+}
+
+// Si el torneo ya se había creado como llave (marcador en sets 4-2), lo pasa a una fecha de liga: así se ve el marcador en puntos (8-4)
+async function ensureLeague(t, b) {
+  const stages = await prisma.stage.findMany({ where: { tournamentId: t.id }, include: { matchdays: true } });
+  const st = stages.find((x) => x.type === 'KNOCKOUT' && !x.matchdays.length);
+  if (!st) return;
+  console.log(`  El torneo estaba armado como llave: ${APPLY ? 'se pasa' : 'se pasaría'} a una fecha de liga para mostrar los puntos`);
+  if (!APPLY) return;
+  const day = b.crear?.day || new Date().toLocaleDateString('en-CA');
+  await prisma.$transaction(async (tx) => {
+    await tx.stage.update({ where: { id: st.id }, data: { type: 'LEAGUE', name: 'Promoción' } });
+    const md = await tx.matchday.create({ data: { stageId: st.id, number: 1, date: new Date(day + 'T12:00:00-03:00') } });
+    await tx.match.updateMany({ where: { stageId: st.id }, data: { matchdayId: md.id, round: null, slot: null } });
   });
 }
 
@@ -123,6 +139,7 @@ async function main() {
       continue;
     }
     console.log('\n' + t.name);
+    await ensureLeague(t, bloque);
     for (const [na, nb, pa, pb] of bloque.partidos) {
       const ra = await resolveTeam(na), rb = await resolveTeam(nb);
       const m = ra && rb && await prisma.match.findFirst({
