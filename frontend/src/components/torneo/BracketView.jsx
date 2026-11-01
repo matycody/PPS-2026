@@ -62,9 +62,9 @@ export default function BracketView({ tournamentId, stageId, base = '/partido/',
               {[m.paused ? 'Pausado' : null, m.kind === 'THIRD_PLACE' ? 'Tercer puesto' : null, m.provisional ? 'Probable cruce' : null].filter(Boolean).join(' · ')}
             </p>
           )}
-          <Side branch={branch} team={m.teamA} from={m.fromA} sets={m.setsA} won={m.winnerTeamId && m.winnerTeamId === m.teamA?.id} placeholder={sourceLabel(m.feeds.A)} />
+          <Side branch={branch} team={m.teamA} from={m.fromA} sets={m.pointsA ?? m.setsA} won={m.winnerTeamId && m.winnerTeamId === m.teamA?.id} placeholder={sourceLabel(m.feeds.A)} />
           <div className="border-t border-line" />
-          <Side branch={branch} team={m.teamB} from={m.fromB} sets={m.setsB} won={m.winnerTeamId && m.winnerTeamId === m.teamB?.id} placeholder={sourceLabel(m.feeds.B)} />
+          <Side branch={branch} team={m.teamB} from={m.fromB} sets={m.pointsB ?? m.setsB} won={m.winnerTeamId && m.winnerTeamId === m.teamB?.id} placeholder={sourceLabel(m.feeds.B)} />
           <div className="flex items-center justify-between gap-2 border-t border-line bg-surface-2 px-3 py-1.5 text-[11px] text-muted">
             <span className="truncate">{m.scheduledAt ? fmtWhen(m.scheduledAt, m.timeSet) : 'Sin programación'} · {m.venue ? m.venue.name + ' · ' : ''}{courtLabel(m.court)}</span>
             <StatusPill status={m.status} />
