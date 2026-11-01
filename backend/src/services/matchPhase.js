@@ -124,7 +124,7 @@ async function phasesFor(ids) {
       order: 1000 + (m.round || 0) * 10 - (third ? 1 : 0), // después de la liga; el tercer puesto antes de la final
       slot: m.slot ?? 0,
       zone: null,
-      label: r.stage.isPromotion ? 'Ascenso/Descenso' : third ? 'Tercer puesto' : roundLabel(m.round, max), // el cruce de promoción se distingue de una final común
+      label: r.stage.isPromotion ? 'Promoción' : third ? 'Tercer puesto' : roundLabel(m.round, max), // el cruce de promoción se distingue de una final común
       slotA: slot('A', m.teamAId, m.teamAFrom),
       slotB: slot('B', m.teamBId, m.teamBFrom),
       provisional: leagueOpen.has(r.tournamentId),
