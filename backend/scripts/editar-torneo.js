@@ -4,6 +4,7 @@
 //   Un solo torneo: --solo femenino   (texto que esté en el nombre)
 // Los marcadores son los reales; el orden de los sets es inventado (2 tiempos de 20:00). No cambia el estado del torneo.
 require('dotenv').config();
+const crypto = require('crypto');
 const prisma = require('../src/db');
 const { buildSets, resolveTeam } = require('./cargar-resultados');
 
@@ -16,10 +17,11 @@ const SEDES = {
 };
 
 // liga: [fecha, día, [[local, visitante, pts local, pts visitante, hora|null, sede|null, día propio (pospuestos)]]]
+// rearmarLlave: deja la etapa Playoffs como la arma la web (1°/2° pasan directo, 3° vs 6°, 4° vs 5°, semis, final y 3er puesto); solo si todavía no se jugó nada ahí
 // llave: [ronda, slot, local, visitante, pts local, pts visitante, día|null, hora|null, sede|null]  (ronda 1 = cuartos, 2 = semis, 3 = final)
 const TORNEOS = [
   {
-    nombre: 'Femenino Cloth 2026', buscar: ['femenino', 'cloth'], modality: 'CLOTH',
+    nombre: 'Femenino Cloth 2026', buscar: ['femenino', 'cloth'], modality: 'CLOTH', rearmarLlave: true,
     liga: [
       [1, '2026-03-14', [['Noazar', 'Morán', 20, 12, '16:00', 'mupol'], ['Riestra by Pch', 'Berserker', 16, 10, '17:00', 'mupol'], ['Panthers', 'Marvin', 18, 16, '15:00', 'almafuerte', '2026-07-11']]],
       [2, '2026-04-25', [['Panthers', 'Morán', 33, 3, '15:00', 'lamadrid'], ['Riestra by Pch', 'Hydra', 2, 30, '18:00', 'lamadrid'], ['Marvin', 'Berserker', 20, 14, '19:00', 'lamadrid']]],
@@ -30,8 +32,8 @@ const TORNEOS = [
       [7, '2026-08-23', [['Riestra by Pch', 'Panthers', 3, 33, '11:00', 'glow'], ['Hydra', 'Berserker', 21, 15, '14:00', 'glow'], ['Noazar', 'Marvin', 13, 21, '15:00', 'glow']]],
     ],
     llave: [
-      [1, 2, 'Noazar', 'Riestra by Pch', 17, 11, '2026-08-30', '16:00', 'moran'],
-      [1, 4, 'Marvin', 'Berserker', 9, 25, '2026-08-30', '15:00', 'moran'],
+      [1, 1, 'Noazar', 'Riestra by Pch', 17, 11, '2026-08-30', '16:00', 'moran'],
+      [1, 2, 'Marvin', 'Berserker', 9, 25, '2026-08-30', '15:00', 'moran'],
       [2, 1, 'Hydra', 'Noazar', 24, 6, '2026-10-04', '12:00', 'lamadrid'],
       [2, 2, 'Panthers', 'Berserker', 18, 16, '2026-10-04', '15:00', 'lamadrid'],
       [3, 1, 'Hydra', 'Panthers', 17, 15, null, null, null],
@@ -39,7 +41,7 @@ const TORNEOS = [
     ],
   },
   {
-    nombre: 'Femenino Foam 2026', buscar: ['femenino', 'foam'], modality: 'FOAM',
+    nombre: 'Femenino Foam 2026', buscar: ['femenino', 'foam'], modality: 'FOAM', rearmarLlave: true,
     liga: [
       [1, '2026-03-14', [['Marvin', 'Morán', 12, 3, '18:00', 'mupol'], ['Hydra', 'Noazar', 12, 1, '19:00', 'mupol'], ['Panthers', 'Riestra by Pch', 13, 0, '16:30', 'lamadrid', '2026-05-09']]],
       [2, '2026-04-25', [['Hydra', 'Berserker', 4, 5, '16:00', 'lamadrid'], ['Panthers', 'Marvin', 8, 12, '17:00', 'lamadrid'], ['Riestra by Pch', 'Noazar', 5, 6, '20:00', 'lamadrid']]],
@@ -50,8 +52,8 @@ const TORNEOS = [
       [7, '2026-08-23', [['Berserker', 'Noazar', 6, 5, '10:00', 'glow'], ['Hydra', 'Panthers', 6, 9, '16:00', 'glow'], ['Morán', 'Riestra by Pch', 0, 9, null, 'glow']]],
     ],
     llave: [
-      [1, 2, 'Hydra', 'Noazar', 10, 4, '2026-09-13', '15:00', 'lamadrid'],
-      [1, 3, 'Panthers', 'Riestra by Pch', 9, 5, '2026-09-13', '14:00', 'lamadrid'],
+      [1, 1, 'Hydra', 'Noazar', 10, 4, '2026-09-13', '15:00', 'lamadrid'],
+      [1, 2, 'Panthers', 'Riestra by Pch', 9, 5, '2026-09-13', '14:00', 'lamadrid'],
       [2, 1, 'Marvin', 'Hydra', 9, 7, '2026-10-04', '16:00', 'lamadrid'],
       [2, 2, 'Panthers', 'Berserker', 7, 6, '2026-10-04', '17:00', 'lamadrid'],
       [3, 1, 'Marvin', 'Panthers', 13, 7, null, null, null],
@@ -88,6 +90,33 @@ function tabla(T) {
   return [...rows.values()].sort((x, y) => y.pts - x.pts || (y.f - y.c) - (x.f - x.c));
 }
 
+// Rearma la llave (Playoffs) con la forma estándar de la web para 6 clasificados y partido por el 3er puesto.
+async function rearmarLlave(t, T, stages) {
+  const zone = stages.find((x) => x.type === 'LEAGUE');
+  const ko = stages.find((x) => x.type === 'KNOCKOUT' && !x.isPromotion);
+  const top = [];
+  for (const r of tabla(T).slice(0, 6)) top.push(await resolveTeam(r.n));
+  const full = await prisma.tournament.findUnique({ where: { id: t.id } });
+  const R = ['R1M1', 'R1M2', 'R2M1', 'R2M2', 'R3M1', 'R3M2'];
+  const id = Object.fromEntries(R.map((r) => [r, crypto.randomUUID()]));
+  const from = (pos) => ({ stageId: zone.id, position: pos });
+  const row = (ref, round, slot, extra) => ({ id: id[ref], tournamentId: t.id, stageId: ko.id, round, slot, branch: full.branch, modality: full.modality, nextMatchId: null, nextSide: null, loserMatchId: null, loserSide: null, ...extra });
+  const rows = [
+    row('R1M1', 1, 1, { teamAId: top[3].id, teamBId: top[4].id, teamAFrom: from(4), teamBFrom: from(5), nextMatchId: id.R2M1, nextSide: 'B' }),
+    row('R1M2', 1, 2, { teamAId: top[2].id, teamBId: top[5].id, teamAFrom: from(3), teamBFrom: from(6), nextMatchId: id.R2M2, nextSide: 'B' }),
+    row('R2M1', 2, 1, { teamAId: top[0].id, teamAFrom: from(1), nextMatchId: id.R3M1, nextSide: 'A', loserMatchId: id.R3M2, loserSide: 'A' }),
+    row('R2M2', 2, 2, { teamAId: top[1].id, teamAFrom: from(2), nextMatchId: id.R3M1, nextSide: 'B', loserMatchId: id.R3M2, loserSide: 'B' }),
+    row('R3M1', 3, 1, {}),
+    row('R3M2', 3, 2, {}),
+  ];
+  await prisma.$transaction(async (tx) => {
+    await tx.match.deleteMany({ where: { stageId: ko.id } });
+    await tx.stageTeam.deleteMany({ where: { stageId: ko.id } });
+    await tx.stageTeam.createMany({ data: [[top[0], 2], [top[1], 2], [top[2], 1], [top[3], 1], [top[4], 1], [top[5], 1]].map(([x, er], i) => ({ stageId: ko.id, teamId: x.id, seed: top.indexOf(x) + 1, entryRound: er })) });
+    await tx.match.createMany({ data: rows });
+  }, { timeout: 60000 });
+}
+
 async function editar(T) {
   console.log('\n' + T.nombre);
   const all = await prisma.tournament.findMany({ where: { deletedAt: null }, select: { id: true, name: true, status: true } });
@@ -109,7 +138,18 @@ async function editar(T) {
   console.log('  Tabla esperada (3 por victoria, 1 por empate) para controlar contra la web:');
   tabla(T).forEach((r, i) => console.log(`    ${i + 1}. ${r.n.padEnd(16)} ${String(r.pts).padStart(2)} pts  J${r.pj} G${r.g} E${r.e} P${r.p}  ${r.f}-${r.c}`));
 
-  const ms = await prisma.match.findMany({ where: { tournamentId: t.id, hiddenAt: null }, include: { stage: true, teamA: true, teamB: true, sets: true } });
+  const stages = await prisma.stage.findMany({ where: { tournamentId: t.id } });
+  let ms = await prisma.match.findMany({ where: { tournamentId: t.id, hiddenAt: null }, include: { stage: true, teamA: true, teamB: true, sets: true } });
+  let rearmar = false;
+  if (T.rearmarLlave) {
+    const ko = ms.filter((x) => x.stage?.type === 'KNOCKOUT' && !x.stage.isPromotion);
+    if (ko.some((x) => x.sets.length || x.status !== 'SCHEDULED')) console.log('  La llave ya tiene partidos jugados: no se rearma, se carga sobre lo que hay.');
+    else { rearmar = true; console.log('  La llave actual no tiene la forma estándar (falta el 3er puesto o los cruces no coinciden): ' + (APPLY ? 'se rearma' : 'se rearmaría') + ' (1° y 2° directo a semis, 3° vs 6°, 4° vs 5°, final y 3er puesto). Todavía no se jugó nada ahí.'); }
+  }
+  if (rearmar && APPLY) {
+    await rearmarLlave(t, T, stages);
+    ms = await prisma.match.findMany({ where: { tournamentId: t.id, hiddenAt: null }, include: { stage: true, teamA: true, teamB: true, sets: true } });
+  }
   const venues = await prisma.venue.findMany({ where: { deletedAt: null } });
   const usados = new Set();
   const plan = [];
@@ -134,7 +174,11 @@ async function editar(T) {
     }
   }
   for (const [ronda, slot, a, b, pa, pb, dia, hh, sede] of T.llave) {
-    const r = await buscar('KNOCKOUT', a, b, [ronda, slot]);
+    let r = await buscar('KNOCKOUT', a, b, [ronda, slot]);
+    if (!r && rearmar && !APPLY) { // simulación: la llave todavía no existe, se muestra lo que se cargaría
+      const ra = await resolveTeam(a), rb = await resolveTeam(b);
+      if (ra && rb) r = { m: { id: null, teamAId: null, teamBId: null, sets: [], matchdayId: null }, ra, rb };
+    }
     if (!r) { faltan++; console.log(`  Llave ronda ${ronda} #${slot}: ${a} vs ${b}: NO se encontró el partido`); continue; }
     plan.push({ ...r, a, b, pa, pb, dia, hh, sede, etiqueta: 'Llave r' + ronda + ' #' + slot });
   }
