@@ -193,6 +193,7 @@ const TORNEOS = [
 ];
 
 const APPLY = process.argv.includes('--aplicar');
+const PROMO_ONLY = process.argv.includes('--promocion'); // solo reconstruye el cruce de promoción según las zonas configuradas
 const ESTRUCTURA = process.argv.includes('--estructura');
 const solo = process.argv.indexOf('--solo') > -1 ? process.argv[process.argv.indexOf('--solo') + 1].toLowerCase() : null;
 const at = (day, hh) => new Date(day + 'T' + (hh || '12:00') + ':00-03:00');
@@ -303,6 +304,11 @@ async function rearmarZonas(t, T, stages) {
   }
 }
 
+async function sincronizarPromocion(t) {
+  const r = await require('../src/routes/bracket').syncPromotion(t.id, null);
+  console.log(r && r.error ? '  Cruce de promoción: ' + r.error : '  Cruce de promoción actualizado según las posiciones de cada zona.');
+}
+
 async function editar(T) {
   console.log('\n' + T.nombre);
   const all = await prisma.tournament.findMany({ where: { deletedAt: null }, select: { id: true, name: true, status: true } });
@@ -331,6 +337,16 @@ async function editar(T) {
   const stages = await prisma.stage.findMany({ where: { tournamentId: t.id } });
   let ms = await prisma.match.findMany({ where: { tournamentId: t.id, hiddenAt: null }, include: { stage: true, teamA: true, teamB: true, sets: true } });
   if (T.zonasConfig) {
+    // Igual que el Apertura: un torneo con cruce de promoción es "Liga + Copa" y necesita criterios de desempate
+    const full0 = await prisma.tournament.findUnique({ where: { id: t.id }, include: { tiebreakers: true } });
+    if (full0.format === 'LEAGUE') {
+      console.log('  Formato: Liga -> Liga + Copa (tiene cruce de promoción)');
+      if (APPLY) await prisma.tournament.update({ where: { id: t.id }, data: { format: 'LEAGUE_CUP' } });
+    }
+    if (!full0.tiebreakers.length) {
+      console.log('  Desempates: no tenía; se cargan resultado entre sí, diferencia de puntos, puntos a favor y sorteo');
+      if (APPLY) await prisma.tiebreaker.createMany({ data: ['HEAD_TO_HEAD', 'SET_DIFFERENCE', 'SETS_WON', 'DRAW_LOT'].map((criterion, i) => ({ tournamentId: t.id, order: i + 1, criterion })) });
+    }
     for (const [z, c] of Object.entries(T.zonasConfig)) {
       const st = stages.find((x) => x.type === 'LEAGUE' && x.name.trim().slice(-1).toUpperCase() === z);
       if (!st) { console.log('  No encontré la zona ' + z + ' para cargar su ascenso/descenso'); continue; }
@@ -338,6 +354,11 @@ async function editar(T) {
       console.log(`  Zona ${z} (${st.name}): nivel ${c.tier}${c.asc ? ' · asciende el 1°' : ''}${c.desc ? ' · desciende el último' : ''}${c.playoff ? ' · promoción: puesto ' + c.playoff.join(', ') : ''}`);
       if (APPLY) await prisma.stage.update({ where: { id: st.id }, data });
     }
+  }
+  if (PROMO_ONLY) {
+    if (!T.zonasConfig) { console.log('  Este torneo no tiene ascenso/descenso configurado en el script.'); return; }
+    if (APPLY) await sincronizarPromocion(t); else console.log('  Se actualizaría el cruce de promoción según las posiciones configuradas.');
+    return;
   }
   let rearmarZ = false;
   if (T.rearmarZonas) {
@@ -452,6 +473,7 @@ async function editar(T) {
     }
     for (const p of plan) if (p.fecha && p.m.matchdayId && p.fechaDia && p.dia === p.fechaDia) await tx.matchday.update({ where: { id: p.m.matchdayId }, data: { date: at(p.dia, '12:00') } });
   }, { timeout: 120000, maxWait: 30000 });
+  if (T.zonasConfig) await sincronizarPromocion(t);
   console.log('  Editado.');
 }
 
