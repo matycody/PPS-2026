@@ -275,13 +275,29 @@ async function rearmarZonas(t, T, stages) {
     const ids = new Map();
     for (const n of nombres) { const tm = await resolveTeam(n); if (!tm) throw new Error('No existe el equipo ' + n); ids.set(n, tm.id); }
     await prisma.$transaction(async (tx) => {
-      await tx.match.deleteMany({ where: { stageId: st.id } });
+      // Los partidos que ya existen entre los mismos equipos (ej: uno marcado "listo" para probar la planilla) se conservan y se mueven a su fecha real
+      const key = (x, y) => [x, y].sort().join('|');
+      const previos = await tx.match.findMany({ where: { stageId: st.id } });
+      const queda = new Map();
+      for (const [, , lista] of entradas) for (const [x, y] of lista) {
+        const hit = previos.find((m) => m.status === 'READY' && !queda.has(m.id) && key(m.teamAId, m.teamBId) === key(ids.get(x), ids.get(y)));
+        if (hit) queda.set(hit.id, key(ids.get(x), ids.get(y)));
+      }
+      await tx.match.deleteMany({ where: { id: { in: previos.filter((m) => !queda.has(m.id)).map((m) => m.id) } } });
+      await tx.match.updateMany({ where: { id: { in: [...queda.keys()] } }, data: { matchdayId: null } });
       await tx.matchday.deleteMany({ where: { stageId: st.id } });
       await tx.stageTeam.deleteMany({ where: { stageId: st.id } });
       await tx.stageTeam.createMany({ data: nombres.map((n, i) => ({ stageId: st.id, teamId: ids.get(n), seed: i + 1 })) });
       for (const [fecha, dia, lista] of entradas) {
         const md = await tx.matchday.create({ data: { stageId: st.id, number: fecha, date: dia ? at(dia, '12:00') : null } });
-        await tx.match.createMany({ data: lista.map(([a, b]) => ({ tournamentId: t.id, stageId: st.id, matchdayId: md.id, branch: full.branch, modality: full.modality, status: 'SCHEDULED', teamAId: ids.get(a), teamBId: ids.get(b) })) });
+        const nuevos = [];
+        for (const [a, b] of lista) {
+          const k = key(ids.get(a), ids.get(b));
+          const id = [...queda.entries()].find(([, v]) => v === k)?.[0];
+          if (id) { await tx.match.update({ where: { id }, data: { matchdayId: md.id } }); queda.delete(id); }
+          else nuevos.push({ tournamentId: t.id, stageId: st.id, matchdayId: md.id, branch: full.branch, modality: full.modality, status: 'SCHEDULED', teamAId: ids.get(a), teamBId: ids.get(b) });
+        }
+        if (nuevos.length) await tx.match.createMany({ data: nuevos });
       }
     }, { timeout: 60000 });
   }
@@ -336,7 +352,7 @@ async function editar(T) {
       if (!st || T.rearmarZonas === 'siempre' || esperado.size !== real.size || [...esperado].some((id) => !real.has(id))) difiere = true;
     }
     if (difiere) {
-      const jugados = lg.filter((x) => x.sets.length || x.status !== 'SCHEDULED');
+      const jugados = lg.filter((x) => x.sets.length || !['SCHEDULED', 'READY'].includes(x.status));
       if (jugados.length) {
         console.log(`  Las zonas de la base son distintas pero hay ${jugados.length} partidos que no están "sin jugar": no se rearman. Son:`);
         jugados.slice(0, 20).forEach((x) => console.log(`   - ${x.stage?.name}: ${x.teamA?.name ?? '?'} vs ${x.teamB?.name ?? '?'} · ${x.status} · ${x.sets.length} sets`));
