@@ -38,7 +38,7 @@ export default function StandingsView({ tournamentId, finished, branch = null })
           const formOf = new Map((live?.stages ?? []).flatMap((z) => z.rows.map((r) => [r.team.id, r.form])))
           return d.stages.map((s) => ({
             ...s,
-            rows: s.standings.map((r) => ({ ...r, setDiff: r.setsFor - r.setsAgainst, form: formOf.get(r.team.id) })),
+            rows: s.standings.map((r) => ({ ...r, pointsFor: r.setsFor, pointsAgainst: r.setsAgainst, pointDiff: r.setsFor - r.setsAgainst, form: formOf.get(r.team.id) })), // al congelar se guardan los puntos de juego
           }))
         })
       : api('GET', '/tournaments/' + tournamentId + '/standings').then((d) => d.stages)
@@ -76,13 +76,13 @@ export default function StandingsView({ tournamentId, finished, branch = null })
                 <tr>
                   <th className="px-3 py-2 text-left">#</th>
                   <th className="px-2 py-2 text-left">Equipo</th>
-                  <th className="px-2 py-2">PJ</th>
+                  <th className="px-2 py-2" title="Partidos jugados">J</th>
                   <th className="px-2 py-2">G</th>
                   <th className="px-2 py-2">E</th>
                   <th className="px-2 py-2">P</th>
-                  <th className="px-2 py-2">SG</th>
-                  <th className="px-2 py-2">SP</th>
-                  <th className="px-2 py-2">DS</th>
+                  <th className="px-2 py-2" title="Puntos de juego (a favor)">PJ</th>
+                  <th className="px-2 py-2" title="Puntos en contra">PC</th>
+                  <th className="px-2 py-2" title="Diferencia de puntos">DP</th>
                   <th className="px-3 py-2 font-extrabold text-fg">Pts</th>
                   <th className="px-2 py-2">Últimas</th>
                 </tr>
@@ -103,9 +103,9 @@ export default function StandingsView({ tournamentId, finished, branch = null })
                     <td className="px-2 py-2">{r.won}</td>
                     <td className="px-2 py-2">{r.drawn}</td>
                     <td className="px-2 py-2">{r.lost}</td>
-                    <td className="px-2 py-2">{r.setsFor}</td>
-                    <td className="px-2 py-2">{r.setsAgainst}</td>
-                    <td className="px-2 py-2">{r.setDiff > 0 ? '+' + r.setDiff : r.setDiff}</td>
+                    <td className="px-2 py-2">{r.pointsFor}</td>
+                    <td className="px-2 py-2">{r.pointsAgainst}</td>
+                    <td className="px-2 py-2">{r.pointDiff > 0 ? '+' + r.pointDiff : r.pointDiff}</td>
                     <td className="px-3 py-2 font-extrabold">{r.points}</td>
                     <td className="px-2 py-2"><Forma form={r.form} /></td>
                   </tr>
@@ -122,7 +122,7 @@ export default function StandingsView({ tournamentId, finished, branch = null })
             </div>
           )}
           <p className="px-4 pb-3 pt-2 text-[11px] text-muted">
-            PJ jugados · G ganados · E empatados · P perdidos · SG sets ganados · SP sets perdidos · DS diferencia de sets · Últimas: V ganó, E empató, D perdió
+            J jugados · G ganados · E empatados · P perdidos · PJ puntos de juego · PC puntos en contra · DP diferencia de puntos · Últimas: V ganó, E empató, D perdió
           </p>
         </div>
       ))}

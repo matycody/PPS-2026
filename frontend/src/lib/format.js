@@ -44,8 +44,8 @@ export const TSTATUS = {
 
 export const CRITERIA = {
   HEAD_TO_HEAD: 'Resultado entre sí',
-  SET_DIFFERENCE: 'Diferencia de sets',
-  SETS_WON: 'Sets ganados',
+  SET_DIFFERENCE: 'Diferencia de puntos',
+  SETS_WON: 'Puntos a favor',
   WINS: 'Partidos ganados',
   DRAW_LOT: 'Sorteo',
 }

@@ -22,8 +22,8 @@ function Tabla({ rows, teamId }) {
         <tr className="text-[11px] uppercase tracking-widest text-muted">
           <th className="w-8 py-1 text-left">#</th>
           <th className="py-1 text-left">Equipo</th>
-          <th className="w-9 py-1 text-center">PJ</th>
-          <th className="w-9 py-1 text-center">DS</th>
+          <th className="w-9 py-1 text-center">J</th>
+          <th className="w-9 py-1 text-center">DP</th>
           <th className="w-10 py-1 text-center">Pts</th>
           <th className="py-1 pl-2 text-right">Últimas</th>
         </tr>
@@ -36,7 +36,7 @@ function Tabla({ rows, teamId }) {
               <td className="py-1.5 pl-1 tabular-nums">{rows.indexOf(r) + 1}</td>
               <td className="max-w-0 truncate py-1.5">{r.team.name}</td>
               <td className="py-1.5 text-center tabular-nums">{r.played}</td>
-              <td className="py-1.5 text-center tabular-nums">{r.setDiff > 0 ? '+' + r.setDiff : r.setDiff}</td>
+              <td className="py-1.5 text-center tabular-nums">{r.pointDiff > 0 ? '+' + r.pointDiff : r.pointDiff}</td>
               <td className="py-1.5 text-center font-mono tabular-nums">{r.points}</td>
               <td className="py-1.5 pl-2 text-right"><Forma form={r.form} size="sm" /></td>
             </tr>
