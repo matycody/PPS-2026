@@ -14,14 +14,41 @@ const SEDES = {
   almafuerte: { token: 'almafuerte', name: 'Club Almafuerte', address: 'Club Almafuerte' },
   glow: { token: 'glow', name: 'Glow, Floresta', address: 'Glow, Floresta, CABA' },
   moran: { token: 'clubmoran', name: 'Club Morán', address: 'Club Morán' },
+  pueyrredon: { token: 'pueyrredon', name: 'Club Social Atlético Pueyrredón', address: 'Prilidiano Pueyrredón 1320, Burzaco' },
+  cef: { token: 'cef164', name: 'Cef 164, Guernica', address: 'Cef 164, Guernica' },
+  sanfer: { token: 'sanfernando', name: 'Polideportivo N°8 San Fernando', address: 'French 1500, San Fernando' },
 };
 
-// liga: [fecha, día, [[local, visitante, pts local, pts visitante, hora|null, sede|null, día propio (pospuestos)]]]
+// liga: [fecha, día|null, [[local, visitante, pts local, pts visitante, hora|null, sede|null, día propio (pospuestos)]]]
 // rearmarLlave: deja la etapa Playoffs como la arma la web (1°/2° pasan directo, 3° vs 6°, 4° vs 5°, semis, final y 3er puesto); solo si todavía no se jugó nada ahí
 // llave: [ronda, slot, local, visitante, pts local, pts visitante, día|null, hora|null, sede|null]  (ronda 1 = cuartos, 2 = semis, 3 = final)
+// Forma estándar de la web para 6 clasificados de una zona: 1° y 2° directo a semis, 3° vs 6°, 4° vs 5°, final y 3er puesto.
+// Cada partido: [ref, ronda, slot, lado A, lado B]; un lado es 'A4' (4° de la zona A), {w: ref} (ganador de) o {l: ref} (perdedor de)
+const SPEC6 = [
+  ['R1M1', 1, 1, 'A4', 'A5'], ['R1M2', 1, 2, 'A3', 'A6'],
+  ['R2M1', 2, 1, 'A1', { w: 'R1M1' }], ['R2M2', 2, 2, 'A2', { w: 'R1M2' }],
+  ['R3M1', 3, 1, { w: 'R2M1' }, { w: 'R2M2' }], ['R3M2', 3, 2, { l: 'R2M1' }, { l: 'R2M2' }],
+];
+// Llave de 13 equipos (zonas A de 7 y B de 6): play-in B6 vs A7, octavos, cuartos, semis, final y 3er puesto
+const SPEC13 = [
+  ['PO1', 1, 1, 'B6', 'A7'],
+  ['O1', 2, 1, 'B4', 'A5'], ['O2', 2, 2, 'A3', { w: 'PO1' }], ['O3', 2, 3, 'B3', 'A6'], ['O4', 2, 4, 'A4', 'B5'],
+  ['C1', 3, 1, 'A1', { w: 'O1' }], ['C2', 3, 2, 'B2', { w: 'O2' }], ['C3', 3, 3, { w: 'O3' }, 'A2'], ['C4', 3, 4, { w: 'O4' }, 'B1'],
+  ['S1', 4, 1, { w: 'C1' }, { w: 'C2' }], ['S2', 4, 2, { w: 'C3' }, { w: 'C4' }],
+  ['F', 5, 1, { w: 'S1' }, { w: 'S2' }], ['T', 5, 2, { l: 'S1' }, { l: 'S2' }],
+];
+
+// Llave de 12 equipos (zonas A y B de 6) con 4 pasando directo a cuartos: octavos entre 3°-6° de cada zona, cuartos, semis, final y 3er puesto
+const SPEC12 = [
+  ['O1', 1, 1, 'B4', 'A5'], ['O2', 1, 2, 'A3', 'B6'], ['O3', 1, 3, 'B3', 'A6'], ['O4', 1, 4, 'A4', 'B5'],
+  ['C1', 2, 1, 'A1', { w: 'O1' }], ['C2', 2, 2, 'B2', { w: 'O2' }], ['C3', 2, 3, 'A2', { w: 'O3' }], ['C4', 2, 4, 'B1', { w: 'O4' }],
+  ['S1', 3, 1, { w: 'C1' }, { w: 'C2' }], ['S2', 3, 2, { w: 'C3' }, { w: 'C4' }],
+  ['F', 4, 1, { w: 'S1' }, { w: 'S2' }], ['T', 4, 2, { l: 'S1' }, { l: 'S2' }],
+];
+
 const TORNEOS = [
   {
-    nombre: 'Femenino Cloth 2026', buscar: ['femenino', 'cloth'], modality: 'CLOTH', rearmarLlave: true,
+    nombre: 'Femenino Cloth 2026', buscar: ['femenino', 'cloth'], modality: 'CLOTH', rearmarLlave: SPEC6,
     liga: [
       [1, '2026-03-14', [['Noazar', 'Morán', 20, 12, '16:00', 'mupol'], ['Riestra by Pch', 'Berserker', 16, 10, '17:00', 'mupol'], ['Panthers', 'Marvin', 18, 16, '15:00', 'almafuerte', '2026-07-11']]],
       [2, '2026-04-25', [['Panthers', 'Morán', 33, 3, '15:00', 'lamadrid'], ['Riestra by Pch', 'Hydra', 2, 30, '18:00', 'lamadrid'], ['Marvin', 'Berserker', 20, 14, '19:00', 'lamadrid']]],
@@ -41,7 +68,7 @@ const TORNEOS = [
     ],
   },
   {
-    nombre: 'Femenino Foam 2026', buscar: ['femenino', 'foam'], modality: 'FOAM', rearmarLlave: true,
+    nombre: 'Femenino Foam 2026', buscar: ['femenino', 'foam'], modality: 'FOAM', rearmarLlave: SPEC6,
     liga: [
       [1, '2026-03-14', [['Marvin', 'Morán', 12, 3, '18:00', 'mupol'], ['Hydra', 'Noazar', 12, 1, '19:00', 'mupol'], ['Panthers', 'Riestra by Pch', 13, 0, '16:30', 'lamadrid', '2026-05-09']]],
       [2, '2026-04-25', [['Hydra', 'Berserker', 4, 5, '16:00', 'lamadrid'], ['Panthers', 'Marvin', 8, 12, '17:00', 'lamadrid'], ['Riestra by Pch', 'Noazar', 5, 6, '20:00', 'lamadrid']]],
@@ -58,6 +85,69 @@ const TORNEOS = [
       [2, 2, 'Panthers', 'Berserker', 7, 6, '2026-10-04', '17:00', 'lamadrid'],
       [3, 1, 'Marvin', 'Panthers', 13, 7, null, null, null],
       [3, 2, 'Hydra', 'Berserker', 4, 10, null, null, null], // 3er y 4to puesto
+    ],
+  },
+  {
+    nombre: 'Masculino Foam 2026', buscar: ['masculino', 'foam'], modality: 'FOAM', rearmarLlave: SPEC13,
+    orden: { A: ['Berserker', 'Freestyle', 'Lamadrid', 'Panthers', 'Riestra by Pch', 'Aurinegro', 'Dragons Guernica'] }, // Panthers queda 4° sobre Riestra (ganó el cruce directo 8-4)
+    liga: [
+      [1, '2026-03-22', [['Hydra', 'Linces by Pueyrredón', 9, 4, '11:00', 'pueyrredon'], ['Noazar', 'Hokory', 9, 5, '12:00', 'pueyrredon'], ['Morán', 'Marvin', 9, 6, '18:00', 'pueyrredon']], 'B'],
+      [1, '2026-03-22', [['Dragons Guernica', 'Riestra by Pch', 0, 26, '15:00', 'pueyrredon'], ['Freestyle', 'Aurinegro', 25, 3, '16:00', 'pueyrredon'], ['Panthers', 'Lamadrid', 6, 8, '17:00', 'pueyrredon']], 'A'],
+      [2, '2026-04-12', [['Noazar', 'Morán', 10, 5, '08:45', 'cef'], ['Linces by Pueyrredón', 'Marvin', 7, 4, '13:00', 'cef'], ['Hydra', 'Hokory', 12, 0, '14:00', 'cef']], 'B'],
+      [2, '2026-04-12', [['Dragons Guernica', 'Aurinegro', 0, 17, '15:00', 'cef'], ['Panthers', 'Berserker', 4, 9, '17:00', 'cef'], ['Riestra by Pch', 'Lamadrid', 13, 2, '18:00', 'cef']], 'A'],
+      [3, '2026-04-26', [['Hokory', 'Morán', 7, 6, '12:00', 'pueyrredon'], ['Hydra', 'Marvin', 16, 4, '13:00', 'pueyrredon'], ['Linces by Pueyrredón', 'Noazar', 4, 10, '16:00']], 'B'],
+      [3, '2026-04-26', [['Dragons Guernica', 'Freestyle', 0, 33, '08:45', 'pueyrredon'], ['Lamadrid', 'Aurinegro', 9, 6, '17:00', 'pueyrredon'], ['Riestra by Pch', 'Berserker', 4, 9, '18:00', 'pueyrredon']], 'A'],
+      [4, '2026-05-10', [['Marvin', 'Noazar', 2, 16, '11:10', 'sanfer'], ['Hydra', 'Morán', 7, 5, '12:20', 'sanfer'], ['Hokory', 'Linces by Pueyrredón', 3, 11, '13:30', 'sanfer']], 'B'],
+      [4, '2026-05-10', [['Riestra by Pch', 'Panthers', 4, 8, '11:10', 'sanfer'], ['Lamadrid', 'Freestyle', 8, 9, '12:20', 'sanfer'], ['Aurinegro', 'Berserker', 3, 14, '13:30', 'sanfer']], 'A'],
+      [5, '2026-07-26', [['Hydra', 'Noazar', 8, 6, '10:00', 'pueyrredon'], ['Morán', 'Linces by Pueyrredón', 5, 5, '19:00', 'pueyrredon'], ['Marvin', 'Hokory', 0, 9, null, 'pueyrredon']], 'B'],
+      [5, '2026-07-26', [['Berserker', 'Freestyle', 6, 5, '11:00', 'pueyrredon'], ['Aurinegro', 'Panthers', 7, 5, '14:00', 'pueyrredon'], ['Lamadrid', 'Dragons Guernica', 25, 0, '18:00', 'pueyrredon']], 'A'],
+      [6, '2026-08-09', [['Berserker', 'Dragons Guernica', 26, 0, '12:00'], ['Freestyle', 'Panthers', 4, 5, '13:00'], ['Aurinegro', 'Riestra by Pch', 2, 7, '18:00']], 'A'],
+      [7, '2026-08-09', [['Berserker', 'Lamadrid', 4, 13, '09:00'], ['Panthers', 'Dragons Guernica', 24, 0, '10:00'], ['Freestyle', 'Riestra by Pch', 5, 4, '15:00']], 'A'],
+    ],
+    llave: [
+      [1, 1, 'Marvin', 'Dragons Guernica', 15, 0, '2026-09-13', '12:00', 'lamadrid'],
+      [2, 1, 'Hokory', 'Riestra by Pch', 4, 8, '2026-09-13', '14:00', 'lamadrid'],
+      [2, 2, 'Lamadrid', 'Marvin', 10, 6, '2026-09-13', '17:00', 'lamadrid'],
+      [2, 3, 'Linces by Pueyrredón', 'Aurinegro', 12, 1, '2026-09-13', '13:00', 'lamadrid'],
+      [2, 4, 'Panthers', 'Morán', 12, 2, '2026-09-13', '10:45', 'lamadrid'],
+      [3, 1, 'Berserker', 'Riestra by Pch', 7, 5, '2026-09-27', '17:00', 'pueyrredon'],
+      [3, 2, 'Noazar', 'Lamadrid', 8, 7, '2026-09-27', '09:45', 'pueyrredon'],
+      [3, 3, 'Linces by Pueyrredón', 'Freestyle', 6, 7, '2026-09-27', '16:00', 'pueyrredon'],
+      [3, 4, 'Panthers', 'Hydra', 6, 7, '2026-09-27', '11:00', 'pueyrredon'],
+      [4, 1, 'Berserker', 'Noazar', 8, 7, '2026-10-04', '14:00', 'lamadrid'],
+      [4, 2, 'Freestyle', 'Hydra', 7, 6, '2026-10-04', '16:00', 'lamadrid'],
+      [5, 1, 'Berserker', 'Freestyle', 5, 7, null, null, null],
+      [5, 2, 'Noazar', 'Hydra', 9, 7, null, null, null], // 3er y 4to puesto
+    ],
+  },
+  {
+    nombre: 'Masculino Cloth 2026', buscar: ['masculino', 'cloth'], modality: 'CLOTH', rearmarLlave: SPEC12,
+    orden: { B: ['Hydra', 'Riestra by Pch', 'Panthers', 'Lamadrid', 'Morán', 'Hokory'] }, // la web muestra a Panthers con 7 pts (no 8): queda 3° y Riestra 2°
+    liga: [
+      [1, '2026-03-22', [['Noazar', 'Berserker', 24, 12, '10:00', 'pueyrredon'], ['Freestyle', 'Linces by Pueyrredón', 12, 30, '13:00', 'pueyrredon'], ['Aurinegro', 'Marvin', 2, 42, '14:00', 'pueyrredon']], 'A'],
+      [1, '2026-03-22', [['Hydra', 'Hokory', 26, 6, '08:45', 'pueyrredon'], ['Lamadrid', 'Riestra by Pch', 11, 17, '19:00', 'pueyrredon'], ['Panthers', 'Morán', 15, 15, '20:00', 'pueyrredon']], 'B'],
+      [2, '2026-04-12', [['Linces by Pueyrredón', 'Marvin', 19, 13, '10:00', 'cef'], ['Noazar', 'Aurinegro', 46, 4, '12:00', 'cef'], ['Freestyle', 'Berserker', 0, 26, '19:00', 'cef']], 'A'],
+      [2, '2026-04-12', [['Hydra', 'Morán', 16, 12, '11:00', 'cef'], ['Hokory', 'Riestra by Pch', 7, 23, '16:00', 'cef'], ['Panthers', 'Lamadrid', 21, 15, '20:00', 'cef']], 'B'],
+      [3, '2026-04-26', [['Freestyle', 'Marvin', 19, 17, '11:00', 'pueyrredon'], ['Linces by Pueyrredón', 'Noazar', 10, 26, '19:00', 'pueyrredon'], ['Berserker', 'Aurinegro', 42, 4, '20:00', 'pueyrredon']], 'A'],
+      [3, '2026-04-26', [['Hokory', 'Panthers', 4, 36, '10:00', 'pueyrredon'], ['Morán', 'Lamadrid', 16, 24, '14:00', 'pueyrredon'], ['Hydra', 'Riestra by Pch', 28, 10, '15:00', 'pueyrredon']], 'B'],
+      [4, '2026-05-10', [['Freestyle', 'Aurinegro', 19, 15, '10:00', 'sanfer'], ['Marvin', 'Noazar', 7, 41, '14:40', 'sanfer'], ['Berserker', 'Linces by Pueyrredón', 15, 19, '15:50', 'sanfer']], 'A'],
+      [4, '2026-05-10', [['Hydra', 'Lamadrid', 22, 12, '10:00', 'sanfer'], ['Riestra by Pch', 'Panthers', 15, 15, '14:40', 'sanfer'], ['Morán', 'Hokory', 44, 2, '15:50', 'sanfer']], 'B'],
+      [5, '2026-07-26', [['Freestyle', 'Noazar', 11, 37, '13:00', 'pueyrredon'], ['Aurinegro', 'Linces by Pueyrredón', 9, 27, '16:00', 'pueyrredon'], ['Marvin', 'Berserker', 0, 26, null, 'pueyrredon']], 'A'],
+      [5, '2026-07-26', [['Hydra', 'Panthers', 26, 12, '12:00', 'pueyrredon'], ['Lamadrid', 'Hokory', 28, 8, '15:00', 'pueyrredon'], ['Riestra by Pch', 'Morán', 13, 13, '17:00', 'pueyrredon']], 'B'],
+    ],
+    llave: [
+      [1, 1, 'Lamadrid', 'Marvin', 27, 13, '2026-08-30', '13:00', 'moran'],
+      [1, 2, 'Berserker', 'Hokory', 30, 4, '2026-08-30', '17:00', 'moran'],
+      [1, 3, 'Panthers', 'Aurinegro', 32, 4, '2026-08-30', '14:00', 'moran'],
+      [1, 4, 'Freestyle', 'Morán', 15, 21, '2026-08-30', '18:00', 'moran'],
+      [2, 1, 'Noazar', 'Lamadrid', 20, 16, '2026-09-27', '12:00', 'pueyrredon'],
+      [2, 2, 'Riestra by Pch', 'Berserker', 16, 18, '2026-09-27', '15:00', 'pueyrredon'],
+      [2, 3, 'Linces by Pueyrredón', 'Panthers', 13, 23, '2026-09-27', '14:00', 'pueyrredon'],
+      [2, 4, 'Hydra', 'Morán', 19, 13, '2026-09-27', '13:00', 'pueyrredon'],
+      [3, 1, 'Noazar', 'Berserker', 22, 16, '2026-10-04', '11:00', 'lamadrid'],
+      [3, 2, 'Panthers', 'Hydra', 30, 4, '2026-10-04', '14:00', 'lamadrid'],
+      [4, 1, 'Noazar', 'Panthers', 14, 18, null, null, null],
+      [4, 2, 'Berserker', 'Hydra', 10, 22, null, null, null], // 3er y 4to puesto
     ],
   },
 ];
@@ -79,41 +169,56 @@ async function venueId(key, all) {
   return v.id;
 }
 
-function tabla(T) {
+function tabla(T, zona) {
   const rows = new Map();
   const row = (n) => { if (!rows.has(n)) rows.set(n, { n, pts: 0, pj: 0, g: 0, e: 0, p: 0, f: 0, c: 0 }); return rows.get(n); };
-  for (const [, , ms] of T.liga) for (const [a, b, pa, pb] of ms) {
-    const A = row(a), B = row(b);
-    A.pj++; B.pj++; A.f += pa; A.c += pb; B.f += pb; B.c += pa;
-    if (pa === pb) { A.e++; B.e++; A.pts++; B.pts++; } else if (pa > pb) { A.g++; B.p++; A.pts += 3; } else { B.g++; A.p++; B.pts += 3; }
+  for (const [, , ms, z = 'A'] of T.liga) {
+    if (zona && z !== zona) continue;
+    for (const [a, b, pa, pb] of ms) {
+      const A = row(a), B = row(b);
+      A.pj++; B.pj++; A.f += pa; A.c += pb; B.f += pb; B.c += pa;
+      if (pa === pb) { A.e++; B.e++; A.pts++; B.pts++; } else if (pa > pb) { A.g++; B.p++; A.pts += 3; } else { B.g++; A.p++; B.pts += 3; }
+    }
   }
-  return [...rows.values()].sort((x, y) => y.pts - x.pts || (y.f - y.c) - (x.f - x.c));
+  const out = [...rows.values()].sort((x, y) => y.pts - x.pts || (y.f - y.c) - (x.f - x.c));
+  const fijo = T.orden && T.orden[zona || 'A']; // desempate real de la web cuando difiere (ej: cruce directo)
+  return fijo ? fijo.map((n) => out.find((r) => r.n === n)) : out;
 }
 
-// Rearma la llave (Playoffs) con la forma estándar de la web para 6 clasificados y partido por el 3er puesto.
+// Rearma la llave (Playoffs) según T.rearmarLlave (lista de partidos). Los clasificados salen de las tablas de cada zona.
 async function rearmarLlave(t, T, stages) {
-  const zone = stages.find((x) => x.type === 'LEAGUE');
   const ko = stages.find((x) => x.type === 'KNOCKOUT' && !x.isPromotion);
-  const top = [];
-  for (const r of tabla(T).slice(0, 6)) top.push(await resolveTeam(r.n));
+  const zone = (z) => stages.find((x) => x.type === 'LEAGUE' && x.name.trim().slice(-1).toUpperCase() === z);
   const full = await prisma.tournament.findUnique({ where: { id: t.id } });
-  const R = ['R1M1', 'R1M2', 'R2M1', 'R2M2', 'R3M1', 'R3M2'];
-  const id = Object.fromEntries(R.map((r) => [r, crypto.randomUUID()]));
-  const from = (pos) => ({ stageId: zone.id, position: pos });
-  const row = (ref, round, slot, extra) => ({ id: id[ref], tournamentId: t.id, stageId: ko.id, round, slot, branch: full.branch, modality: full.modality, nextMatchId: null, nextSide: null, loserMatchId: null, loserSide: null, ...extra });
-  const rows = [
-    row('R1M1', 1, 1, { teamAId: top[3].id, teamBId: top[4].id, teamAFrom: from(4), teamBFrom: from(5), nextMatchId: id.R2M1, nextSide: 'B' }),
-    row('R1M2', 1, 2, { teamAId: top[2].id, teamBId: top[5].id, teamAFrom: from(3), teamBFrom: from(6), nextMatchId: id.R2M2, nextSide: 'B' }),
-    row('R2M1', 2, 1, { teamAId: top[0].id, teamAFrom: from(1), nextMatchId: id.R3M1, nextSide: 'A', loserMatchId: id.R3M2, loserSide: 'A' }),
-    row('R2M2', 2, 2, { teamAId: top[1].id, teamAFrom: from(2), nextMatchId: id.R3M1, nextSide: 'B', loserMatchId: id.R3M2, loserSide: 'B' }),
-    row('R3M1', 3, 1, {}),
-    row('R3M2', 3, 2, {}),
-  ];
+  const tablas = {};
+  const seed = async (code) => {
+    const z = code[0], pos = Number(code.slice(1));
+    tablas[z] = tablas[z] || tabla(T, z);
+    const tm = await resolveTeam(tablas[z][pos - 1].n);
+    const st = zone(z);
+    if (!tm || !st) throw new Error('No pude resolver ' + code + ' para armar la llave');
+    return { teamId: tm.id, from: { stageId: st.id, position: pos }, code };
+  };
+  const spec = T.rearmarLlave;
+  const id = Object.fromEntries(spec.map(([ref]) => [ref, crypto.randomUUID()]));
+  const rows = new Map(spec.map(([ref, round, slot]) => [ref, { id: id[ref], tournamentId: t.id, stageId: ko.id, round, slot, branch: full.branch, modality: full.modality, nextMatchId: null, nextSide: null, loserMatchId: null, loserSide: null }]));
+  const direct = [];
+  for (const [ref, round, , a, b] of spec) {
+    for (const [side, src] of [['A', a], ['B', b]]) {
+      const r = rows.get(ref);
+      if (typeof src === 'string') {
+        const sd = await seed(src);
+        r['team' + side + 'Id'] = sd.teamId; r['team' + side + 'From'] = sd.from;
+        direct.push({ teamId: sd.teamId, entryRound: round, code: src });
+      } else if (src.w) Object.assign(rows.get(src.w), { nextMatchId: id[ref], nextSide: side });
+      else Object.assign(rows.get(src.l), { loserMatchId: id[ref], loserSide: side });
+    }
+  }
   await prisma.$transaction(async (tx) => {
     await tx.match.deleteMany({ where: { stageId: ko.id } });
     await tx.stageTeam.deleteMany({ where: { stageId: ko.id } });
-    await tx.stageTeam.createMany({ data: [[top[0], 2], [top[1], 2], [top[2], 1], [top[3], 1], [top[4], 1], [top[5], 1]].map(([x, er], i) => ({ stageId: ko.id, teamId: x.id, seed: top.indexOf(x) + 1, entryRound: er })) });
-    await tx.match.createMany({ data: rows });
+    await tx.stageTeam.createMany({ data: direct.map((d, i) => ({ stageId: ko.id, teamId: d.teamId, seed: i + 1, entryRound: d.entryRound })) });
+    await tx.match.createMany({ data: [...rows.values()] });
   }, { timeout: 60000 });
 }
 
@@ -135,8 +240,12 @@ async function editar(T) {
     mm.forEach((x) => console.log(`   r${x.round} s${x.slot} [${x.stage.name}] ${x.teamA?.name ?? '?'} vs ${x.teamB?.name ?? '?'} · A<-${JSON.stringify(x.teamAFrom)} B<-${JSON.stringify(x.teamBFrom)} · next=${x.nextMatchId ? 'sí' : 'no'} loser=${x.loserMatchId ? 'sí' : 'no'} · ${x.status}`));
     return;
   }
+  const zonas = [...new Set(T.liga.map((f) => f[3] || 'A'))];
   console.log('  Tabla esperada (3 por victoria, 1 por empate) para controlar contra la web:');
-  tabla(T).forEach((r, i) => console.log(`    ${i + 1}. ${r.n.padEnd(16)} ${String(r.pts).padStart(2)} pts  J${r.pj} G${r.g} E${r.e} P${r.p}  ${r.f}-${r.c}`));
+  for (const z of zonas) {
+    if (zonas.length > 1) console.log('   Grupo ' + z);
+    tabla(T, z).forEach((r, i) => console.log(`    ${i + 1}. ${r.n.padEnd(20)} ${String(r.pts).padStart(2)} pts  J${r.pj} G${r.g} E${r.e} P${r.p}  ${r.f}-${r.c}`));
+  }
 
   const stages = await prisma.stage.findMany({ where: { tournamentId: t.id } });
   let ms = await prisma.match.findMany({ where: { tournamentId: t.id, hiddenAt: null }, include: { stage: true, teamA: true, teamB: true, sets: true } });
@@ -166,11 +275,11 @@ async function editar(T) {
     return { m, ra, rb };
   };
 
-  for (const [fecha, dia, lista] of T.liga) {
+  for (const [fecha, dia, lista, zona] of T.liga) {
     for (const [a, b, pa, pb, hh, sede, diaPropio] of lista) {
       const r = await buscar('LEAGUE', a, b);
       if (!r) { faltan++; console.log(`  Fecha ${fecha}: ${a} vs ${b}: NO se encontró el partido`); continue; }
-      plan.push({ ...r, a, b, pa, pb, dia: diaPropio || dia, hh, sede, fecha, etiqueta: 'Fecha ' + fecha });
+      plan.push({ ...r, a, b, pa, pb, dia: diaPropio || dia, hh, sede, fecha, fechaDia: dia, etiqueta: 'Fecha ' + fecha + (zona ? ' Gr.' + zona : '') });
     }
   }
   for (const [ronda, slot, a, b, pa, pb, dia, hh, sede] of T.llave) {
@@ -219,7 +328,7 @@ async function editar(T) {
       await tx.match.update({ where: { id: m.id }, data });
       if (p.fecha && m.matchdayId) mdFecha.set(m.matchdayId, p.dia);
     }
-    for (const p of plan) if (p.fecha && p.m.matchdayId && p.dia === T.liga.find((f) => f[0] === p.fecha)[1]) await tx.matchday.update({ where: { id: p.m.matchdayId }, data: { date: at(p.dia, '12:00') } });
+    for (const p of plan) if (p.fecha && p.m.matchdayId && p.fechaDia && p.dia === p.fechaDia) await tx.matchday.update({ where: { id: p.m.matchdayId }, data: { date: at(p.dia, '12:00') } });
   }, { timeout: 120000, maxWait: 30000 });
   console.log('  Editado.');
 }
