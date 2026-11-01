@@ -336,7 +336,12 @@ async function editar(T) {
       if (!st || T.rearmarZonas === 'siempre' || esperado.size !== real.size || [...esperado].some((id) => !real.has(id))) difiere = true;
     }
     if (difiere) {
-      if (lg.some((x) => x.sets.length || x.status !== 'SCHEDULED')) console.log('  Las zonas de la base son distintas pero ya hay partidos jugados: no se rearman.');
+      const jugados = lg.filter((x) => x.sets.length || x.status !== 'SCHEDULED');
+      if (jugados.length) {
+        console.log(`  Las zonas de la base son distintas pero hay ${jugados.length} partidos que no están "sin jugar": no se rearman. Son:`);
+        jugados.slice(0, 20).forEach((x) => console.log(`   - ${x.stage?.name}: ${x.teamA?.name ?? '?'} vs ${x.teamB?.name ?? '?'} · ${x.status} · ${x.sets.length} sets`));
+      }
+      if (jugados.length) { /* se informa arriba */ }
       else { rearmarZ = true; console.log('  Las zonas de la base no coinciden con las reales (equipos de cada grupo): ' + (APPLY ? 'se rearman' : 'se rearmarían') + ' los dos grupos y su fixture (nada jugado todavía).'); }
     }
   }
