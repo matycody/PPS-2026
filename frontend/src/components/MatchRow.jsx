@@ -35,8 +35,16 @@ function Side({ t, slot, form, rank, score, live, branch }) {
       <span className="min-w-0 flex-1 truncate text-sm font-bold">{t.name}</span>
       {/* Con resultado (finalizado o en vivo) el marcador va pegado al nombre; la posición y la racha quedan a su derecha */}
       {score != null && <span className={'w-6 shrink-0 text-right font-mono text-lg font-extrabold tabular-nums ' + (live ? 'text-live' : '')}>{score}</span>}
-      {rank && <span className="ml-1 shrink-0 text-[11px] font-bold text-muted">{rank}.º</span>}
-      {form?.length > 0 && <span className="flex shrink-0 items-center"><Forma form={form.slice(-3)} size="sm" /></span>} {/* en la tarjeta chica solo los últimos 3 */}
+      {/* Con marcador, posición y racha van en un bloque de ancho fijo (aunque falten, p. ej. en una final) para que los marcadores queden alineados entre filas */}
+      {(() => {
+        const extra = (
+          <>
+            {rank && <span className="ml-1 w-6 shrink-0 text-[11px] font-bold text-muted">{rank}.º</span>}
+            {form?.length > 0 && <span className="flex shrink-0 items-center"><Forma form={form.slice(-3)} size="sm" /></span>} {/* en la tarjeta chica solo los últimos 3 */}
+          </>
+        )
+        return score != null ? <span className="flex w-[76px] shrink-0 items-center">{extra}</span> : extra
+      })()}
     </div>
   )
 }
