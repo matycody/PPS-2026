@@ -61,12 +61,13 @@ function dist(a, b) {
   return d[a.length][b.length];
 }
 let TEAMS = null;
+const told = new Set();
 async function resolveTeam(name) {
   if (!TEAMS) TEAMS = await prisma.team.findMany({ select: { id: true, name: true } });
   const n = norm(name);
   const hit = TEAMS.find((t) => norm(t.name) === n) || TEAMS.find((t) => norm(t.name).includes(n) || n.includes(norm(t.name)))
     || TEAMS.map((t) => [t, dist(norm(t.name), n)]).filter(([, d]) => d <= 2).sort((a, b) => a[1] - b[1]).map(([t]) => t)[0];
-  if (hit && hit.name.toLowerCase() !== String(name).toLowerCase()) console.log(`  (el equipo "${name}" figura en la base como "${hit.name}")`);
+  if (hit && hit.name.toLowerCase() !== String(name).toLowerCase() && !told.has(name)) { told.add(name); console.log(`  (el equipo "${name}" figura en la base como "${hit.name}")`); }
   return hit || null;
 }
 
@@ -171,4 +172,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch((e) => { console.error(e.message); process.exitCode = 1; }).finally(() => prisma.$disconnect());
-module.exports = { buildSets };
+module.exports = { buildSets, resolveTeam };
