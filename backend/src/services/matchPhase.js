@@ -23,7 +23,7 @@ async function phasesFor(ids) {
     where: { id: { in: ids }, stageId: { not: null } },
     select: {
       id: true, tournamentId: true, round: true, slot: true, teamAId: true, teamBId: true, teamAFrom: true, teamBFrom: true,
-      stage: { select: { id: true, name: true, type: true } },
+      stage: { select: { id: true, name: true, type: true, isPromotion: true } },
       matchday: { select: { number: true } },
     },
   });
@@ -124,7 +124,7 @@ async function phasesFor(ids) {
       order: 1000 + (m.round || 0) * 10 - (third ? 1 : 0), // después de la liga; el tercer puesto antes de la final
       slot: m.slot ?? 0,
       zone: null,
-      label: third ? 'Tercer puesto' : roundLabel(m.round, max),
+      label: r.stage.isPromotion ? 'Ascenso/Descenso' : third ? 'Tercer puesto' : roundLabel(m.round, max), // el cruce de promoción se distingue de una final común
       slotA: slot('A', m.teamAId, m.teamAFrom),
       slotB: slot('B', m.teamBId, m.teamBFrom),
       provisional: leagueOpen.has(r.tournamentId),
