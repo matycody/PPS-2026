@@ -10,9 +10,11 @@ const prisma = require('../src/db');
 const RESULTADOS = [
   {
     torneo: 'Promoción Mixto Foam y Cloth - Apertura 2026',
-    partidos: [
-      ['Freestyle', 'Marvin', 8, 4],
-      ['Berserker', 'PCH', 8, 20],
+    // Si el torneo no existe en esta base, se crea como torneo independiente (solo playoff) con estos datos
+    crear: { branch: 'MIXED', modality: 'CLOTH', year: 2026, edition: 'Apertura', day: '2026-07-12', sede: { name: 'Club Almafuerte', address: 'Club Almafuerte' } },
+    partidos: [ // [equipo A, equipo B, puntos A, puntos B, hora]
+      ['Freestyle', 'Marvin', 8, 4, '13:00'],
+      ['Berserker', 'PCH', 8, 20, '14:00'],
     ],
   },
 ];
@@ -50,11 +52,52 @@ function buildSets(modality, pa, pb) {
   });
 }
 
+// Crea el torneo independiente (solo playoff): equipos inscriptos, una etapa de eliminación y sus partidos ya finalizados
+async function crearTorneo(b) {
+  const c = b.crear;
+  const names = [...new Set(b.partidos.flatMap((p) => [p[0], p[1]]))];
+  const teams = [];
+  for (const n of names) {
+    const tm = await prisma.team.findFirst({ where: { name: { equals: n, mode: 'insensitive' } } });
+    if (!tm) { console.log('\nNo existe el equipo "' + n + '" en esta base: no se puede crear ' + b.torneo); return null; }
+    teams.push(tm);
+  }
+  console.log('\n' + b.torneo + ' no existe: ' + (APPLY ? 'se crea' : 'se crearía') + ' (' + c.branch + ' ' + c.modality + ', ' + names.length + ' equipos, ' + b.partidos.length + ' partidos, ' + c.day + ')');
+  if (!APPLY) {
+    for (const [na, nb, pa, pb, hh] of b.partidos) {
+      const sets = buildSets(c.modality, pa, pb);
+      console.log(`  ${na} ${pa} - ${pb} ${nb} (${hh}): ${sets.length} sets`);
+    }
+    return null;
+  }
+  let venue = await prisma.venue.findFirst({ where: { deletedAt: null, name: { contains: c.sede.name, mode: 'insensitive' } } });
+  if (!venue) venue = await prisma.venue.create({ data: { name: c.sede.name, address: c.sede.address } });
+  const at = (hh) => new Date(c.day + 'T' + hh + ':00-03:00');
+  return prisma.$transaction(async (tx) => {
+    const t = await tx.tournament.create({
+      data: { name: b.torneo, branch: c.branch, modality: c.modality, year: c.year, edition: c.edition, format: 'CUP', status: 'FINISHED', startsAt: at('00:00'), endsAt: at('23:59') },
+    });
+    await tx.tournamentTeam.createMany({ data: teams.map((tm) => ({ tournamentId: t.id, teamId: tm.id })) });
+    const stage = await tx.stage.create({ data: { tournamentId: t.id, name: 'Playoff', type: 'KNOCKOUT', phase: 1 } });
+    await tx.stageTeam.createMany({ data: teams.map((tm, i) => ({ stageId: stage.id, teamId: tm.id, seed: i + 1 })) });
+    for (const [i, [na, nb, , , hh]] of b.partidos.entries()) {
+      const ta = teams.find((x) => x.name.toLowerCase() === na.toLowerCase());
+      const tb = teams.find((x) => x.name.toLowerCase() === nb.toLowerCase());
+      await tx.match.create({
+        data: { tournamentId: t.id, stageId: stage.id, round: 1, slot: i + 1, branch: c.branch, modality: c.modality, status: 'FINISHED', teamAId: ta.id, teamBId: tb.id, scheduledAt: at(hh), timeSet: true, finishedAt: new Date(at(hh).getTime() + 45 * 60000), venueId: venue.id },
+      });
+    }
+    return t;
+  });
+}
+
 async function main() {
   if ((process.env.DATABASE_URL || '').includes('ep-withered-grass')) throw new Error('Esto apunta a PRODUCCIÓN. Abortado.');
   console.log(APPLY ? '== GRABANDO ==' : '== SIMULACIÓN (no graba; usá --aplicar) ==');
   for (const bloque of RESULTADOS) {
-    const t = await prisma.tournament.findFirst({ where: { deletedAt: null, name: { equals: bloque.torneo, mode: 'insensitive' } } });
+    let t = await prisma.tournament.findFirst({ where: { deletedAt: null, name: { equals: bloque.torneo, mode: 'insensitive' } } });
+    if (!t && bloque.crear) t = await crearTorneo(bloque);
+    if (!t && bloque.crear && !APPLY) continue;
     if (!t) {
       const all = await prisma.tournament.findMany({ where: { deletedAt: null }, select: { name: true, status: true }, orderBy: { name: 'asc' } });
       console.log('\nNo existe el torneo: ' + bloque.torneo + '\nTorneos que hay en esta base (' + all.length + '):');
