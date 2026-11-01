@@ -121,7 +121,7 @@ const TORNEOS = [
     ],
   },
   {
-    nombre: 'Masculino Cloth 2026', buscar: ['masculino', 'cloth'], modality: 'CLOTH', rearmarLlave: SPEC12,
+    nombre: 'Masculino Cloth 2026', buscar: ['masculino', 'cloth'], modality: 'CLOTH', rearmarLlave: SPEC12, rearmarZonas: true,
     orden: { B: ['Hydra', 'Riestra by Pch', 'Panthers', 'Lamadrid', 'Morán', 'Hokory'] }, // la web muestra a Panthers con 7 pts (no 8): queda 3° y Riestra 2°
     liga: [
       [1, '2026-03-22', [['Noazar', 'Berserker', 24, 12, '10:00', 'pueyrredon'], ['Freestyle', 'Linces by Pueyrredón', 12, 30, '13:00', 'pueyrredon'], ['Aurinegro', 'Marvin', 2, 42, '14:00', 'pueyrredon']], 'A'],
@@ -222,6 +222,30 @@ async function rearmarLlave(t, T, stages) {
   }, { timeout: 60000 });
 }
 
+// Rearma las zonas (equipos de cada grupo y su fixture) cuando en la base están armadas distinto y todavía no se jugó nada
+async function rearmarZonas(t, T, stages) {
+  const full = await prisma.tournament.findUnique({ where: { id: t.id } });
+  const zonas = [...new Set(T.liga.map((f) => f[3] || 'A'))];
+  for (const z of zonas) {
+    const st = stages.find((x) => x.type === 'LEAGUE' && x.name.trim().slice(-1).toUpperCase() === z);
+    if (!st) throw new Error('No encontré la zona ' + z + ' en la base');
+    const entradas = T.liga.filter((f) => (f[3] || 'A') === z);
+    const nombres = [...new Set(entradas.flatMap((f) => f[2].flatMap((m) => [m[0], m[1]])))];
+    const ids = new Map();
+    for (const n of nombres) { const tm = await resolveTeam(n); if (!tm) throw new Error('No existe el equipo ' + n); ids.set(n, tm.id); }
+    await prisma.$transaction(async (tx) => {
+      await tx.match.deleteMany({ where: { stageId: st.id } });
+      await tx.matchday.deleteMany({ where: { stageId: st.id } });
+      await tx.stageTeam.deleteMany({ where: { stageId: st.id } });
+      await tx.stageTeam.createMany({ data: nombres.map((n, i) => ({ stageId: st.id, teamId: ids.get(n), seed: i + 1 })) });
+      for (const [fecha, dia, lista] of entradas) {
+        const md = await tx.matchday.create({ data: { stageId: st.id, number: fecha, date: dia ? at(dia, '12:00') : null } });
+        await tx.match.createMany({ data: lista.map(([a, b]) => ({ tournamentId: t.id, stageId: st.id, matchdayId: md.id, branch: full.branch, modality: full.modality, status: 'SCHEDULED', teamAId: ids.get(a), teamBId: ids.get(b) })) });
+      }
+    }, { timeout: 60000 });
+  }
+}
+
 async function editar(T) {
   console.log('\n' + T.nombre);
   const all = await prisma.tournament.findMany({ where: { deletedAt: null }, select: { id: true, name: true, status: true } });
@@ -249,6 +273,27 @@ async function editar(T) {
 
   const stages = await prisma.stage.findMany({ where: { tournamentId: t.id } });
   let ms = await prisma.match.findMany({ where: { tournamentId: t.id, hiddenAt: null }, include: { stage: true, teamA: true, teamB: true, sets: true } });
+  let rearmarZ = false;
+  if (T.rearmarZonas) {
+    const lg = ms.filter((x) => x.stage?.type === 'LEAGUE');
+    const sts = await prisma.stageTeam.findMany({ where: { stageId: { in: stages.filter((x) => x.type === 'LEAGUE').map((x) => x.id) } } });
+    let difiere = false;
+    for (const z of [...new Set(T.liga.map((f) => f[3] || 'A'))]) {
+      const st = stages.find((x) => x.type === 'LEAGUE' && x.name.trim().slice(-1).toUpperCase() === z);
+      const esperado = new Set();
+      for (const f of T.liga.filter((q) => (q[3] || 'A') === z)) for (const m of f[2]) for (const n of [m[0], m[1]]) { const tm = await resolveTeam(n); if (tm) esperado.add(tm.id); }
+      const real = new Set(sts.filter((x) => x.stageId === st?.id).map((x) => x.teamId));
+      if (!st || esperado.size !== real.size || [...esperado].some((id) => !real.has(id))) difiere = true;
+    }
+    if (difiere) {
+      if (lg.some((x) => x.sets.length || x.status !== 'SCHEDULED')) console.log('  Las zonas de la base son distintas pero ya hay partidos jugados: no se rearman.');
+      else { rearmarZ = true; console.log('  Las zonas de la base no coinciden con las reales (equipos de cada grupo): ' + (APPLY ? 'se rearman' : 'se rearmarían') + ' los dos grupos y su fixture (nada jugado todavía).'); }
+    }
+  }
+  if (rearmarZ && APPLY) {
+    await rearmarZonas(t, T, stages);
+    ms = await prisma.match.findMany({ where: { tournamentId: t.id, hiddenAt: null }, include: { stage: true, teamA: true, teamB: true, sets: true } });
+  }
   let rearmar = false;
   if (T.rearmarLlave) {
     const ko = ms.filter((x) => x.stage?.type === 'KNOCKOUT' && !x.stage.isPromotion);
@@ -277,7 +322,11 @@ async function editar(T) {
 
   for (const [fecha, dia, lista, zona] of T.liga) {
     for (const [a, b, pa, pb, hh, sede, diaPropio] of lista) {
-      const r = await buscar('LEAGUE', a, b);
+      let r = rearmarZ && !APPLY ? null : await buscar('LEAGUE', a, b);
+      if (!r && rearmarZ && !APPLY) {
+        const ra = await resolveTeam(a), rb = await resolveTeam(b);
+        if (ra && rb) r = { m: { id: null, teamAId: null, teamBId: null, sets: [], matchdayId: null }, ra, rb };
+      }
       if (!r) { faltan++; console.log(`  Fecha ${fecha}: ${a} vs ${b}: NO se encontró el partido`); continue; }
       plan.push({ ...r, a, b, pa, pb, dia: diaPropio || dia, hh, sede, fecha, fechaDia: dia, etiqueta: 'Fecha ' + fecha + (zona ? ' Gr.' + zona : '') });
     }
