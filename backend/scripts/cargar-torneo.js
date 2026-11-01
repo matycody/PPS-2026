@@ -107,6 +107,7 @@ async function borrar(t) {
     await tx.matchday.deleteMany({ where: { stageId: { in: stages } } });
     await tx.stage.deleteMany({ where: { tournamentId: t.id } });
     await tx.tournamentTeam.deleteMany({ where: { tournamentId: t.id } });
+    await tx.tiebreaker.deleteMany({ where: { tournamentId: t.id } });
     await tx.tournament.delete({ where: { id: t.id } });
   }, { timeout: 60000 });
 }
@@ -137,7 +138,7 @@ async function cargar(T) {
   for (const k of Object.keys(SEDES)) ven[k] = await venue(k);
   await prisma.$transaction(async (tx) => {
     const t = await tx.tournament.create({
-      data: { name: T.nombre, branch: T.branch, modality: T.modality, year: T.year, edition: T.edition, format: 'LEAGUE_CUP', status: 'ACTIVE', startsAt: at(T.desde, '00:00'), endsAt: at(T.hasta, '23:59') },
+      data: { name: T.nombre, branch: T.branch, modality: T.modality, year: T.year, edition: T.edition, format: 'LEAGUE_CUP', status: 'ACTIVE', startsAt: at(T.desde, '00:00'), endsAt: at(T.hasta, '23:59'), tiebreakers: { create: ['HEAD_TO_HEAD', 'SET_DIFFERENCE', 'SETS_WON', 'DRAW_LOT'].map((criterion, i) => ({ order: i + 1, criterion })) } },
     });
     await tx.tournamentTeam.createMany({ data: [...team.values()].map((x) => ({ tournamentId: t.id, teamId: x.id })) });
     const stage = {};
