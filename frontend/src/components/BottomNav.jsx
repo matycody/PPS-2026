@@ -19,19 +19,19 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line menu-glass">
-      <div className="mx-auto flex max-w-2xl pb-[env(safe-area-inset-bottom)]">
+      <div className="mx-auto grid max-w-2xl pb-[env(safe-area-inset-bottom)]" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
         {items.map(({ to, label, Icon }) => (
           <NavLink
             key={to}
             to={to}
             end={to === '/'}
             className={({ isActive }) =>
-              'flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-semibold ' +
+              'flex min-w-0 flex-col items-center justify-start gap-1 px-0.5 py-2.5 text-center text-[11px] font-semibold leading-tight ' +
               (isActive ? 'text-accent' : 'text-muted')
             }
           >
             <Icon size={22} />
-            <span className="max-w-full truncate px-1">{label}</span>
+            <span className="line-clamp-2 w-full break-words">{label}</span>
           </NavLink>
         ))}
       </div>
