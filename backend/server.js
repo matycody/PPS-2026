@@ -76,6 +76,7 @@ app.use("/audit", require("./src/routes/audit"));
 app.use("/users", require("./src/routes/users"));
 app.use('/player-requests', require('./src/routes/playerRequests'))
 app.use("/favorites", require("./src/routes/favorites"));
+app.use("/predictions", require("./src/routes/predictions"));
 app.use("/me", require("./src/routes/account"));
 app.use("/photos", require("./src/routes/photos"));
 

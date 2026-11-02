@@ -68,6 +68,7 @@ model User {
   assignments    MatchAssignment[]
   clockActions   ClockAction[]
   playerRequests PlayerRequest[]
+  predictions    Prediction[]
 }
 
 // Perfil inscripto por la organizaciÃ³n (jugador y/o Ã¡rbitro)
@@ -223,6 +224,7 @@ model Match {
   clockActions ClockAction[]
   clock        MatchClock?
   sanctions    MatchSanction[]
+  predictions  Prediction[]
 
   stageId    String?
   matchdayId String?
@@ -656,5 +658,24 @@ model MatchAttendance {
   sheetId   String
 
   @@unique([matchId, profileId])
+  @@index([matchId])
+}
+
+// ─────────────── Prode (predicciones con puntos, sin dinero) ───────────────
+// Una predicción por usuario y partido. "points" es lo que vale acertar y se congela al predecir.
+// Si acertó o no se calcula siempre con el resultado actual del partido (si se corrige un resultado, el ranking se corrige solo).
+model Prediction {
+  id        String   @id @default(uuid())
+  userId    String
+  matchId   String
+  pick      String   // A | DRAW | B
+  points    Int      @default(10)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id])
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, matchId])
   @@index([matchId])
 }
