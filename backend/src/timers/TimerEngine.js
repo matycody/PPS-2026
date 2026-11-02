@@ -135,7 +135,10 @@ class TimerEngine {
       this._emitState();
       return { matchEnded: false };
     } else {
-      this.matchHalf = 1;
+      // Al finalizar el partido los relojes quedan en 00:00 y se mantiene el 2.º tiempo
+      // (no vuelve a 1.º ni a 20:00 / 3:00); la mesa decide si reinicia o cierra el partido.
+      this.matchTimeLeft = 0;
+      this.setTimeLeft = 0;
       this.matchEnded = true;
       this.sanctions.forEach((x) => this.callbacks.onSanctionEnd && this.callbacks.onSanctionEnd({ id: x.id, reason: "match" }));
       this.sanctions = [];

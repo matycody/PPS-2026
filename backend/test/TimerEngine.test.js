@@ -127,6 +127,9 @@ describe('TimerEngine: fin del partido', () => {
     expect(engine.matchHalf).toBe(2);
     expect(engine.matchTimeLeft).toBe(20 * 60);
     expect(engine.finishHalf()).toEqual({ matchEnded: true });
+    expect(engine.matchHalf).toBe(2);
+    expect(engine.matchTimeLeft).toBe(0);
+    expect(engine.setTimeLeft).toBe(0);
     expect(events.finished).toBe(1);
   });
 });
