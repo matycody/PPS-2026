@@ -96,8 +96,7 @@ function Header({ m, tick, over, pip }) {
     center = (
       <>
         {score}
-        <span className="mt-1 font-mono text-sm font-bold tabular-nums text-live">{showTime(tick?.matchTime)}</span>
-        {tick && <span className="text-[10px] font-bold uppercase tracking-wider text-muted">{halfLabel(tick)}{tick.setTime ? ' · set ' + showTime(tick.setTime) : ''}</span>}
+        {tick && <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-muted">{halfLabel(tick)}</span>}
       </>
     )
   } else if (m.status === 'CANCELLED' || m.status === 'SUSPENDED') {
