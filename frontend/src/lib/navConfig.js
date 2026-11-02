@@ -1,5 +1,5 @@
 ﻿import {
-  Home, Heart, User, CalendarDays, Users, BarChart3, ClipboardList, Gamepad2,
+  Home, Heart, User, CalendarDays, Users, BarChart3, ClipboardList,
   LayoutDashboard, Target, Trophy, Shield, UserCog, History as HistoryIcon, Timer, BookOpen, Info, Newspaper, MapPin, Gavel, ClipboardCheck,
 } from 'lucide-react'
 
@@ -11,8 +11,7 @@ export const ITEMS = {
   mis_partidos: { to: '/mis-partidos', label: 'Mis partidos', Icon: CalendarDays },
   mi_equipo: { to: '/mi-equipo', label: 'Ficha de mi equipo', Icon: Users },
   mis_estadisticas: { to: '/mis-estadisticas', label: 'Mis estadísticas', Icon: BarChart3, soon: true },
-  mis_partidos_asignados: { to: '/asignados', label: 'Mis partidos asignados', Icon: ClipboardList },
-  control_mesa: { to: '/mesa', label: 'Control de mesa', Icon: Gamepad2 },
+  asignaciones: { to: '/asignaciones', label: 'Mis asignaciones', Icon: ClipboardList }, // árbitro + mesa en una sola pantalla
   dashboard_canchas: { to: '/admin/canchas', label: 'Dashboard de canchas', Icon: LayoutDashboard },
   torneos: { to: '/admin/torneos', label: 'Torneos', Icon: Trophy },
   partidos: { to: '/admin/partidos', label: 'Partidos', Icon: CalendarDays },
@@ -28,8 +27,7 @@ export const ITEMS = {
 // Secciones del drawer, en orden
 export const SECTIONS = [
   { title: 'Mi actividad', keys: ['mis_partidos', 'mi_equipo', 'mis_estadisticas', 'favoritos'] },
-  { title: 'Funciones de árbitro', keys: ['mis_partidos_asignados'] },
-  { title: 'Mesa', keys: ['control_mesa'] },
+  { title: 'Árbitro y mesa', keys: ['asignaciones'] },
   { title: 'Administración', keys: ['dashboard_canchas', 'torneos', 'partidos', 'equipos', 'sedes', 'sanciones', 'personas', 'usuarios', 'planillas', 'registro_ediciones'] },
 ]
 
@@ -55,8 +53,8 @@ export const GENERAL = [
 export const NOTICIAS = GENERAL.find((g) => g.to === '/noticias')
 
 export const BOTTOM_PRIORITY = [
-  'home', 'dashboard_canchas', 'partidos', 'mis_partidos_asignados',
-  'control_mesa', 'mis_partidos', 'favoritos',
+  'home', 'dashboard_canchas', 'partidos', 'asignaciones',
+  'mis_partidos', 'favoritos',
 ]
 
 // Entradas de GENERAL que corresponden al menú de esta persona

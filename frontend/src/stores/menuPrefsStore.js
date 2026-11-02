@@ -15,7 +15,7 @@ export function sortKeys(keys, saved) {
 export function availableCards(role, menu) {
   return [
     ...GENERAL.slice(0, 3),
-    ...(role === 'Organizador' || role === 'Árbitro' || menu.includes('control_mesa') ? [ITEMS.control_mesa] : []),
+    ...(role === 'Organizador' || role === 'Árbitro' || menu.includes('asignaciones') ? [ITEMS.asignaciones] : []),
     ...(menu.includes('usuarios') ? [ITEMS.usuarios] : []),
   ]
 }

@@ -67,7 +67,7 @@ function PerfilTemp() {
   )
 }
 
-const PROTECTED = Object.entries(ITEMS).filter(([k]) => !['home', 'perfil', 'favoritos', 'mi_equipo', 'mis_partidos_asignados', 'control_mesa', 'mis_partidos', 'dashboard_canchas', 'torneos', 'equipos', 'sedes', 'sanciones', 'partidos', 'personas', 'usuarios', 'registro_ediciones'].includes(k))
+const PROTECTED = Object.entries(ITEMS).filter(([k]) => !['home', 'perfil', 'favoritos', 'mi_equipo', 'asignaciones', 'mis_partidos', 'dashboard_canchas', 'torneos', 'equipos', 'sedes', 'sanciones', 'partidos', 'personas', 'usuarios', 'registro_ediciones'].includes(k))
 
 function App() {
   const init = useAuthStore((s) => s.init)
@@ -118,12 +118,11 @@ function App() {
               <Route path="/control/:id" element={<ControlPage />} />
             </Route>
 
-            <Route element={<ProtectedRoute need="mis_partidos_asignados" />}>
-              <Route path="/asignados" element={<AssignmentsPage fn="REFEREE" />} />
+            <Route element={<ProtectedRoute need="asignaciones" roles={['ADMIN', 'REFEREE', 'PLAYER']} />}>
+              <Route path="/asignaciones" element={<AssignmentsPage />} />
             </Route>
-            <Route element={<ProtectedRoute need="control_mesa" roles={['ADMIN', 'REFEREE', 'PLAYER']} />}>
-              <Route path="/mesa" element={<AssignmentsPage fn="TABLE" />} />
-            </Route>
+            <Route path="/asignados" element={<Navigate to="/asignaciones?tab=arbitro" replace />} />
+            <Route path="/mesa" element={<Navigate to="/asignaciones?tab=mesa" replace />} />
 
             <Route element={<ProtectedRoute need="dashboard_canchas" />}>
               <Route path="/admin/canchas" element={<DashboardPage />} />
