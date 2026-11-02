@@ -112,8 +112,9 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`Servidor escuchando en http://localhost:${PORT}`);
-  // Recupera (en pausa) los relojes guardados antes del reinicio
-  restoreClocks(io);
+// Primero se recuperan los relojes y recién después se acepta gente: si un cliente reconecta antes,
+// getEngine le crea un reloj nuevo (20:00 / 3:00) y la recuperación lo saltea.
+// Tope de 10 s por si la base tarda (Neon frío): en ese caso arranca igual.
+Promise.race([restoreClocks(io), new Promise((r) => setTimeout(r, 10000))]).finally(() => {
+  server.listen(PORT, () => console.log(`Servidor escuchando en http://localhost:${PORT}`));
 });
