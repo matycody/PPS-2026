@@ -8,6 +8,8 @@ import MatchForm from '../../components/MatchForm'
 import MatchRow from '../../components/MatchRow'
 import { useConfirm } from '../../components/ConfirmProvider'
 import { dayOf, dayTab } from '../../lib/days'
+import { usePredictions } from '../../hooks/usePredictions'
+import PredictStrip from '../../components/PredictStrip'
 
 const CHIP_STRIP = '-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
 const chip = (on) => 'shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
@@ -35,7 +37,7 @@ function TournamentBlock({ g, readOnly, children }) {
   )
 }
 
-function AdminRow({ m, hidden, busy, onHide, onRestore, onPurge, selecting, selected, onToggle, readOnly }) {
+function AdminRow({ m, hidden, busy, onHide, onRestore, onPurge, selecting, selected, onToggle, readOnly, prode }) {
   return (
     <MatchRow
       m={m}
@@ -47,12 +49,12 @@ function AdminRow({ m, hidden, busy, onHide, onRestore, onPurge, selecting, sele
       action={!readOnly && !hidden && canHide(m.status) ? (
         <button disabled={busy} onClick={onHide} aria-label="Eliminar" className="grid h-9 w-9 place-items-center rounded-full text-danger disabled:opacity-40"><Trash2 size={16} /></button>
       ) : null}
-      footer={!selecting && hidden ? (
+      footer={prode ?? (!selecting && hidden ? (
         <div className="mt-2 grid grid-cols-2 gap-2">
           <Btn tone="accent" disabled={busy} onClick={onRestore}><RotateCcw size={16} /> Restaurar</Btn>
           <Btn tone="danger" disabled={busy} onClick={onPurge}><Trash2 size={16} /> Definitivo</Btn>
         </div>
-      ) : null}
+      ) : null)}
     />
   )
 }
@@ -287,6 +289,8 @@ export default function PartidosPage({ readOnly = false }) {
     return { byDay, tabs, sel, groups, hasUndated: undated.length > 0, undatedN: undated.length }
   }, [win, view, q, status, tournamentId, teamId, dayPick])
 
+  const { map: prode, pick: pickProde } = usePredictions(dv ? dv.groups.flatMap((g) => g.list.map((m) => m.id)) : [])
+
   // El día elegido queda a la vista en la tira
   useEffect(() => { if (dv?.sel) document.getElementById('pday-' + dv.sel)?.scrollIntoView({ inline: 'center', block: 'nearest' }) }, [dv?.sel, win === null])
 
@@ -446,7 +450,7 @@ export default function PartidosPage({ readOnly = false }) {
       {view === 'active' && dv && dv.groups.map((g) => (
         <TournamentBlock key={g.id} g={g} readOnly={readOnly}>
           {g.list.map((m) => (
-            <AdminRow key={m.id} m={m} hidden={false} busy={busyId === m.id} onHide={() => hide(m)} onRestore={() => restore(m)} onPurge={() => purge(m)} readOnly={readOnly} selecting={false} selected={false} onToggle={() => {}} />
+            <AdminRow key={m.id} m={m} hidden={false} busy={busyId === m.id} onHide={() => hide(m)} onRestore={() => restore(m)} onPurge={() => purge(m)} readOnly={readOnly} selecting={false} selected={false} onToggle={() => {}} prode={<PredictStrip m={m} info={prode[m.id]} onPick={pickProde} />} />
           ))}
         </TournamentBlock>
       ))}

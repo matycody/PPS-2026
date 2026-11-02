@@ -6,6 +6,8 @@ import MatchRow from '../components/MatchRow'
 import ResultRow, { outcome } from '../components/ResultRow'
 import GoTo from '../components/GoTo'
 import TeamBadge from '../components/TeamBadge'
+import { usePredictions } from '../hooks/usePredictions'
+import PredictStrip from '../components/PredictStrip'
 
 const isPast = (s) => s === 'FINISHED' || s === 'CANCELLED'
 const ORDER = { LIVE: 0, READY: 1, SCHEDULED: 2 }
@@ -69,6 +71,7 @@ export default function MisPartidosPage() {
     })
     return out
   }, [upcoming])
+  const { map: prode, pick: pickProde } = usePredictions(groups.flatMap((g) => g.list.map((m) => m.id)))
   const rec = useMemo(() => {
     const r = { G: 0, E: 0, P: 0 }
     past.forEach((m) => { r[outcome(m, myIds).res] += 1 })
@@ -119,7 +122,7 @@ export default function MisPartidosPage() {
                   : <span className="min-w-0 truncate text-sm font-extrabold">{g.name}</span>}
                 <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted">{g.list.length} {g.list.length === 1 ? 'partido' : 'partidos'}</span>
               </div>
-              <div className="divide-y divide-line">{g.list.map((m) => <MatchRow key={m.id} m={m} flat />)}</div>
+              <div className="divide-y divide-line">{g.list.map((m) => <MatchRow key={m.id} m={m} flat footer={<PredictStrip m={m} info={prode[m.id]} onPick={pickProde} />} />)}</div>
             </div>
           ))}
         </section>

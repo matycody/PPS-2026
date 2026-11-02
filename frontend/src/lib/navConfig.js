@@ -1,6 +1,6 @@
 ﻿import {
   Home, Heart, User, CalendarDays, Users, BarChart3, ClipboardList, Gamepad2,
-  LayoutDashboard, Trophy, Shield, UserCog, History as HistoryIcon, Timer, BookOpen, Info, Newspaper, MapPin, Gavel, ClipboardCheck,
+  LayoutDashboard, Target, Trophy, Shield, UserCog, History as HistoryIcon, Timer, BookOpen, Info, Newspaper, MapPin, Gavel, ClipboardCheck,
 } from 'lucide-react'
 
 // Claves que manda el backend en GET /me → menu (importar_excel no se usa)
@@ -42,6 +42,7 @@ export const GENERAL = [
   // El organizador ya tiene 'Partidos' (con edición) en Administración; los demás roles lo ven solo para consultar
   { to: '/partidos', label: 'Partidos', Icon: CalendarDays, hideIf: 'partidos' },
   { to: '/noticias', label: 'Noticias', Icon: Newspaper, bottomOnly: true }, // fija en la barra inferior para todos (no va en el drawer)
+  { to: '/predicciones', label: 'Predicciones', Icon: Target },
   // El organizador ya tiene 'Equipos' en Administración
   { to: '/equipos', label: 'Equipos', Icon: Users, hideIf: 'equipos' },
   // El organizador ya tiene 'Sedes' (con edición) en Administración

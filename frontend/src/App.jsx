@@ -8,7 +8,7 @@ import OnboardingPage from './pages/OnboardingPage'
 import Placeholder from './pages/Placeholder'
 import InicioPage from './pages/InicioPage'
 import MatchPage from './pages/MatchPage'
-import ProdePage from './pages/ProdePage'
+import PrediccionesPage from './pages/PrediccionesPage'
 import AssignmentsPage from './pages/AssignmentsPage'
 import ControlPage from './pages/ControlPage'
 import PerfilPage from './pages/PerfilPage'
@@ -102,7 +102,7 @@ function App() {
             <Route path="/sedes" element={<SedesPublicPage />} />
             <Route path="/noticias" element={<NoticiasPage />} />
             <Route path="/noticias/:id" element={<NoticiaDetalle />} />
-            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos', '/partidos', '/sedes', '/noticias'].includes(g.to)).map((g) => (
+            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos', '/partidos', '/sedes', '/noticias', '/predicciones'].includes(g.to)).map((g) => (
               <Route key={g.to} path={g.to} element={<Placeholder title={g.label} />} />
             ))}
 
@@ -111,7 +111,8 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route path="/perfil" element={<PerfilPage />} />
               <Route path="/favoritos" element={<FavoritosPage />} />
-              <Route path="/prode" element={<ProdePage />} />
+              <Route path="/predicciones" element={<PrediccionesPage />} />
+              <Route path="/prode" element={<Navigate to="/predicciones" replace />} />
               <Route path="/mi-equipo" element={<MiEquipoPage />} />
               <Route path="/mis-partidos" element={<MisPartidosPage />} />
               <Route path="/control/:id" element={<ControlPage />} />
