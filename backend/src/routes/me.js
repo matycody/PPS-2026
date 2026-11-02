@@ -26,6 +26,7 @@ function buildMenu(roles, hasTable) {
   const items = new Set(MENU.BASE);
   for (const role of roles) (MENU[role] || []).forEach((i) => items.add(i));
   if (hasTable) MENU.TABLE.forEach((i) => items.add(i));
+  if (items.has('asignaciones')) items.add('historial_asignaciones'); // entrada aparte en el menú
   return [...items];
 }
 
