@@ -187,18 +187,33 @@ router.get('/', async (req, res) => {
     const take = Math.min(Math.max(parseInt(q.limit, 10) || 50, 1), 200);
     const skip = Math.max(parseInt(q.offset, 10) || 0, 0);
 
-    res.json(
-      await prisma.tournament.findMany({
-        where,
-        orderBy: [{ year: 'desc' }, { startsAt: { sort: 'desc', nulls: 'last' } }, { name: 'asc' }],
-        take,
-        skip,
-        include: {
-          champion: { select: { id: true, name: true } },
-          _count: { select: { teams: true } },
-        },
-      }),
-    );
+    const list = await prisma.tournament.findMany({
+      where,
+      orderBy: [{ year: 'desc' }, { startsAt: { sort: 'desc', nulls: 'last' } }, { name: 'asc' }],
+      take,
+      skip,
+      include: {
+        champion: { select: { id: true, name: true, logo: true } },
+        _count: { select: { teams: true } },
+      },
+    });
+    // Avance de cada torneo: partidos jugados, totales y en vivo (una sola consulta agrupada)
+    const rows = list.length
+      ? await prisma.match.groupBy({
+          by: ['tournamentId', 'status'],
+          where: { tournamentId: { in: list.map((t) => t.id) }, hiddenAt: null },
+          _count: { _all: true },
+        })
+      : [];
+    const prog = new Map();
+    for (const r of rows) {
+      const e = prog.get(r.tournamentId) ?? { played: 0, total: 0, live: 0 };
+      if (r.status !== 'CANCELLED') e.total += r._count._all;
+      if (r.status === 'FINISHED') e.played += r._count._all;
+      if (r.status === 'LIVE') e.live += r._count._all;
+      prog.set(r.tournamentId, e);
+    }
+    res.json(list.map((t) => ({ ...t, progress: prog.get(t.id) ?? { played: 0, total: 0, live: 0 } })));
   } catch (err) {
     handleDbError(err, res);
   }
