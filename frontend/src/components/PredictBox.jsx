@@ -53,7 +53,7 @@ export default function PredictBox({ matchId, teamA, teamB }) {
       </div>
 
       <>
-        {(d.open || !d.blocked) && <div className={'grid gap-2 ' + (opts.length === 3 ? 'grid-cols-3' : 'grid-cols-2')}>
+        {<div className={'grid gap-2 ' + (opts.length === 3 ? 'grid-cols-3' : 'grid-cols-2')}>
           {opts.map((o) => {
             const on = d.pick === o.k
             return (
@@ -72,10 +72,10 @@ export default function PredictBox({ matchId, teamA, teamB }) {
             )
           })}
         </div>}
-        {d.blocked && <p className="mt-3 text-sm text-muted">{d.blocked}.{d.open ? ' Podés ver las cuotas hasta que se habilita el partido.' : ' Las predicciones de este partido ya cerraron.'}</p>}
+        {d.blocked && <p className="mt-3 text-sm text-muted">{d.blocked}.{d.open ? '' : ' Las predicciones de este partido ya cerraron: estas son las cuotas con las que cerraron.'}</p>}
         {!d.blocked && d.open && !d.pick && d.bonus.mult > 1 && <p className="mt-3 text-xs text-muted">Bonus por anticipación <b className="text-fg">{fmtMult(d.bonus.mult)}</b>{d.bonus.next ? ' · baja a ' + fmtMult(d.bonus.next) + ' en ' + d.bonus.inDays + (d.bonus.inDays === 1 ? ' día' : ' días') : ''}</p>}
         {!d.blocked && d.open && d.pick && d.bonus.mine > 1 && <p className="mt-3 text-xs text-muted">Tu bonus por anticipación: <b className="text-fg">{fmtMult(d.bonus.mine)}</b></p>}
-        {!d.open && !d.pick && <p className="mt-3 text-xs font-bold uppercase tracking-wide text-muted">Predicciones cerradas</p>}
+        {!d.open && !d.pick && !d.blocked && <p className="mt-3 text-xs font-bold uppercase tracking-wide text-muted">Predicciones cerradas</p>}
         {verdict && <p className={'mt-3 text-sm font-bold ' + (d.result === 'HIT' ? 'text-live' : 'text-muted')}>{verdict}</p>}
         {err && <p className="mt-2 text-sm text-danger">{err}</p>}
         <p className="mt-3 text-[11px] text-muted">{d.votes.total} {d.votes.total === 1 ? 'voto' : 'votos'}</p>
