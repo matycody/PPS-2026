@@ -157,7 +157,7 @@ export default function PrediccionesPage() {
     return (open ?? []).filter((m) => teams.has(m.teamA?.id) || teams.has(m.teamB?.id) || tours.has(m.tournamentId))
   }, [open, favs])
 
-  const mias = useMemo(() => (me?.predictions ?? []).filter((p) => (mineView === 'abiertas' ? p.result === 'PENDING' : p.result !== 'PENDING')), [me, mineView])
+  const mias = useMemo(() => (me?.predictions ?? []).filter((p) => (mineView === 'abiertas' ? p.result === 'PENDING' && !p.voidReason : p.result !== 'PENDING' || p.voidReason)), [me, mineView])
 
   return (
     <div className="space-y-4">
@@ -179,6 +179,13 @@ export default function PrediccionesPage() {
         {TABS.map(([k, l]) => <Pill key={k} on={tab === k} onClick={() => setTab(k)}>{l}</Pill>)}
       </div>
       {err && <p className="text-sm text-danger">{err}</p>}
+
+      {(me?.predictions ?? []).filter((p) => p.voidReason).map((p) => (
+        <div key={p.matchId} className="rounded-2xl border box-warn px-4 py-3 text-sm">
+          <p className="font-bold text-warn">Tu predicción no es válida</p>
+          <p className="mt-0.5 text-xs">{p.match.teamA?.name} vs {p.match.teamB?.name}: {p.voidReason}</p>
+        </div>
+      ))}
 
       {tab === 'calendario' && (open === null ? <Skeleton /> : (
         <div className="space-y-5">
@@ -213,7 +220,7 @@ export default function PrediccionesPage() {
           {mias.length === 0 && <Empty>{mineView === 'abiertas' ? 'No tenés predicciones esperando resultado. Elegí un partido en el Calendario.' : 'Todavía no se resolvió ninguna de tus predicciones.'}</Empty>}
           <div className="divide-y divide-line rounded-2xl border border-line bg-surface empty:hidden">
             {mias.map((p) => {
-              const r = RESULT[p.result]
+              const r = p.voidReason ? { label: 'Anulada', cls: 'bg-warn/15 text-warn' } : RESULT[p.result]
               return (
                 <Link key={p.matchId} to={'/partido/' + p.matchId} className="flex items-center justify-between gap-3 px-3 py-3">
                   <div className="min-w-0">
