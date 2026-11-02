@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, Plus, Pencil, Trash2 } from 'lucide-react'
-import { api } from '../lib/api'
+import { api, apiUpload } from '../lib/api'
 import { Btn, Alert, Skeleton, inputCls } from '../components/ui'
 import { useAuthStore } from '../stores/authStore'
 import { useFavorites } from '../stores/favoritesStore'
@@ -46,6 +46,17 @@ function Editor({ initial, teams, onSaved, onCancel }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }))
+  const [up, setUp] = useState(false)
+  const fileRef = useRef(null)
+  const pickFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return setErr('Usá una imagen JPG, PNG o WebP')
+    if (file.size > 5 * 1024 * 1024) return setErr('La imagen supera los 5 MB')
+    setUp(true); setErr('')
+    try { const r = await apiUpload('/photos/news-image', file); set('imageUrl', r.url) } catch (e2) { setErr(e2.message) } finally { setUp(false) }
+  }
   const save = async () => {
     setBusy(true); setErr('')
     try {
@@ -60,7 +71,15 @@ function Editor({ initial, teams, onSaved, onCancel }) {
       <input className={inputCls} placeholder="Título" maxLength={140} value={f.title} onChange={(e) => set('title', e.target.value)} />
       <input className={inputCls} placeholder="Bajada corta (opcional)" maxLength={280} value={f.summary} onChange={(e) => set('summary', e.target.value)} />
       <textarea className={inputCls + ' min-h-[10rem]'} placeholder="Escribí la noticia. Dejá una línea en blanco entre párrafos." value={f.body} onChange={(e) => set('body', e.target.value)} />
-      <input className={inputCls} placeholder="Enlace de la imagen de portada (opcional, https)" value={f.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} />
+      <div className="space-y-2">
+        {f.imageUrl && <img src={f.imageUrl} alt="" className="max-h-48 w-full rounded-2xl object-cover" />}
+        <div className="flex flex-wrap gap-2">
+          <Btn onClick={() => fileRef.current?.click()} disabled={busy || up}>{up ? 'Subiendo…' : f.imageUrl ? 'Cambiar imagen' : 'Subir imagen (celular o PC)'}</Btn>
+          {f.imageUrl && <Btn tone="danger" onClick={() => set('imageUrl', '')} disabled={busy || up}>Quitar</Btn>}
+        </div>
+        <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={pickFile} />
+        <input className={inputCls} placeholder="O pegá el enlace de una imagen (https)" value={f.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} />
+      </div>
       <select className={inputCls} value={f.teamId} onChange={(e) => set('teamId', e.target.value)}>
         <option value="">Noticia general de la liga</option>
         {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
