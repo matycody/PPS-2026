@@ -16,6 +16,8 @@ import PredictBox from '../components/PredictBox'
 import ScoreTimeline from '../components/ScoreTimeline'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { usePipClock } from '../hooks/usePipClock'
+import MatchSpectator from '../components/match/MatchSpectator'
+import { useAuthStore } from '../stores/authStore'
 
 const showTime = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
 
@@ -53,6 +55,7 @@ export default function MatchPage() {
   const [error, setError] = useState('')
   const sanctions = useSanctions(id)
   const pip = usePipClock(m)
+  const isAdmin = useAuthStore((s) => !!s.user?.roles?.includes('ADMIN'))
   useWakeLock(!!tick && (!tick.isMatchPaused || !tick.isSetPaused || !!tick.isTimeoutRunning))
 
   useEffect(() => {
@@ -92,6 +95,9 @@ export default function MatchPage() {
 
   // Finalizado: solo si la mesa/árbitro lo finalizó o cerró
   const over = m.status === 'FINISHED' || !!tick?.matchEnded
+
+  // Vista nueva para el espectador: por ahora solo la ve el organizador (el resto, la actual)
+  if (isAdmin) return <MatchSpectator m={m} tick={tick} over={over} notice={notice} onCloseNotice={() => setNotice('')} sanctions={sanctions} />
 
   return (
     <div className="space-y-4">
