@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarDays, ClipboardList, Trophy, User, X } from 'lucide-react'
+import { CalendarDays, ClipboardList, Pin, PinOff, Trophy, User, X } from 'lucide-react'
 import { api } from '../../lib/api'
 import { BRANCH, MODALITY, courtLabel } from '../../lib/format'
 import { halfLabel } from '../../lib/pipTime'
@@ -19,6 +19,30 @@ import StandingsView from '../torneo/StandingsView'
 import { Skeleton } from '../ui'
 
 const showTime = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
+
+function ClockCard({ label, time, paused, finished }) {
+  return (
+    <div className="rounded-3xl border border-line bg-surface p-4">
+      <p className="text-xs font-bold uppercase tracking-widest text-muted">{label}</p>
+      <p className="my-3 text-center font-mono text-[clamp(1.75rem,9vw,3rem)] font-extrabold tabular-nums text-live">{showTime(time)}</p>
+      <p className={'rounded-full py-2 text-center text-xs font-bold uppercase ' + (finished ? 'bg-surface-2 text-muted' : paused ? 'bg-danger/15 text-danger' : 'bg-live/15 text-live')}>
+        {finished ? 'Finalizado' : paused ? 'Pausado' : 'En marcha'}
+      </p>
+    </div>
+  )
+}
+
+function TimeoutBanner({ tick, nameA, nameB }) {
+  const team = tick?.timeoutTeam
+  if (!team) return null
+  const expired = !tick.isTimeoutRunning
+  return (
+    <div className="rounded-3xl border box-warn p-4 text-center">
+      <p className="text-xs font-bold uppercase tracking-widest text-warn">Tiempo muerto - {team === 'A' ? nameA : nameB}</p>
+      <p className={'my-2 font-mono text-[clamp(2rem,10vw,3.5rem)] font-extrabold tabular-nums ' + (expired ? 'text-danger' : 'text-warn')}>{showTime(tick.timeoutTime)}</p>
+    </div>
+  )
+}
 const hourOf = (iso, timeSet) => (iso && timeSet !== false ? new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : null)
 
 // Cuenta regresiva hasta el inicio programado (HH:MM:SS; con días si falta más de uno)
@@ -55,7 +79,7 @@ function Team({ t, slot, form, rank, branch }) {
 }
 
 // Cabecera: el centro depende del estado (previa: cuenta regresiva · en vivo: marcador y relojes · final: resultado)
-function Header({ m, tick, over }) {
+function Header({ m, tick, over, pip }) {
   const live = m.status === 'LIVE' && !over
   const pre = m.status === 'SCHEDULED' || m.status === 'READY'
   const count = useCountdown(m.scheduledAt, pre)
@@ -88,7 +112,14 @@ function Header({ m, tick, over }) {
     )
   }
   return (
-    <section className="rounded-3xl border border-line bg-surface p-4">
+    <section className="relative rounded-3xl border border-line bg-surface p-4">
+      {pip?.canPin && (
+        <button type="button" onClick={pip.toggle} aria-label={pip.active ? 'Quitar reloj flotante' : 'Fijar reloj flotante'} aria-pressed={pip.active}
+          className={'absolute right-1 top-1 grid h-11 w-11 place-items-center rounded-full ' + (pip.active ? 'text-live' : 'text-muted')}>
+          {pip.active ? <PinOff size={18} /> : <Pin size={18} />}
+        </button>
+      )}
+      {pip?.error && <p className="mb-2 text-center text-xs text-danger">{pip.error}</p>}
       <div className="mb-3 flex flex-wrap items-center justify-center gap-2 text-center">
         <StatusPill status={over ? 'FINISHED' : m.status} />
         <span className="text-xs text-muted">{courtLabel(m.court)} · {MODALITY[m.modality]} · {BRANCH[m.branch] ?? m.branch}</span>
@@ -206,14 +237,15 @@ function HeadToHead({ m }) {
 
 const TABS = [['resumen', 'Resumen'], ['alineacion', 'Alineación'], ['predicciones', 'Predicciones'], ['clasificacion', 'Clasificación'], ['cara', 'Cara a cara']]
 
-// Vista del partido para el espectador (por ahora solo la ve el organizador, para probarla)
-export default function MatchSpectator({ m, tick, over, notice, onCloseNotice, sanctions }) {
+// Vista del partido para todos los usuarios (la mesa y el árbitro controlan desde Control de mesa / Partidos asignados)
+export default function MatchSpectator({ m, tick, over, notice, onCloseNotice, sanctions, pip }) {
   const [tab, setTab] = useState('resumen')
   const tabs = TABS.filter(([k]) => k !== 'clasificacion' || m.tournament?.id)
   return (
     <div className="space-y-4">
-      <Header m={m} tick={tick} over={over} />
+      <Header m={m} tick={tick} over={over} pip={pip} />
       <MatchNotice m={m} />
+      {tick?.recovered && <p className="rounded-2xl bg-warn/15 px-4 py-3 text-center text-sm font-bold text-warn">Reloj recuperado tras un reinicio del servidor: puede que el tiempo no sea exacto hasta que la mesa lo reanude.</p>}
       {notice && (
         <button onClick={onCloseNotice} className="flex w-full items-center justify-between gap-3 rounded-2xl border box-warn px-4 py-3 text-left text-sm font-bold text-warn">
           {notice} <X size={16} className="shrink-0" />
@@ -227,6 +259,15 @@ export default function MatchSpectator({ m, tick, over, notice, onCloseNotice, s
 
       {tab === 'resumen' && (
         <div className="space-y-5">
+          {(m.status === 'LIVE' || tick) && !over && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <ClockCard label="Partido" time={tick?.matchTime} paused={tick?.isMatchPaused ?? true} />
+                <ClockCard label="Set" time={tick?.setTime} paused={tick?.isSetPaused ?? true} />
+              </div>
+              <TimeoutBanner tick={tick} nameA={m.teamA?.name ?? 'Equipo A'} nameB={m.teamB?.name ?? 'Equipo B'} />
+            </>
+          )}
           <PredictBox matchId={m.id} teamA={m.teamA} teamB={m.teamB} />
           {(m.sets?.length ?? 0) > 0 && <ScoreTimeline m={m} />}
           <Details m={m} />
