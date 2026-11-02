@@ -183,6 +183,7 @@ model Tournament {
   pointsDraw Int              @default(1)
   pointsLoss Int              @default(0)
   championId String?
+  logo       String? // imagen del torneo (bucket público); sin imagen se muestra la inicial
   pausedAt   DateTime? // pausado: oculto para todos menos la organización; null = visible
   deletedAt  DateTime? // en "Eliminados": no lo ve nadie (ni la organización) hasta restaurarlo o borrarlo definitivamente
 

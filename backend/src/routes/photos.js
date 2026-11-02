@@ -95,6 +95,34 @@ router.delete('/teams/:id', ...admin, async (req, res) => {
   }
 });
 
+// Admin: imagen del torneo (bucket público, la URL se guarda en Tournament.logo)
+router.put('/tournaments/:id', ...admin, storage.imageBody, async (req, res) => {
+  try {
+    const t = await prisma.tournament.findUnique({ where: { id: req.params.id } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+
+    const webp = await storage.processImage(req.body, 'logo');
+    const url = await storage.uploadLogo('tournaments/' + t.id + '.webp', webp);
+    await prisma.tournament.update({ where: { id: t.id }, data: { logo: url } });
+    res.json({ logo: url });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+router.delete('/tournaments/:id', ...admin, async (req, res) => {
+  try {
+    const t = await prisma.tournament.findUnique({ where: { id: req.params.id } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+
+    await prisma.tournament.update({ where: { id: t.id }, data: { logo: null } });
+    await storage.removeFile(storage.LOGOS_BUCKET, 'tournaments/' + t.id + '.webp').catch(() => {});
+    res.json({ ok: true });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
 // Admin: escudo propio de una rama del equipo (si no tiene, se usa el general)
 const BRANCHES = ['MIXED', 'MALE', 'FEMALE'];
 router.put('/teams/:id/branch/:branch', ...admin, storage.imageBody, async (req, res) => {
