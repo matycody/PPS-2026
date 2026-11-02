@@ -3,7 +3,7 @@ import SIRENA from './sirenaData.js'
 let ctx = null
 let buffer = null
 let loading = null
-let muted = false
+let muted = true // por defecto silenciado para todos los roles; solo suena si el usuario lo activa
 let userChose = false
 try {
   const s = localStorage.getItem('sound-muted')

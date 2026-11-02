@@ -8,7 +8,7 @@ export function useMatchSound(matchId, allowed) {
   useEffect(() => {
     setSoundAllowed(!!allowed)
     if (!allowed) return undefined
-    setDefaultMuted(false)
+    setDefaultMuted(true) // arranca silenciado: lo activa el usuario con el botón
     const onSet = (p) => p.matchId === matchId && play(p.source === 'match' ? 'match' : 'set')
     const onTimeout = (p) => p.matchId === matchId && play('timeout')
     socket.on('match:setExpired', onSet)
