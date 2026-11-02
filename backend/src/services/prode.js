@@ -64,27 +64,32 @@ function bonusFrom(scheduledAt, from = new Date()) {
   return { mult, next, inDays };
 }
 
-// Cierre del partido (pasa a Habilitado): la base y el bonus de cada predicción quedan fijos
+// Cierre del partido (pasa a Habilitado): las cuotas del cierre quedan guardadas en el partido y
+// la base y el bonus de cada predicción quedan fijos
 async function freezePredictions(matchId) {
   const { oddsForMatches } = require('./odds');
   const match = await prisma.match.findUnique({
     where: { id: matchId },
-    select: { id: true, modality: true, branch: true, scheduledAt: true, teamAId: true, teamBId: true, stage: { select: { type: true } } },
+    select: { id: true, modality: true, branch: true, scheduledAt: true, teamAId: true, teamBId: true, closingOdds: true, stage: { select: { type: true } } },
   });
   if (!match) return;
+  const odds = (await oddsForMatches([match])).get(match.id);
+  if (!match.closingOdds) await prisma.match.update({ where: { id: matchId }, data: { closingOdds: odds } });
   const rows = await prisma.prediction.findMany({ where: { matchId, closedAt: null } });
   if (!rows.length) return;
-  const odds = (await oddsForMatches([match])).get(match.id);
   const now = new Date();
   await prisma.$transaction(rows.map((r) => {
-    const o = odds[r.pick];
+    const o = (match.closingOdds ?? odds)[r.pick];
     const bonus = bonusFrom(match.scheduledAt, r.pickedAt).mult;
     return prisma.prediction.update({ where: { id: r.id }, data: { closedAt: now, cuota: o.cuota, bonus, points: Math.round(o.pts * bonus) } });
   }));
 }
 
 // Si el partido vuelve a Programado (se des-habilita), las predicciones se reabren
-const reopenPredictions = (matchId) => prisma.prediction.updateMany({ where: { matchId, closedAt: { not: null } }, data: { closedAt: null, bonus: null, cuota: null } });
+async function reopenPredictions(matchId) {
+  await prisma.prediction.updateMany({ where: { matchId, closedAt: { not: null } }, data: { closedAt: null, bonus: null, cuota: null } });
+  await prisma.match.update({ where: { id: matchId }, data: { closingOdds: null } });
+}
 
 const matchFields = { id: true, status: true, hiddenAt: true, modality: true, teamAId: true, teamBId: true };
 

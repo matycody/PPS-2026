@@ -14,12 +14,26 @@ function handleError(err, res) {
 
 const matchSelect = {
   id: true, status: true, hiddenAt: true, modality: true, branch: true, scheduledAt: true, timeSet: true, tournamentId: true,
-  teamAId: true, teamBId: true, stage: { select: { type: true } },
+  teamAId: true, teamBId: true, closingOdds: true, stage: { select: { type: true } },
   tournament: { select: { id: true, name: true } },
   teamA: { select: { id: true, name: true, logo: true } },
   teamB: { select: { id: true, name: true, logo: true } },
   sets: { select: { winnerTeamId: true } },
 };
+
+// Cuotas de cada partido: abiertos = las de hoy; cerrados = las del cierre (si no se guardaron, se guardan ahora)
+async function oddsOf(matches) {
+  const live = await oddsForMatches(matches);
+  const out = new Map();
+  for (const m of matches) {
+    if (m.status === 'SCHEDULED') { out.set(m.id, live.get(m.id)); continue; }
+    if (m.closingOdds) { out.set(m.id, m.closingOdds); continue; }
+    const o = live.get(m.id);
+    await prisma.match.update({ where: { id: m.id }, data: { closingOdds: o } }).catch(() => {});
+    out.set(m.id, o);
+  }
+  return out;
+}
 
 const isOpen = (m) => !m.hiddenAt && OPEN_STATUSES.includes(m.status) && !!m.teamAId && !!m.teamBId;
 
@@ -91,9 +105,9 @@ router.get('/open', async (req, res) => {
     });
     const ids = matches.map((m) => m.id);
     const { id: userId, profileId } = req.user;
-    const [ctx, odds] = await Promise.all([context(userId, profileId, ids), oddsForMatches(matches)]);
+    const [ctx, odds] = await Promise.all([context(userId, profileId, ids), oddsOf(matches)]);
     res.json(matches.map((m) => {
-      const { sets, stage, ...rest } = m;
+      const { sets, stage, closingOdds, ...rest } = m;
       return { ...rest, prode: view(m, odds.get(m.id), ctx.pick(m.id), ctx.votes(m.id), ctx.blocked(m)) };
     }));
   } catch (err) {
@@ -108,7 +122,7 @@ router.get('/matches', async (req, res) => {
     if (!ids.length) return res.json({});
     const { id: userId, profileId } = req.user;
     const matches = await prisma.match.findMany({ where: { id: { in: ids }, hiddenAt: null }, select: matchSelect });
-    const [ctx, odds] = await Promise.all([context(userId, profileId, ids), oddsForMatches(matches)]);
+    const [ctx, odds] = await Promise.all([context(userId, profileId, ids), oddsOf(matches)]);
     const out = {};
     for (const m of matches) out[m.id] = view(m, odds.get(m.id), ctx.pick(m.id), ctx.votes(m.id), ctx.blocked(m));
     res.json(out);
@@ -122,7 +136,7 @@ router.get('/match/:matchId', async (req, res) => {
     const match = await prisma.match.findUnique({ where: { id: req.params.matchId }, select: matchSelect });
     if (!match || match.hiddenAt) return res.status(404).json({ error: 'Partido no encontrado' });
     const { id: userId, profileId } = req.user;
-    const [ctx, odds, blocked] = await Promise.all([context(userId, profileId, [match.id]), oddsForMatches([match]), blockedReason(req.user, match)]);
+    const [ctx, odds, blocked] = await Promise.all([context(userId, profileId, [match.id]), oddsOf([match]), blockedReason(req.user, match)]);
     res.json(view(match, odds.get(match.id), ctx.pick(match.id), ctx.votes(match.id), blocked));
   } catch (err) {
     handleError(err, res);
@@ -238,7 +252,7 @@ router.get('/me', async (req, res) => {
       if (result === 'HIT' || result === 'MISS') settled++;
       if (result === 'HIT') hits++;
       total += earned;
-      const { sets, hiddenAt, ...m } = r.match;
+      const { sets, hiddenAt, closingOdds, ...m } = r.match;
       const o = odds.get(r.matchId);
       const points = !r.closedAt && o ? Math.round(o[r.pick].pts * bonusFrom(m.scheduledAt, r.pickedAt).mult) : r.points; // abiertas: lo que valdría hoy
       return { matchId: r.matchId, pick: r.pick, points, result, earned, cuota: r.cuota ?? o?.[r.pick]?.cuota ?? null, bonus: r.bonus ?? bonusFrom(m.scheduledAt, r.pickedAt).mult, closed: !!r.closedAt, match: m };

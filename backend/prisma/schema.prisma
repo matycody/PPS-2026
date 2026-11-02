@@ -225,6 +225,7 @@ model Match {
   clock        MatchClock?
   sanctions    MatchSanction[]
   predictions  Prediction[]
+  closingOdds  Json? // cuotas con las que cerró el prode (al habilitarse el partido)
 
   stageId    String?
   matchdayId String?
