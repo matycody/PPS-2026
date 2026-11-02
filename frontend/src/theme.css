@@ -14,14 +14,14 @@
   --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 }
 
-/* Claro "Cancha": fondo gris-azulado, tarjetas blancas con sombra, texto marino */
+/* Claro "Celeste cielo": tarjetas y barras celestes (sin blanco), texto azul marino. El fondo de Dodgeball Buenos Aires no cambia. Copia del tema anterior: rama backup/tema-original */
 :root {
   --bg: #e9eef5;
-  --fg: #0b1220;
-  --surface: #ffffff;
-  --surface-2: #dde5ef;
-  --line: #c3cedd;
-  --muted: #3f4c66;
+  --fg: #0a2850;
+  --surface: #d5eafe;
+  --surface-2: #bedcfb;
+  --line: #8dbdec;
+  --muted: #3f6290;
 }
 html:not(.dark) .bg-surface {
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 6px 16px rgba(15, 23, 42, 0.07);
@@ -30,11 +30,11 @@ html:not(.dark) .bg-surface {
 /* Oscuro (clase que pone themeStore en <html>) */
 .dark {
   --bg: #0a0a0b;
-  --fg: #f4f4f5;
-  --surface: #141416;
-  --surface-2: #1c1c20;
-  --line: #26262b;
-  --muted: #c2c2cc;
+  --fg: #ffffff;
+  --surface: #0e2b5e;
+  --surface-2: #17387a;
+  --line: #2c54a0;
+  --muted: #a9bee6;
 }
 
 /* Color de acento por rol (sirve en ambos temas) */

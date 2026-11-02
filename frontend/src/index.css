@@ -70,7 +70,7 @@ html:not(.dark) :is(h1, h2, h3, .text-muted) {
 }
 /* Claro: barras blancas legibles y menú desplegable blanco sólido */
 html:not(.dark) .menu-glass {
-  background: #ffffff;
+  background: var(--surface);
 }
 html:not(.dark) header.menu-glass {
   margin: 0.5rem 1rem 0;
@@ -130,7 +130,7 @@ html.dark .menu-glass-drawer {
   box-shadow: 6px 0 24px rgba(0, 0, 0, 0.6);
 }
 html:not(.dark) .menu-glass-drawer {
-  background: #ffffff;
+  background: var(--surface);
   box-shadow: 6px 0 24px rgba(15, 23, 42, 0.18);
 }
 
