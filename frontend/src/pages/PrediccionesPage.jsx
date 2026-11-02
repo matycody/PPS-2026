@@ -36,7 +36,7 @@ function Destacados({ open, renderCard }) {
     <div className="space-y-4">
       {groups.map(([title, sub, list]) => (
         <section key={title}>
-          <p className="mb-2 flex items-baseline gap-2"><span className="text-sm font-extrabold">{title}</span><span className="text-[11px] text-muted">{sub}</span></p>
+          <p className="mb-2 flex items-baseline gap-2"><span className="text-sm font-extrabold">{title}</span><span className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-[11px] text-muted [text-shadow:none]">{sub}</span></p>
           <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1">
             {list.map((m) => <div key={m.id} className="w-[85%] max-w-sm shrink-0 snap-start">{renderCard(m)}</div>)}
           </div>
