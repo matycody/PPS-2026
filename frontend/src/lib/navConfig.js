@@ -11,6 +11,7 @@ export const ITEMS = {
   mis_partidos: { to: '/mis-partidos', label: 'Mis partidos', Icon: CalendarDays },
   mi_equipo: { to: '/mi-equipo', label: 'Ficha de mi equipo', Icon: Users },
   mis_estadisticas: { to: '/mis-estadisticas', label: 'Mis estadísticas', Icon: BarChart3, soon: true },
+  historial_asignaciones: { to: '/asignaciones/historial', label: 'Historial', Icon: HistoryIcon },
   asignaciones: { to: '/asignaciones', label: 'Mis asignaciones', Icon: ClipboardList }, // árbitro + mesa en una sola pantalla
   dashboard_canchas: { to: '/admin/canchas', label: 'Dashboard de canchas', Icon: LayoutDashboard },
   torneos: { to: '/admin/torneos', label: 'Torneos', Icon: Trophy },
@@ -27,7 +28,7 @@ export const ITEMS = {
 // Secciones del drawer, en orden
 export const SECTIONS = [
   { title: 'Mi actividad', keys: ['mis_partidos', 'mi_equipo', 'mis_estadisticas', 'favoritos'] },
-  { title: 'Árbitro y mesa', keys: ['asignaciones'] },
+  { title: 'Árbitro y mesa', keys: ['asignaciones', 'historial_asignaciones'] },
   { title: 'Administración', keys: ['dashboard_canchas', 'torneos', 'partidos', 'equipos', 'sedes', 'sanciones', 'personas', 'usuarios', 'planillas', 'registro_ediciones'] },
 ]
 
