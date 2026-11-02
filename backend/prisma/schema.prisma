@@ -326,6 +326,8 @@ model MatchClock {
   isTimeoutRunning   Boolean
   matchHalf          Int      @default(1)
   clothAutoResetUsed Boolean  @default(false)
+  matchEnded         Boolean  @default(false)
+  sanctions          Json     @default("[]") // amarillas y azules con tiempo afuera en curso
   timeoutTeam        String? // "A" | "B" mientras hay un tiempo muerto en curso
   timeoutHalf        Int?
   timeoutsUsed       Json // { A: { 1, 2 }, B: { 1, 2 } }
