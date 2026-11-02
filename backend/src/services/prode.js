@@ -4,7 +4,7 @@ const prisma = require('../db');
 // "points" se guarda en cada predicción, así más adelante el valor puede depender de la probabilidad sin tocar las ya hechas.
 const POINTS_PER_HIT = 10;
 const PICKS = ['A', 'DRAW', 'B'];
-const OPEN_STATUSES = ['SCHEDULED', 'READY']; // se predice hasta que el partido pasa a En vivo
+const OPEN_STATUSES = ['SCHEDULED']; // se predice mientras está Programado: al pasar a Habilitado (unos minutos antes de empezar) se cierra
 
 // Resultado por puntos de juego (igual que la tabla): Foam 1 por set, Cloth 2 por set y 1 cada uno si el set empata.
 // null = sin sets cargados (no se puede decidir)
@@ -30,21 +30,62 @@ function verdict(prediction, match) {
   return o.pick === prediction.pick ? 'HIT' : 'MISS';
 }
 
+const BLOCK_OWN = 'Jugás en uno de los equipos de este partido: no podés predecirlo';
+const BLOCK_ASSIGNED = 'Estás asignado a este partido: no podés predecirlo';
+
 // Por qué este usuario NO puede predecir este partido (o null si puede):
 // juega en alguno de los dos equipos, o está asignado al partido (mesa/árbitro)
 async function blockedReason(user, match) {
   if (user.profileId) {
     const ids = [match.teamAId, match.teamBId].filter(Boolean);
     const own = await prisma.playerTeam.findFirst({ where: { profileId: user.profileId, teamId: { in: ids }, to: null } });
-    if (own) return 'Jugás en uno de los equipos de este partido: no podés predecirlo';
+    if (own) return BLOCK_OWN;
   }
   const assigned = await prisma.matchAssignment.findFirst({
     where: { matchId: match.id, OR: [{ userId: user.id }, ...(user.profileId ? [{ profileId: user.profileId }] : [])] },
   });
-  if (assigned) return 'Estás asignado a este partido: no podés predecirlo';
+  if (assigned) return BLOCK_ASSIGNED;
   return null;
 }
 
+// Bonus por anticipación: cuanto antes del partido se predice, más multiplica los puntos base.
+// El reloj arranca al predecir y solo se reinicia si se cambia la elección.
+const TIERS = [[90, 1.75], [60, 1.5], [30, 1.3], [14, 1.15], [7, 1.08], [3, 1.03], [0, 1]];
+const DAY = 86400000;
+const daysBetween = (from, to) => (to ? (new Date(to).getTime() - new Date(from).getTime()) / DAY : 0);
+const tierOf = (days) => (TIERS.find(([d]) => days >= d) ?? [0, 1])[1];
+// Bonus que se lleva quien predice "desde" (ahora por defecto) para un partido que arranca en "scheduledAt"
+function bonusFrom(scheduledAt, from = new Date()) {
+  const days = scheduledAt ? daysBetween(from, scheduledAt) : 0;
+  const mult = tierOf(days);
+  const idx = TIERS.findIndex(([, m]) => m === mult);
+  const next = idx >= 0 && idx < TIERS.length - 1 ? TIERS[idx + 1][1] : null;
+  const inDays = next ? Math.max(1, Math.ceil(days - TIERS[idx][0])) : null; // cuándo baja a la franja siguiente
+  return { mult, next, inDays };
+}
+
+// Cierre del partido (pasa a Habilitado): la base y el bonus de cada predicción quedan fijos
+async function freezePredictions(matchId) {
+  const { oddsForMatches } = require('./odds');
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    select: { id: true, modality: true, branch: true, scheduledAt: true, teamAId: true, teamBId: true, stage: { select: { type: true } } },
+  });
+  if (!match) return;
+  const rows = await prisma.prediction.findMany({ where: { matchId, closedAt: null } });
+  if (!rows.length) return;
+  const odds = (await oddsForMatches([match])).get(match.id);
+  const now = new Date();
+  await prisma.$transaction(rows.map((r) => {
+    const o = odds[r.pick];
+    const bonus = bonusFrom(match.scheduledAt, r.pickedAt).mult;
+    return prisma.prediction.update({ where: { id: r.id }, data: { closedAt: now, cuota: o.cuota, bonus, points: Math.round(o.pts * bonus) } });
+  }));
+}
+
+// Si el partido vuelve a Programado (se des-habilita), las predicciones se reabren
+const reopenPredictions = (matchId) => prisma.prediction.updateMany({ where: { matchId, closedAt: { not: null } }, data: { closedAt: null, bonus: null, cuota: null } });
+
 const matchFields = { id: true, status: true, hiddenAt: true, modality: true, teamAId: true, teamBId: true };
 
-module.exports = { POINTS_PER_HIT, PICKS, OPEN_STATUSES, outcome, verdict, blockedReason, matchFields };
+module.exports = { bonusFrom, freezePredictions, reopenPredictions, POINTS_PER_HIT, PICKS, OPEN_STATUSES, BLOCK_OWN, BLOCK_ASSIGNED, outcome, verdict, blockedReason, matchFields };

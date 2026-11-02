@@ -669,7 +669,11 @@ model Prediction {
   userId    String
   matchId   String
   pick      String   // A | DRAW | B
-  points    Int      @default(10)
+  points    Int      @default(10) // al cerrar queda el total (base × bonus); antes es solo un valor provisorio
+  pickedAt  DateTime @default(now()) // desde cuándo vale esta elección (arranca el reloj del bonus; se reinicia solo si cambia el pick)
+  closedAt  DateTime? // cuándo se congelaron base y bonus (el partido pasó a Habilitado)
+  cuota     Float? // cuota que tenía la elección al cerrar
+  bonus     Float? // multiplicador por anticipación al cerrar
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

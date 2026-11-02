@@ -8,6 +8,8 @@ const { notifyMatch } = require('../services/notify');
 const { ExtraMatchError, assertTournamentOpen, planStanding, placeInFixture } = require('../services/extraMatch');
 const { getMatch } = require('../timers/matchManager');
 const { setsWithScore } = require('../services/scoreTimeline');
+const { freezePredictions, reopenPredictions } = require('../services/prode');
+const { invalidateOdds } = require('../services/odds');
 const { editorLabel, setResultLabel, buildLogData, logEntry, describeClockAction } = require('../services/resultLog');
 
 const router = express.Router();
@@ -661,6 +663,7 @@ router.post('/:id/ready', authenticate, async (req, res) => {
       where: { id: ctx.match.id },
       data: { status: 'READY', readyAt: new Date(), readyBy: req.user.id },
     });
+    await freezePredictions(ctx.match.id).catch((e) => console.error('[prode] cierre', e)); // las predicciones se cierran al habilitar
     await notifyMatch(req.app.get('io'), req.params.id);
     res.json(serialize(await fetchMatch(ctx.match.id, ctx.perms.isAdmin), ctx.perms.isAdmin));
   } catch (err) {
@@ -680,6 +683,7 @@ router.post('/:id/unready', authenticate, async (req, res) => {
       where: { id: ctx.match.id },
       data: { status: 'SCHEDULED', readyAt: null, readyBy: null },
     });
+    await reopenPredictions(ctx.match.id).catch((e) => console.error('[prode] reapertura', e));
     await notifyMatch(req.app.get('io'), req.params.id);
     res.json(serialize(await fetchMatch(ctx.match.id, ctx.perms.isAdmin), ctx.perms.isAdmin));
   } catch (err) {
@@ -798,6 +802,7 @@ router.post('/:id/finish', authenticate, async (req, res) => {
       where: { id: ctx.match.id },
       data: { status: 'FINISHED', finishedAt: new Date() },
     });
+    invalidateOdds(); // el resultado cambia la fuerza de los equipos: las cuotas se recalculan
     await notifyMatch(req.app.get('io'), req.params.id);
     res.json(serialize(await fetchMatch(ctx.match.id, true), true));
   } catch (err) {
