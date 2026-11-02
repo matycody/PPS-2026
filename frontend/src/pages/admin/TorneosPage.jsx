@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { useTournamentLive } from '../../hooks/useTournamentLive'
 import { Link, useNavigate } from 'react-router-dom'
 import { Pencil, Trash2, ChevronUp, ChevronDown, ChevronRight, Trophy } from 'lucide-react'
-import { api } from '../../lib/api'
+import { api, apiUpload } from '../../lib/api'
 import { BRANCH, MODALITY, FORMAT, TSTATUS, CRITERIA, fmtDate } from '../../lib/format'
 import { Btn, Alert, inputCls, Skeleton } from '../../components/ui'
 import { useConfirm } from '../../components/ConfirmProvider'
+import LogoPicker from '../../components/LogoPicker'
+import TeamBadge from '../../components/TeamBadge'
 
 const NOW_YEAR = new Date().getFullYear()
 const EMPTY = {
@@ -26,6 +28,8 @@ export default function TorneosPage() {
   const [form, setForm] = useState(EMPTY)
   const [tb, setTb] = useState(null) // null = desempates por defecto del backend
   const [editId, setEditId] = useState(null)
+  const [logo, setLogo] = useState(null) // al crear: { file, url } pendiente de subir
+  const [curLogo, setCurLogo] = useState(null) // al editar: URL actual
   const [editDraft, setEditDraft] = useState(true) // rama, modalidad, año y formato solo se editan en borrador
   const [yearFilter, setYearFilter] = useState('')
   const [view, setView] = useState('active') // active | deleted (papelera)
@@ -44,6 +48,18 @@ export default function TorneosPage() {
   }
   const toggleCriterion = (c) => setTb((a) => (a.includes(c) ? a.filter((x) => x !== c) : [...a, c]))
 
+  const pickLogo = (file) => setLogo((prev) => { if (prev) URL.revokeObjectURL(prev.url); return { file, url: URL.createObjectURL(file) } })
+  const clearPending = () => setLogo((prev) => { if (prev) URL.revokeObjectURL(prev.url); return null })
+  // Editando: la imagen se sube o se quita en el momento
+  async function uploadLogo(file) {
+    setBusy(true); setErr('')
+    try { const r = await apiUpload('/photos/tournaments/' + editId, file); setCurLogo(r.logo); await load() } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
+  async function removeLogo() {
+    setBusy(true); setErr('')
+    try { await api('DELETE', '/photos/tournaments/' + editId); setCurLogo(null); await load() } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
+
   async function save(e) {
     e.preventDefault()
     setBusy(true); setErr('')
@@ -58,7 +74,7 @@ export default function TorneosPage() {
           ...(editDraft ? { format: form.format } : {}),
         }
         await api('PATCH', '/tournaments/' + editId, body)
-        setForm(EMPTY); setTb(null); setEditId(null); await load()
+        setForm(EMPTY); setTb(null); setEditId(null); setCurLogo(null); await load()
       } else {
         const body = {
           name: form.name.trim(), year: Number(form.year), edition: form.edition.trim() || undefined,
@@ -68,6 +84,8 @@ export default function TorneosPage() {
           ...(tb ? { tiebreakers: tb } : {}),
         }
         const t = await api('POST', '/tournaments', body)
+        if (logo) { try { await apiUpload('/photos/tournaments/' + t.id, logo.file) } catch { /* se puede subir después desde Editar */ } }
+        clearPending()
         nav('/admin/torneos/' + t.id)
       }
     } catch (e2) { setErr(e2.message) } finally { setBusy(false) }
@@ -96,6 +114,8 @@ export default function TorneosPage() {
     try {
       const full = await api('GET', '/tournaments/' + t.id)
       setEditId(t.id)
+      setCurLogo(full.logo ?? null)
+      clearPending()
       setEditDraft(full.status === 'DRAFT')
       setForm({
         name: full.name, year: full.year, edition: full.edition ?? '', branch: full.branch, modality: full.modality, format: full.format,
@@ -122,6 +142,9 @@ export default function TorneosPage() {
         <p className="text-sm font-bold">{editId ? 'Editar torneo' : 'Nuevo torneo'}</p>
         {editId && !editDraft && <p className="text-xs text-muted">El torneo ya está en curso: el formato no se puede cambiar.</p>}
         <input className={inputCls} placeholder="Nombre" required value={form.name} onChange={(e) => set('name', e.target.value)} />
+        {editId
+          ? <LogoPicker name={form.name} src={curLogo} onPick={uploadLogo} onClear={removeLogo} onError={setErr} disabled={busy} label="Imagen del torneo" />
+          : <LogoPicker name={form.name} src={logo?.url} onPick={pickLogo} onClear={clearPending} onError={setErr} disabled={busy} label="Imagen del torneo (opcional)" />}
         <>
             <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
               <Field label="Año"><input type="number" className={inputCls} required value={form.year} onChange={(e) => set('year', e.target.value)} /></Field>
@@ -208,7 +231,9 @@ export default function TorneosPage() {
         ))}
         {view === 'active' && (list ?? []).map((t) => (
           <div key={t.id} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4">
-            <Link to={'/admin/torneos/' + t.id} className="min-w-0 flex-1">
+            <Link to={'/admin/torneos/' + t.id} className="flex min-w-0 flex-1 items-center gap-3">
+              <TeamBadge team={{ name: t.name, logo: t.logo }} size="md" />
+              <span className="min-w-0 flex-1">
               <p className="truncate font-bold">{t.name}{t.edition ? ' · ' + t.edition : ''}</p>
               <p className="text-sm text-muted">
                 {t.year} · {FORMAT[t.format]} · {BRANCH[t.branch]} · {MODALITY[t.modality]} · {t._count?.teams ?? 0} equipos
@@ -219,6 +244,7 @@ export default function TorneosPage() {
                 {t.champion && <span className="flex items-center gap-1"><Trophy size={12} /> {t.champion.name}</span>}
                 <span>{fmtDate(t.startsAt)} → {fmtDate(t.endsAt)}</span>
               </p>
+              </span>
             </Link>
             <button aria-label="Editar" onClick={() => edit(t)}><Pencil size={18} className="text-muted" /></button>
             <button aria-label="Eliminar" onClick={() => remove(t)}><Trash2 size={18} className="text-danger" /></button>
