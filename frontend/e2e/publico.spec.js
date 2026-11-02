@@ -21,8 +21,8 @@ test.describe('Visitante', () => {
 
   test('liga: lista los torneos', async ({ page }) => {
     await page.goto('/liga')
-    // "Campeonatos" también está en el menú: se apunta al título de la página
-    await expect(page.getByRole('heading', { name: 'Campeonatos' })).toBeVisible()
+    // "Competiciones" también está en el menú: se apunta al título de la página
+    await expect(page.getByRole('heading', { name: 'Competiciones' })).toBeVisible()
     await expect(page.getByText(/Cargando|No hay torneos|Año/).first()).toBeVisible()
   })
 
