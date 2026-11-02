@@ -3,10 +3,13 @@ import { LogIn } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { ITEMS, BOTTOM_PRIORITY, NOTICIAS } from '../lib/navConfig'
 
+// Organizador: Inicio, Noticias, Mis asignaciones (al medio), Dashboard y Partidos
+const ADMIN_ORDER = ['asignaciones', 'dashboard_canchas', 'partidos']
+
 export function bottomItems(user, menu = []) {
   const isAdmin = !!user?.roles?.includes('ADMIN')
   return user
-    ? [ITEMS.home, NOTICIAS, ...BOTTOM_PRIORITY.filter((k) => k !== 'home' && menu.includes(k) && ITEMS[k] && (!isAdmin || k === 'dashboard_canchas' || k === 'partidos' || k === 'asignaciones')).slice(0, isAdmin ? 3 : 2).map((k) => ITEMS[k]), ...(isAdmin ? [] : [ITEMS.perfil])]
+    ? [ITEMS.home, NOTICIAS, ...BOTTOM_PRIORITY.filter((k) => k !== 'home' && menu.includes(k) && ITEMS[k] && (!isAdmin || k === 'dashboard_canchas' || k === 'partidos' || k === 'asignaciones')).slice(0, isAdmin ? 3 : 2).sort((a, b) => (isAdmin ? ADMIN_ORDER.indexOf(a) - ADMIN_ORDER.indexOf(b) : 0)).map((k) => ITEMS[k]), ...(isAdmin ? [] : [ITEMS.perfil])]
     : [ITEMS.home, NOTICIAS, { to: '/login', label: 'Ingresar', Icon: LogIn }]
 }
 
