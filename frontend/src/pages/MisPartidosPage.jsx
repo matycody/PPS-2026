@@ -36,7 +36,12 @@ export default function MisPartidosPage() {
         const lists = await Promise.all(ts.map((t) => api('GET', '/matches?teamId=' + t.teamId + '&limit=200').catch(() => [])))
         if (!alive) return
         const byId = new Map()
-        lists.flat().forEach((m) => byId.set(m.id ?? m.matchId, normMatch(m)))
+        // Solo los partidos de la rama en la que juega en ese equipo (un equipo puede tener ramas Masculino, Femenino y Mixto)
+        const plays = new Set(ts.map((t) => t.teamId + '|' + t.branch))
+        lists.flat().forEach((m) => {
+          const mine = [m.teamA?.id, m.teamB?.id].some((id) => id && plays.has(id + '|' + m.branch))
+          if (mine) byId.set(m.id ?? m.matchId, normMatch(m))
+        })
         setTeams(ts)
         setMatches([...byId.values()])
       })
