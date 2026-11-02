@@ -53,8 +53,9 @@ async function processImage(buffer, kind) {
 
   const img = sharp(buffer).rotate();
   if (kind === 'photo') img.resize(512, 512, { fit: 'cover' });
+  else if (kind === 'cover') img.resize(1280, 1280, { fit: 'inside', withoutEnlargement: true });
   else img.resize(512, 512, { fit: 'inside', withoutEnlargement: true });
-  return img.webp({ quality: 80 }).toBuffer();
+  return img.webp({ quality: kind === 'cover' ? 82 : 80 }).toBuffer();
 }
 
 async function uploadPhoto(path, buffer) {

@@ -1,4 +1,5 @@
 ﻿const express = require('express');
+const crypto = require('crypto');
 const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 const storage = require('../services/storage');
@@ -90,6 +91,17 @@ router.delete('/teams/:id', ...admin, async (req, res) => {
     await prisma.team.update({ where: { id: team.id }, data: { logo: null } });
     await storage.removeFile(storage.LOGOS_BUCKET, 'teams/' + team.id + '.webp').catch(() => {});
     res.json({ ok: true });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+// Admin: portada de una noticia (bucket público). Devuelve la URL para guardarla en News.imageUrl
+router.put('/news-image', ...admin, storage.imageBody, async (req, res) => {
+  try {
+    const webp = await storage.processImage(req.body, 'cover');
+    const url = await storage.uploadLogo('news/' + crypto.randomUUID() + '.webp', webp);
+    res.json({ url });
   } catch (err) {
     handleError(err, res);
   }
