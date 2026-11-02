@@ -181,7 +181,6 @@ export default function TeamPage() {
 
       {(mods.length > 1 || brs.length > 1) && tab !== 'plantel' && (
         <div className="space-y-2">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted">Ver historial de</p>
           {mods.length > 1 && (
             <div className="flex flex-wrap gap-2">
               <Chip on={mod === 'all'} onClick={() => setMod('all')}>Todas las modalidades</Chip>
