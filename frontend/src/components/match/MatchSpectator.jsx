@@ -234,7 +234,7 @@ function HeadToHead({ m }) {
   )
 }
 
-const TABS = [['resumen', 'Resumen'], ['alineacion', 'Alineación'], ['predicciones', 'Predicciones'], ['clasificacion', 'Clasificación'], ['cara', 'Cara a cara']]
+const TABS = [['resumen', 'Resumen'], ['alineacion', 'Jugadores'], ['predicciones', 'Predicciones'], ['clasificacion', 'Clasificación'], ['cara', 'Cara a cara']]
 
 // Vista del partido para todos los usuarios (la mesa y el árbitro controlan desde Control de mesa / Partidos asignados)
 export default function MatchSpectator({ m, tick, over, notice, onCloseNotice, sanctions, pip }) {
