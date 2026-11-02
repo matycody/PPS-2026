@@ -108,7 +108,7 @@ export default function TorneoPage() {
 
   return (
     <div className="space-y-4">
-      <BackLink to="/liga" className="flex items-center gap-1 text-sm text-muted"><ArrowLeft size={16} /> Liga o copas</BackLink>
+      <BackLink to="/liga" className="flex items-center gap-1 text-sm text-muted"><ArrowLeft size={16} /> Campeonatos</BackLink>
 
       <header className="rounded-3xl border border-line bg-surface p-4">
         <div className="flex items-center gap-3">

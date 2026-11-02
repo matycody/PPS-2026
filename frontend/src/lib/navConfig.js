@@ -35,7 +35,7 @@ export const SECTIONS = [
 // Rutas fijas del frontend (no dependen del menú del backend)
 export const GENERAL = [
   { to: '/cronometro', label: 'Cronómetro offline', Icon: Timer },
-  { to: '/liga', label: 'Liga o copas', Icon: Trophy },
+  { to: '/liga', label: 'Campeonatos', Icon: Trophy },
   { to: '/estadisticas', label: 'Estadísticas', Icon: BarChart3 },
   // (va después de los 3 primeros: son los accesos del Inicio)
   // El organizador ya tiene 'Partidos' (con edición) en Administración; los demás roles lo ven solo para consultar

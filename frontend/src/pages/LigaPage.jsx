@@ -26,7 +26,7 @@ export default function LigaPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Liga o copas</h1>
+      <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Campeonatos</h1>
 
       <div className="space-y-2">
         <div className="flex gap-2 overflow-x-auto pb-1">
