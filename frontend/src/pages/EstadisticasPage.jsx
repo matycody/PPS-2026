@@ -199,7 +199,7 @@ function Resumen({ champ, rec, teamsCount }) {
   return (
     <div className="space-y-3">
       {last && (
-        <Link to={'/liga/' + last.id} className="flex items-center gap-3 rounded-3xl border border-accent bg-accent-soft p-4">
+        <Link to={'/liga/' + last.id} className="flex items-center gap-3 rounded-3xl border border-accent bg-surface p-4">
           <TeamBadge team={last.champion} size="lg" />
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-bold uppercase tracking-widest text-accent">Último campeón</p>
