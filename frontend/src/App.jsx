@@ -8,6 +8,7 @@ import OnboardingPage from './pages/OnboardingPage'
 import Placeholder from './pages/Placeholder'
 import InicioPage from './pages/InicioPage'
 import MatchPage from './pages/MatchPage'
+import ProdePage from './pages/ProdePage'
 import AssignmentsPage from './pages/AssignmentsPage'
 import ControlPage from './pages/ControlPage'
 import PerfilPage from './pages/PerfilPage'
@@ -110,6 +111,7 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route path="/perfil" element={<PerfilPage />} />
               <Route path="/favoritos" element={<FavoritosPage />} />
+              <Route path="/prode" element={<ProdePage />} />
               <Route path="/mi-equipo" element={<MiEquipoPage />} />
               <Route path="/mis-partidos" element={<MisPartidosPage />} />
               <Route path="/control/:id" element={<ControlPage />} />

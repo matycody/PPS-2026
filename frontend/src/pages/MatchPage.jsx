@@ -12,6 +12,7 @@ import StatusPill from '../components/StatusPill'
 import MatchNotice from '../components/MatchNotice'
 import Versus from '../components/Versus'
 import MatchRoster from '../components/MatchRoster'
+import PredictBox from '../components/PredictBox'
 import ScoreTimeline from '../components/ScoreTimeline'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { usePipClock } from '../hooks/usePipClock'
@@ -187,6 +188,8 @@ export default function MatchPage() {
       <p className="flex items-center justify-center gap-2 border-t border-line pt-4 text-xs font-semibold uppercase tracking-wider text-muted">
         <Eye size={14} /> Vista en vivo · solo lectura
       </p>
+
+      <PredictBox matchId={m.id} teamA={m.teamA} teamB={m.teamB} />
 
       <MatchRoster teamA={m.teamA} teamB={m.teamB} branch={m.branch} matchId={m.id} sanctions={{ items: sanctions, tick }} />
     </div>
