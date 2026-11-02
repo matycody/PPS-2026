@@ -181,20 +181,22 @@ function Details({ m }) {
   )
 }
 
-// Cara a cara: partidos ya jugados entre los dos equipos (de la información que ya tiene la web)
+// Cara a cara: partidos ya jugados entre los dos equipos, todas las modalidades juntas o Foam y Cloth por separado
 function HeadToHead({ m }) {
-  const [list, setList] = useState(null)
+  const [all, setAll] = useState(null)
+  const [mod, setMod] = useState('ALL')
   useEffect(() => {
-    if (!m.teamA?.id || !m.teamB?.id) { setList([]); return }
+    if (!m.teamA?.id || !m.teamB?.id) { setAll([]); return }
     let alive = true
     api('GET', '/matches?teamId=' + m.teamA.id + '&limit=200')
-      .then((r) => alive && setList(r.map((x) => ({ ...x, id: x.id ?? x.matchId })).filter((x) => x.status === 'FINISHED' && x.id !== m.id && [x.teamA?.id, x.teamB?.id].includes(m.teamB.id))))
-      .catch(() => alive && setList([]))
+      .then((r) => alive && setAll(r.map((x) => ({ ...x, id: x.id ?? x.matchId })).filter((x) => x.status === 'FINISHED' && x.id !== m.id && [x.teamA?.id, x.teamB?.id].includes(m.teamB.id))))
+      .catch(() => alive && setAll([]))
     return () => { alive = false }
   }, [m.id, m.teamA?.id, m.teamB?.id])
+  const list = useMemo(() => (all ?? []).filter((x) => mod === 'ALL' || x.modality === mod), [all, mod])
   const tally = useMemo(() => {
     const t = { A: 0, E: 0, B: 0 }
-    for (const x of list ?? []) {
+    for (const x of list) {
       const a = x.score?.teamA ?? 0
       const b = x.score?.teamB ?? 0
       const aIsA = x.teamA?.id === m.teamA.id
@@ -206,12 +208,21 @@ function HeadToHead({ m }) {
     }
     return t
   }, [list, m.teamA?.id])
-  if (list === null) return <Skeleton />
+  if (all === null) return <Skeleton />
   const total = list.length
   const pct = (n) => (total ? Math.round((n / total) * 100) : 0)
+  const count = (k) => (k === 'ALL' ? all.length : all.filter((x) => x.modality === k).length)
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-extrabold">Cara a cara</h2>
+      <div>
+        <h2 className="text-lg font-extrabold">Cara a cara</h2>
+        <p className="text-xs text-muted">{mod === 'ALL' ? 'Todas las modalidades juntas' : 'Solo ' + MODALITY[mod]}. Elegí una para verlas por separado.</p>
+      </div>
+      <div className="flex gap-2">
+        {[['ALL', 'Todas'], ['FOAM', 'Foam'], ['CLOTH', 'Cloth']].map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setMod(k)} className={'rounded-full border px-4 py-1.5 text-sm font-bold ' + (mod === k ? 'border-accent bg-accent-soft' : 'border-line bg-surface')}>{l} · {count(k)}</button>
+        ))}
+      </div>
       <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-line bg-surface text-center">
         {[[m.teamA?.name, tally.A], ['Empates', tally.E], [m.teamB?.name, tally.B]].map(([l, n]) => (
           <div key={l} className="border-r border-line p-3 last:border-r-0">
@@ -221,12 +232,15 @@ function HeadToHead({ m }) {
           </div>
         ))}
       </div>
-      {total === 0 && <p className="rounded-2xl border border-line bg-surface p-4 text-sm text-muted">Todavía no jugaron entre sí.</p>}
+      {total === 0 && <p className="rounded-2xl border border-line bg-surface p-4 text-sm text-muted">{mod === 'ALL' ? 'Todavía no jugaron entre sí.' : 'Todavía no jugaron entre sí en ' + MODALITY[mod] + '.'}</p>}
       <div className="divide-y divide-line rounded-2xl border border-line bg-surface empty:hidden">
         {list.map((x) => (
-          <Link key={x.id} to={'/partido/' + x.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-            <span className="min-w-0 truncate font-bold">{x.teamA?.name} vs {x.teamB?.name}</span>
-            <span className="shrink-0 font-mono font-extrabold tabular-nums">{x.score?.teamA ?? 0}-{x.score?.teamB ?? 0}</span>
+          <Link key={x.id} to={'/partido/' + x.id} className="block px-4 py-3">
+            <span className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0 truncate font-bold">{x.teamA?.name} vs {x.teamB?.name}</span>
+              <span className="shrink-0 font-mono font-extrabold tabular-nums">{x.score?.teamA ?? 0}-{x.score?.teamB ?? 0}</span>
+            </span>
+            <span className="mt-0.5 block truncate text-[11px] font-semibold uppercase tracking-wide text-muted">{[MODALITY[x.modality], BRANCH[x.branch], x.tournament?.name].filter(Boolean).join(' · ')}</span>
           </Link>
         ))}
       </div>
