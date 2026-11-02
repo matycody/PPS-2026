@@ -331,6 +331,36 @@ router.get('/:id/suspended', optionalAuth, async (req, res) => {
   }
 });
 
+// Público: quiénes arbitran y quiénes están en la mesa (solo nombre o apodo y, si la mesa es de un equipo, el equipo)
+router.get('/:id/staff', optionalAuth, async (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && req.user.roles.includes('ADMIN'));
+    const match = await prisma.match.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        hiddenAt: true,
+        assignments: {
+          select: {
+            function: true,
+            profile: { select: { name: true, nickname: true, showNickname: true } },
+            team: { select: { id: true, name: true, logo: true } },
+          },
+        },
+      },
+    });
+    if (!match || (match.hiddenAt && !isAdmin)) return res.status(404).json({ error: 'Partido no encontrado' });
+    const shape = (a) => ({
+      function: a.function,
+      name: a.team ? null : (a.profile?.showNickname && a.profile.nickname) || a.profile?.name || null, // el usuario de acceso no se muestra
+      team: a.team ?? null,
+    });
+    res.json({ referees: match.assignments.filter((a) => a.function === 'REFEREE').map(shape), table: match.assignments.filter((a) => a.function === 'TABLE').map(shape) });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
 router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const isAdmin = Boolean(req.user && req.user.roles.includes('ADMIN'));
