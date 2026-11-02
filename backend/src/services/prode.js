@@ -91,6 +91,20 @@ async function reopenPredictions(matchId) {
   await prisma.match.update({ where: { id: matchId }, data: { closingOdds: null } });
 }
 
+// Quien es designado árbitro o mesa de un partido que ya había predicho pierde esa predicción
+// (no se le puede impedir predecir antes de saber que lo van a designar; esto evita el mal uso)
+async function dropPredictionsOfAssigned(matchId, { userId, profileId }) {
+  const users = [];
+  if (userId) users.push(userId);
+  if (profileId) {
+    const u = await prisma.user.findUnique({ where: { profileId }, select: { id: true } });
+    if (u) users.push(u.id);
+  }
+  if (!users.length) return 0;
+  const r = await prisma.prediction.deleteMany({ where: { matchId, userId: { in: users } } });
+  return r.count;
+}
+
 const matchFields = { id: true, status: true, hiddenAt: true, modality: true, teamAId: true, teamBId: true };
 
-module.exports = { bonusFrom, freezePredictions, reopenPredictions, POINTS_PER_HIT, PICKS, OPEN_STATUSES, BLOCK_OWN, BLOCK_ASSIGNED, outcome, verdict, blockedReason, matchFields };
+module.exports = { dropPredictionsOfAssigned, bonusFrom, freezePredictions, reopenPredictions, POINTS_PER_HIT, PICKS, OPEN_STATUSES, BLOCK_OWN, BLOCK_ASSIGNED, outcome, verdict, blockedReason, matchFields };
