@@ -23,6 +23,7 @@ function outcome(match) {
 
 // HIT | MISS | PENDING | VOID (partido cancelado/suspendido o terminado sin sets: no suma ni resta)
 function verdict(prediction, match) {
+  if (prediction.voidedAt) return 'VOID'; // anulada por designación en el partido
   if (match.status === 'CANCELLED' || match.status === 'SUSPENDED') return 'VOID';
   if (match.status !== 'FINISHED') return 'PENDING';
   const o = outcome(match);
@@ -68,6 +69,7 @@ function bonusFrom(scheduledAt, from = new Date()) {
 // la base y el bonus de cada predicción quedan fijos
 async function freezePredictions(matchId) {
   const { oddsForMatches } = require('./odds');
+  await voidPredictionsOfReferees(matchId);
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     select: { id: true, modality: true, branch: true, scheduledAt: true, teamAId: true, teamBId: true, closingOdds: true, stage: { select: { type: true } } },
@@ -91,20 +93,36 @@ async function reopenPredictions(matchId) {
   await prisma.match.update({ where: { id: matchId }, data: { closingOdds: null } });
 }
 
-// Quien es designado árbitro o mesa de un partido que ya había predicho pierde esa predicción
-// (no se le puede impedir predecir antes de saber que lo van a designar; esto evita el mal uso)
-async function dropPredictionsOfAssigned(matchId, { userId, profileId }) {
-  const users = [];
-  if (userId) users.push(userId);
-  if (profileId) {
-    const u = await prisma.user.findUnique({ where: { profileId }, select: { id: true } });
-    if (u) users.push(u.id);
+// Anulación por designación: queda guardada (para avisarle a la persona) pero no suma ni cuenta.
+// - Mesa: se anula en el momento de la designación y no se recupera nunca.
+// - Árbitro: se anula recién al cerrar (cuando el partido se habilita); si lo desasignan antes, puede seguir votando.
+const VOID_TEXT = {
+  TABLE: 'Te designaron en la mesa de control de este partido, así que tu predicción no es válida y no suma puntos.',
+  REFEREE: 'Te designaron árbitro de este partido, así que tu predicción no es válida y no suma puntos.',
+};
+async function usersOf({ userId, profileIds = [] }) {
+  const ids = userId ? [userId] : [];
+  if (profileIds.length) {
+    const us = await prisma.user.findMany({ where: { profileId: { in: profileIds } }, select: { id: true } });
+    ids.push(...us.map((u) => u.id));
   }
-  if (!users.length) return 0;
-  const r = await prisma.prediction.deleteMany({ where: { matchId, userId: { in: users } } });
+  return ids;
+}
+async function voidPredictions(matchId, userIds, reason) {
+  if (!userIds.length) return 0;
+  const r = await prisma.prediction.updateMany({ where: { matchId, userId: { in: userIds }, voidedAt: null }, data: { voidedAt: new Date(), voidReason: reason } });
   return r.count;
+}
+// Designación en la mesa (por perfil o por cuenta directa)
+async function voidPredictionsOfTable(matchId, { userId, profileId }) {
+  return voidPredictions(matchId, await usersOf({ userId, profileIds: profileId ? [profileId] : [] }), 'TABLE');
+}
+// Al cerrar: los árbitros que siguen designados pierden su predicción
+async function voidPredictionsOfReferees(matchId) {
+  const refs = await prisma.matchAssignment.findMany({ where: { matchId, function: 'REFEREE', profileId: { not: null } }, select: { profileId: true } });
+  return voidPredictions(matchId, await usersOf({ profileIds: refs.map((r) => r.profileId) }), 'REFEREE');
 }
 
 const matchFields = { id: true, status: true, hiddenAt: true, modality: true, teamAId: true, teamBId: true };
 
-module.exports = { dropPredictionsOfAssigned, bonusFrom, freezePredictions, reopenPredictions, POINTS_PER_HIT, PICKS, OPEN_STATUSES, BLOCK_OWN, BLOCK_ASSIGNED, outcome, verdict, blockedReason, matchFields };
+module.exports = { VOID_TEXT, voidPredictionsOfTable, voidPredictionsOfReferees, bonusFrom, freezePredictions, reopenPredictions, POINTS_PER_HIT, PICKS, OPEN_STATUSES, BLOCK_OWN, BLOCK_ASSIGNED, outcome, verdict, blockedReason, matchFields };

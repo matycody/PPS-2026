@@ -8,7 +8,7 @@ const { notifyMatch } = require('../services/notify');
 const { ExtraMatchError, assertTournamentOpen, planStanding, placeInFixture } = require('../services/extraMatch');
 const { getMatch } = require('../timers/matchManager');
 const { setsWithScore } = require('../services/scoreTimeline');
-const { freezePredictions, reopenPredictions, dropPredictionsOfAssigned } = require('../services/prode');
+const { freezePredictions, reopenPredictions, voidPredictionsOfTable } = require('../services/prode');
 const { invalidateOdds } = require('../services/odds');
 const { editorLabel, setResultLabel, buildLogData, logEntry, describeClockAction } = require('../services/resultLog');
 
@@ -996,8 +996,8 @@ router.post('/:id/assignments', ...admin, async (req, res) => {
     }
 
     const created = await prisma.matchAssignment.create({ data });
-    // si esa persona ya había predicho este partido, pierde la predicción
-    await dropPredictionsOfAssigned(match.id, data).catch((e) => console.error('[prode] asignado', e));
+    // mesa: si ya había predicho este partido, su predicción se anula (árbitro: se anula recién al cerrar)
+    if (data.function === 'TABLE') await voidPredictionsOfTable(match.id, data).catch((e) => console.error('[prode] asignado', e));
     res.status(201).json(created);
   } catch (err) {
     if (err.code === 'P2002') return res.status(409).json({ error: 'Ya está asignado a este partido' });

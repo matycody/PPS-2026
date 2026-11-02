@@ -675,6 +675,8 @@ model Prediction {
   closedAt  DateTime? // cuándo se congelaron base y bonus (el partido pasó a Habilitado)
   cuota     Float? // cuota que tenía la elección al cerrar
   bonus     Float? // multiplicador por anticipación al cerrar
+  voidedAt  DateTime? // predicción anulada (la persona fue designada mesa o árbitro del partido): no suma ni cuenta
+  voidReason String? // TABLE | REFEREE
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

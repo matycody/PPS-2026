@@ -2,7 +2,7 @@ const express = require('express');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { oddsForMatches } = require('../services/odds');
-const { PICKS, OPEN_STATUSES, verdict, blockedReason, bonusFrom, freezePredictions, BLOCK_OWN, BLOCK_ASSIGNED } = require('../services/prode');
+const { VOID_TEXT, PICKS, OPEN_STATUSES, verdict, blockedReason, bonusFrom, freezePredictions, BLOCK_OWN, BLOCK_ASSIGNED } = require('../services/prode');
 
 const router = express.Router();
 router.use(authenticate);
@@ -47,7 +47,7 @@ async function ensureFrozen(rows) {
 
 // Lo que ve el usuario de un partido: cuotas, puntos que ganaría (base × bonus), su elección y el bonus vigente.
 // Mientras el partido está abierto la base es flotante; al cerrar queda lo congelado en la predicción.
-function view(m, odds, mp, votes, blocked) {
+function view(m, odds, mp, votes, blocked, voided = null) {
   const now = bonusFrom(m.scheduledAt);
   const mine = mp ? (mp.closedAt ? { mult: mp.bonus } : bonusFrom(m.scheduledAt, mp.pickedAt)) : null;
   const o = {};
@@ -60,7 +60,8 @@ function view(m, odds, mp, votes, blocked) {
   o.drawAllowed = odds.drawAllowed;
   return {
     open: isOpen(m),
-    blocked,
+    blocked: blocked ?? (voided ? voided : null),
+    voided,
     pick: mp?.pick ?? null,
     points: mp ? o[mp.pick].pts : null,
     closedAt: mp?.closedAt ?? null,
@@ -74,13 +75,14 @@ function view(m, odds, mp, votes, blocked) {
 async function context(userId, profileId, ids) {
   const [mine, groups, ownTeams, assigned] = await Promise.all([
     prisma.prediction.findMany({ where: { userId, matchId: { in: ids } } }),
-    prisma.prediction.groupBy({ by: ['matchId', 'pick'], where: { matchId: { in: ids } }, _count: { _all: true } }),
+    prisma.prediction.groupBy({ by: ['matchId', 'pick'], where: { matchId: { in: ids }, voidedAt: null }, _count: { _all: true } }),
     profileId ? prisma.playerTeam.findMany({ where: { profileId, to: null }, select: { teamId: true } }) : [],
     prisma.matchAssignment.findMany({ where: { matchId: { in: ids }, OR: [{ userId }, ...(profileId ? [{ profileId }] : [])] }, select: { matchId: true } }),
   ]);
   const own = new Set(ownTeams.map((t) => t.teamId));
   const asg = new Set(assigned.map((a) => a.matchId));
-  const myPick = new Map(mine.map((p) => [p.matchId, p]));
+  const myPick = new Map(mine.filter((p) => !p.voidedAt).map((p) => [p.matchId, p]));
+  const voided = new Map(mine.filter((p) => p.voidedAt).map((p) => [p.matchId, VOID_TEXT[p.voidReason] ?? 'Tu predicción no es válida.']));
   const votes = new Map();
   for (const g of groups) {
     const v = votes.get(g.matchId) ?? { A: 0, DRAW: 0, B: 0 };
@@ -89,6 +91,7 @@ async function context(userId, profileId, ids) {
   }
   return {
     pick: (id) => myPick.get(id),
+    voided: (id) => voided.get(id) ?? null,
     votes: (id) => votes.get(id) ?? { A: 0, DRAW: 0, B: 0 },
     blocked: (m) => (own.has(m.teamAId) || own.has(m.teamBId) ? BLOCK_OWN : asg.has(m.id) ? BLOCK_ASSIGNED : null),
   };
@@ -108,7 +111,7 @@ router.get('/open', async (req, res) => {
     const [ctx, odds] = await Promise.all([context(userId, profileId, ids), oddsOf(matches)]);
     res.json(matches.map((m) => {
       const { sets, stage, closingOdds, ...rest } = m;
-      return { ...rest, prode: view(m, odds.get(m.id), ctx.pick(m.id), ctx.votes(m.id), ctx.blocked(m)) };
+      return { ...rest, prode: view(m, odds.get(m.id), ctx.pick(m.id), ctx.votes(m.id), ctx.blocked(m), ctx.voided(m.id)) };
     }));
   } catch (err) {
     handleError(err, res);
@@ -124,7 +127,7 @@ router.get('/matches', async (req, res) => {
     const matches = await prisma.match.findMany({ where: { id: { in: ids }, hiddenAt: null }, select: matchSelect });
     const [ctx, odds] = await Promise.all([context(userId, profileId, ids), oddsOf(matches)]);
     const out = {};
-    for (const m of matches) out[m.id] = view(m, odds.get(m.id), ctx.pick(m.id), ctx.votes(m.id), ctx.blocked(m));
+    for (const m of matches) out[m.id] = view(m, odds.get(m.id), ctx.pick(m.id), ctx.votes(m.id), ctx.blocked(m), ctx.voided(m.id));
     res.json(out);
   } catch (err) {
     handleError(err, res);
@@ -137,7 +140,7 @@ router.get('/match/:matchId', async (req, res) => {
     if (!match || match.hiddenAt) return res.status(404).json({ error: 'Partido no encontrado' });
     const { id: userId, profileId } = req.user;
     const [ctx, odds, blocked] = await Promise.all([context(userId, profileId, [match.id]), oddsOf([match]), blockedReason(req.user, match)]);
-    res.json(view(match, odds.get(match.id), ctx.pick(match.id), ctx.votes(match.id), blocked));
+    res.json(view(match, odds.get(match.id), ctx.pick(match.id), ctx.votes(match.id), blocked, ctx.voided(match.id)));
   } catch (err) {
     handleError(err, res);
   }
@@ -158,6 +161,7 @@ router.post('/', async (req, res) => {
     if (pick === 'DRAW' && !odds.drawAllowed) return res.status(400).json({ error: 'En una llave no hay empate' });
     const where = { userId_matchId: { userId: req.user.id, matchId: match.id } };
     const prev = await prisma.prediction.findUnique({ where });
+    if (prev?.voidedAt) return res.status(403).json({ error: VOID_TEXT[prev.voidReason] ?? 'Tu predicción de este partido no es válida' });
     const base = odds[pick].pts;
     if (prev && prev.pick === pick) return res.json({ matchId: match.id, pick, points: Math.round(base * bonusFrom(match.scheduledAt, prev.pickedAt).mult) });
     const now = new Date();
@@ -255,7 +259,7 @@ router.get('/me', async (req, res) => {
       const { sets, hiddenAt, closingOdds, ...m } = r.match;
       const o = odds.get(r.matchId);
       const points = !r.closedAt && o ? Math.round(o[r.pick].pts * bonusFrom(m.scheduledAt, r.pickedAt).mult) : r.points; // abiertas: lo que valdría hoy
-      return { matchId: r.matchId, pick: r.pick, points, result, earned, cuota: r.cuota ?? o?.[r.pick]?.cuota ?? null, bonus: r.bonus ?? bonusFrom(m.scheduledAt, r.pickedAt).mult, closed: !!r.closedAt, match: m };
+      return { matchId: r.matchId, pick: r.pick, points, result, earned, voidReason: r.voidedAt ? VOID_TEXT[r.voidReason] ?? 'Tu predicción no es válida.' : null, voidedAt: r.voidedAt, cuota: r.cuota ?? o?.[r.pick]?.cuota ?? null, bonus: r.bonus ?? bonusFrom(m.scheduledAt, r.pickedAt).mult, closed: !!r.closedAt, match: m };
     });
     // racha: aciertos seguidos contando desde el último partido resuelto
     const resolved = list.filter((p) => p.result === 'HIT' || p.result === 'MISS').sort((a, b) => new Date(b.match.scheduledAt ?? 0) - new Date(a.match.scheduledAt ?? 0));
