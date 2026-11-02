@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarDays, Trophy, X } from 'lucide-react'
+import { CalendarDays, ClipboardList, Trophy, User, X } from 'lucide-react'
 import { api } from '../../lib/api'
 import { BRANCH, MODALITY, courtLabel } from '../../lib/format'
 import { halfLabel } from '../../lib/pipTime'
@@ -115,7 +115,22 @@ function Header({ m, tick, over }) {
   )
 }
 
+// Quiénes arbitran y quiénes están en la mesa; aparece cuando la organización los carga
+function useStaff(id) {
+  const [staff, setStaff] = useState(null)
+  useEffect(() => {
+    let alive = true
+    api('GET', '/matches/' + id + '/staff').then((r) => alive && setStaff(r)).catch(() => {})
+    return () => { alive = false }
+  }, [id])
+  return staff
+}
+
 function Details({ m }) {
+  const staff = useStaff(m.id)
+  const names = (list) => list.map((x) => x.team?.name ?? x.name).filter(Boolean).join(' · ')
+  const refs = staff ? names(staff.referees) : ''
+  const table = staff ? names(staff.table) : ''
   const when = m.scheduledAt ? dayTab(dayOf(m.scheduledAt)) + (hourOf(m.scheduledAt, m.timeSet) ? ' · ' + hourOf(m.scheduledAt, m.timeSet) : '') : 'Sin fecha'
   return (
     <section className="space-y-3">
@@ -128,6 +143,8 @@ function Details({ m }) {
             <span className="min-w-0 flex-1 truncate">{m.tournament.name}{m.phase?.label ? ' · ' + m.phase.label : ''}</span>
           </Link>
         )}
+        {refs && <p className="flex items-center gap-3 px-4 py-3 text-sm"><User size={18} className="shrink-0 text-muted" /><span className="min-w-0"><span className="block text-[11px] font-bold uppercase tracking-wide text-muted">Árbitros</span><span className="font-bold">{refs}</span></span></p>}
+        {table && <p className="flex items-center gap-3 px-4 py-3 text-sm"><ClipboardList size={18} className="shrink-0 text-muted" /><span className="min-w-0"><span className="block text-[11px] font-bold uppercase tracking-wide text-muted">Mesa de control</span><span className="font-bold">{table}</span></span></p>}
       </div>
       {m.venue && <VenueInfo venue={m.venue} className="w-full" />}
     </section>
