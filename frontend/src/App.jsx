@@ -99,9 +99,7 @@ function App() {
             <Route path="/liga" element={<LigaPage />} />
             <Route path="/buscar" element={<BuscarPage />} />
             <Route path="/liga/:id" element={<TorneoPage />} />
-            <Route path="/estadisticas" element={<EstadisticasPage />} />
             <Route path="/equipos" element={<EquiposListPage />} />
-            <Route path="/sedes" element={<SedesPublicPage />} />
             <Route path="/noticias" element={<NoticiasPage />} />
             <Route path="/noticias/:id" element={<NoticiaDetalle />} />
             {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos', '/partidos', '/sedes', '/noticias', '/predicciones', '/sanciones'].includes(g.to)).map((g) => (
@@ -119,6 +117,8 @@ function App() {
               <Route path="/mis-partidos" element={<MisPartidosPage />} />
               <Route path="/mis-estadisticas" element={<MisEstadisticasPage />} />
               <Route path="/sanciones" element={<SancionesPublicaPage />} />
+              <Route path="/estadisticas" element={<EstadisticasPage />} />
+              <Route path="/sedes" element={<SedesPublicPage />} />
               <Route path="/control/:id" element={<ControlPage />} />
             </Route>
 

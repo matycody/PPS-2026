@@ -36,7 +36,7 @@ export const SECTIONS = [
 export const GENERAL = [
   { to: '/cronometro', label: 'Cronómetro offline', Icon: Timer },
   { to: '/liga', label: 'Competiciones', Icon: Trophy },
-  { to: '/estadisticas', label: 'Ranking', Icon: BarChart3 },
+  { to: '/estadisticas', label: 'Ranking', Icon: BarChart3 }, // visitas: entrada visible, pero pide iniciar sesión
   // (va después de los 3 primeros: son los accesos del Inicio)
   // El organizador ya tiene 'Partidos' (con edición) en Administración; los demás roles lo ven solo para consultar
   { to: '/partidos', label: 'Partidos', Icon: CalendarDays, hideIf: 'partidos' },
@@ -47,7 +47,7 @@ export const GENERAL = [
   // El organizador ya tiene 'Equipos' en Administración
   { to: '/equipos', label: 'Equipos', Icon: Users, hideIf: 'equipos' },
   // El organizador ya tiene 'Sedes' (con edición) en Administración
-  { to: '/sedes', label: 'Sedes', Icon: MapPin, hideIf: 'sedes' },
+  { to: '/sedes', label: 'Sedes', Icon: MapPin, hideIf: 'sedes', authOnly: true },
   { to: '/reglas', label: 'Reglas del juego', Icon: BookOpen, soon: true },
   { to: '/acerca', label: 'Acerca de / Contacto', Icon: Info, soon: true },
 ]
