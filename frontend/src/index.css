@@ -171,3 +171,8 @@ select:-webkit-autofill {
   background: color-mix(in srgb, var(--surface) 84%, var(--color-live));
   border-color: color-mix(in srgb, var(--color-live) 60%, transparent);
 }
+
+/* Las listas desplegables nativas heredaban texto claro sobre fondo blanco: se fuerzan colores legibles */
+select option, select optgroup { background-color: var(--surface); color: var(--fg); }
+select { color-scheme: light; }
+.dark select { color-scheme: dark; }
