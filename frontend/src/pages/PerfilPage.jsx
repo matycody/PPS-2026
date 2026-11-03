@@ -59,8 +59,8 @@ export default function PerfilPage() {
     const f = e.target.files?.[0]
     e.target.value = ''
     if (!f) return
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) return setErr('Usá una imagen JPG, PNG o WebP')
-    if (f.size > 5 * 1024 * 1024) return setErr('La imagen supera los 5 MB')
+    if (!f.type.startsWith('image/')) return setErr('El archivo no es una imagen')
+    if (f.size > 15 * 1024 * 1024) return setErr('La imagen supera los 15 MB')
     run(async () => { await apiUploadPhoto(f); await load(); await refreshProfile() }, 'Foto actualizada')
   }
 
@@ -106,7 +106,7 @@ export default function PerfilPage() {
           >
             <Camera size={15} />
           </button>
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onFile} className="hidden" />
+          <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" />
         </div>
         <div className="min-w-0">
           <p className="truncate text-lg font-extrabold">

@@ -52,8 +52,8 @@ function Editor({ initial, teams, onSaved, onCancel }) {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return setErr('Usá una imagen JPG, PNG o WebP')
-    if (file.size > 5 * 1024 * 1024) return setErr('La imagen supera los 5 MB')
+    if (!file.type.startsWith('image/')) return setErr('El archivo no es una imagen')
+    if (file.size > 15 * 1024 * 1024) return setErr('La imagen supera los 15 MB')
     setUp(true); setErr('')
     try { const r = await apiUpload('/photos/news-image', file); set('imageUrl', r.url) } catch (e2) { setErr(e2.message) } finally { setUp(false) }
   }
@@ -77,7 +77,7 @@ function Editor({ initial, teams, onSaved, onCancel }) {
           <Btn onClick={() => fileRef.current?.click()} disabled={busy || up}>{up ? 'Subiendo…' : f.imageUrl ? 'Cambiar imagen' : 'Subir imagen (celular o PC)'}</Btn>
           {f.imageUrl && <Btn tone="danger" onClick={() => set('imageUrl', '')} disabled={busy || up}>Quitar</Btn>}
         </div>
-        <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={pickFile} />
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickFile} />
         <input className={inputCls} placeholder="O pegá el enlace de una imagen (https)" value={f.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} />
       </div>
       <select className={inputCls} value={f.teamId} onChange={(e) => set('teamId', e.target.value)}>

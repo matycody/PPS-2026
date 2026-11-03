@@ -2,8 +2,7 @@
 import { ImagePlus } from 'lucide-react'
 import TeamBadge from './TeamBadge'
 
-const TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const MAX = 5 * 1024 * 1024
+const MAX = 15 * 1024 * 1024
 
 export default function LogoPicker({ name, src, onPick, onClear, onError, disabled, label = 'Escudo' }) {
   const ref = useRef(null)
@@ -12,8 +11,8 @@ export default function LogoPicker({ name, src, onPick, onClear, onError, disabl
     const f = e.target.files?.[0]
     e.target.value = ''
     if (!f) return
-    if (!TYPES.includes(f.type)) return onError?.('Usá una imagen JPG, PNG o WebP')
-    if (f.size > MAX) return onError?.('La imagen supera los 5 MB')
+    if (!f.type.startsWith('image/')) return onError?.('El archivo no es una imagen')
+    if (f.size > MAX) return onError?.('La imagen supera los 15 MB')
     onPick(f)
   }
 
@@ -33,9 +32,9 @@ export default function LogoPicker({ name, src, onPick, onClear, onError, disabl
         {onClear && src && (
           <button type="button" onClick={onClear} className="text-xs font-semibold text-danger">Quitar</button>
         )}
-        <p className="text-[11px] text-muted">JPG, PNG o WebP · máx. 5 MB</p>
+        <p className="text-[11px] text-muted">Cualquier imagen · máx. 15 MB</p>
       </div>
-      <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp" onChange={change} className="hidden" />
+      <input ref={ref} type="file" accept="image/*" onChange={change} className="hidden" />
     </div>
   )
 }
