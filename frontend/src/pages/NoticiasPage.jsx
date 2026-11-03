@@ -105,6 +105,10 @@ export function NoticiaDetalle() {
   const admin = isAdminUser(user)
   useEffect(() => { api('GET', '/news/' + id).then(setN).catch((e) => { setN(false); setErr(e.message) }) }, [id])
   useEffect(() => { if (admin) api('GET', '/teams').then(setTeams).catch(() => {}) }, [admin])
+  useEffect(() => { // la noticia se lee sobre fondo liso, sin el escudo detrás del texto
+    document.documentElement.classList.add('plain-bg')
+    return () => document.documentElement.classList.remove('plain-bg')
+  }, [])
   const remove = async () => {
     if (!(await ask({ title: 'Eliminar noticia', message: 'Se borra para todos. ¿Seguro?', confirmText: 'Eliminar' }))) return
     try { await api('DELETE', '/news/' + id); nav('/noticias') } catch (e) { setErr(e.message) }
@@ -116,17 +120,15 @@ export function NoticiaDetalle() {
     <article className="space-y-4">
       <Link to="/noticias" className="inline-flex items-center gap-1 text-sm font-bold text-accent"><ChevronLeft size={16} /> Noticias</Link>
       {n.imageUrl && <img src={n.imageUrl} alt="" className="max-h-72 w-full rounded-2xl object-cover" />}
-      <div className="space-y-3 rounded-2xl border border-line bg-surface p-4">
-        <h1 className="text-2xl font-extrabold leading-tight">{n.title}</h1>
-        <p className="flex flex-wrap items-center gap-x-2 text-[11px] font-bold uppercase tracking-wide text-muted">
-          {n.team && <Link to={'/equipo/' + n.team.id} className="text-accent">{n.team.name}</Link>}
-          <span>Por {n.authorName}</span>
-          <span>· {new Date(n.publishedAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-        </p>
-        {n.summary && <p className="text-base font-semibold text-muted">{n.summary}</p>}
-        <div className="space-y-3 text-[15px] leading-relaxed">
-          {n.body.split(/\n{2,}/).map((p, i) => <p key={i} className="whitespace-pre-line">{p}</p>)}
-        </div>
+      <h1 className="text-2xl font-extrabold leading-tight">{n.title}</h1>
+      <p className="flex flex-wrap items-center gap-x-2 text-[11px] font-bold uppercase tracking-wide text-muted">
+        {n.team && <Link to={'/equipo/' + n.team.id} className="text-accent">{n.team.name}</Link>}
+        <span>Por {n.authorName}</span>
+        <span>· {new Date(n.publishedAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+      </p>
+      {n.summary && <p className="text-base font-semibold text-muted">{n.summary}</p>}
+      <div className="space-y-3 text-[15px] leading-relaxed">
+        {n.body.split(/\n{2,}/).map((p, i) => <p key={i} className="whitespace-pre-line">{p}</p>)}
       </div>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
       {admin && (
