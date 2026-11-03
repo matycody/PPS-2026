@@ -1,7 +1,7 @@
 const express = require('express');
 const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { publicName, activeSuspensions } = require('../services/sanctions');
+const { publicName, activeSuspensions, baseWhere } = require('../services/sanctions');
 
 // Departamento de sanciones: evaluacion de rojas y suspensiones (solo ADMIN)
 const router = express.Router();
@@ -71,16 +71,88 @@ router.get('/reds/count', async (_req, res) => {
   }
 });
 
-// Suspendidos vigentes (admin): quién está afuera, por cuántas fechas y con qué alcance
+// Suspendidos vigentes (admin): quién está afuera, por cuántas fechas y con qué alcance. ?tournamentId filtra por torneo.
+// Incluye las sanciones de torneo sin partido (match: null).
+const PROFILE_SEL = { id: true, name: true, nickname: true, showNickname: true, number: true };
+const byTournament = (tid) => (tid ? [{ OR: [{ tournamentId: tid }, { sanction: { match: { tournamentId: tid } } }] }] : []);
+const shapeStandalone = (r) => ({
+  id: r.id,
+  standalone: true,
+  kind: 'STANDALONE',
+  reason: r.reason,
+  createdAt: r.createdAt,
+  tournamentId: r.tournamentId,
+  modality: r.modality,
+  player: r.profile ? { id: r.profile.id, name: publicName(r.profile), number: r.profile.number } : null,
+  match: null,
+  suspension: { id: r.id, fechas: r.fechas, sameDay: r.sameDay, scope: r.scope, note: r.note, createdAt: r.createdAt },
+});
 router.get('/active', async (req, res) => {
   try {
+    const tid = req.query.tournamentId ? String(req.query.tournamentId) : null;
     const rows = await prisma.playerSuspension.findMany({
-      where: { revokedAt: null, OR: [{ fechas: { gt: 0 } }, { sameDay: true }], sanction: { revokedAt: null, kind: 'RED', ...(req.query.tournamentId ? { match: { tournamentId: String(req.query.tournamentId) } } : {}) } },
-      include: { profile: { select: { id: true, name: true, nickname: true, showNickname: true, number: true } }, sanction: { include: include } },
+      where: { ...baseWhere, AND: [...baseWhere.AND, ...byTournament(tid)] },
+      include: { profile: { select: PROFILE_SEL }, sanction: { include: include } },
     });
     const state = await activeSuspensions(rows.map((r) => r.profileId));
-    const items = rows.filter((r) => state.has(r.profileId)).map((r) => ({ ...shape({ ...r.sanction, profile: r.profile, suspension: r }), state: state.get(r.profileId) }));
+    const items = rows.filter((r) => state.has(r.profileId)).map((r) => ({ ...(r.sanction ? shape({ ...r.sanction, profile: r.profile, suspension: r }) : shapeStandalone(r)), state: state.get(r.profileId) }));
     res.json({ items });
+  } catch (err) {
+    handle(err, res);
+  }
+});
+
+// Sanciones de jugadores de un torneo sin partido (ej. tirar la pelota a otro partido a propósito para perjudicarlo)
+router.get('/standalone', async (req, res) => {
+  try {
+    const rows = await prisma.playerSuspension.findMany({
+      where: { sanctionId: null, revokedAt: null, ...(req.query.tournamentId ? { tournamentId: String(req.query.tournamentId) } : {}) },
+      orderBy: { createdAt: 'desc' },
+      take: 300,
+      include: { profile: { select: PROFILE_SEL } },
+    });
+    const tours = await prisma.tournament.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.tournamentId).filter(Boolean))] } }, select: { id: true, name: true, edition: true } });
+    const tn = new Map(tours.map((t) => [t.id, t]));
+    res.json({ items: rows.map((r) => ({ ...shapeStandalone(r), tournament: tn.get(r.tournamentId) ?? null })) });
+  } catch (err) {
+    handle(err, res);
+  }
+});
+
+// { tournamentId, profileId, modality: FOAM|CLOTH, fechas: 0..20, sameDay, scope: MODALITY|ALL, reason (obligatorio) }
+router.post('/standalone', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const fechas = Number(b.fechas ?? 0);
+    const sameDay = Boolean(b.sameDay);
+    const scope = b.scope === 'ALL' ? 'ALL' : 'MODALITY';
+    const reason = b.reason ? String(b.reason).trim().slice(0, 200) : '';
+    const note = b.note ? String(b.note).trim().slice(0, 300) : null;
+    if (!reason) return res.status(400).json({ error: 'El motivo es obligatorio' });
+    if (!['FOAM', 'CLOTH'].includes(b.modality)) return res.status(400).json({ error: 'Modalidad inválida' });
+    if (!Number.isInteger(fechas) || fechas < 0 || fechas > 20) return res.status(400).json({ error: 'Fechas inválidas (0 a 20)' });
+    if (fechas === 0 && !sameDay) return res.status(400).json({ error: 'Indicá cuántas fechas o el resto de la jornada' });
+    const [t, p] = await Promise.all([
+      prisma.tournament.findUnique({ where: { id: String(b.tournamentId || '') }, select: { id: true } }),
+      prisma.profile.findUnique({ where: { id: String(b.profileId || '') }, select: { id: true } }),
+    ]);
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+    if (!p) return res.status(404).json({ error: 'Jugador no encontrado' });
+    const row = await prisma.playerSuspension.create({
+      data: { profileId: p.id, tournamentId: t.id, modality: b.modality, reason, fechas, sameDay, scope, note, sourceAt: new Date(), decidedById: req.user.id },
+    });
+    res.status(201).json({ id: row.id });
+  } catch (err) {
+    handle(err, res);
+  }
+});
+
+router.delete('/standalone/:id', async (req, res) => {
+  try {
+    const row = await prisma.playerSuspension.findFirst({ where: { id: req.params.id, sanctionId: null, revokedAt: null }, select: { id: true } });
+    if (!row) return res.status(404).json({ error: 'Sanción no encontrada' });
+    await prisma.playerSuspension.update({ where: { id: row.id }, data: { revokedAt: new Date() } });
+    res.json({ ok: true });
   } catch (err) {
     handle(err, res);
   }

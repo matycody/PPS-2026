@@ -594,7 +594,11 @@ model MatchSanction {
 // Decision del departamento de sanciones sobre una roja (fechas=0 y sameDay=false: evaluada sin suspension)
 model PlayerSuspension {
   id          String   @id @default(uuid())
-  sanctionId  String   @unique
+  sanctionId  String?  @unique // null = sanción de torneo sin partido (ej. tirar la pelota a otro partido a propósito)
+  tournamentId String? // torneo de una sanción sin partido
+  modality    Modality? // modalidad de referencia de una sanción sin partido
+  reason      String?  @db.VarChar(200) // motivo de una sanción sin partido
+  sourceAt    DateTime? // desde cuándo cuenta una sanción sin partido
   profileId   String
   fechas      Int      @default(0) // fechas completas posteriores a la roja
   sameDay     Boolean  @default(false) // tambien queda afuera lo que resta de la misma jornada
@@ -604,10 +608,11 @@ model PlayerSuspension {
   createdAt   DateTime @default(now())
   revokedAt   DateTime?
 
-  sanction MatchSanction @relation(fields: [sanctionId], references: [id], onDelete: Cascade)
-  profile  Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  sanction MatchSanction? @relation(fields: [sanctionId], references: [id], onDelete: Cascade)
+  profile  Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   @@index([profileId])
+  @@index([tournamentId])
 }
 
 
