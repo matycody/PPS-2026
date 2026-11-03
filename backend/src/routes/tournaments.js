@@ -59,6 +59,13 @@ function parseEdition(v) {
   return s && s.length <= 30 ? s : undefined; // undefined = inválida
 }
 
+// Nombre del formato a gusto de la organización: vacío = usa el del formato; undefined = inválido (máx. 40)
+function parseFormatLabel(v) {
+  if (v === undefined || v === null || v === '') return null;
+  const s = String(v).trim();
+  return s && s.length <= 40 ? s : undefined;
+}
+
 // Lista ordenada de criterios sin repetir; null = inválida
 function parseTiebreakers(raw) {
   if (!Array.isArray(raw)) return null;
@@ -90,6 +97,7 @@ router.post('/', ...admin, async (req, res) => {
     const endsAt = parseDate(b.endsAt);
     const year = parseYear(b.year);
     const edition = parseEdition(b.edition);
+    const formatLabel = parseFormatLabel(b.formatLabel);
     const format = b.format === undefined ? 'LEAGUE' : b.format;
     const tiebreakers = b.tiebreakers === undefined ? DEFAULT_TIEBREAKERS : parseTiebreakers(b.tiebreakers);
     const points = {};
@@ -103,6 +111,7 @@ router.post('/', ...admin, async (req, res) => {
     if (!MODALITIES.includes(b.modality)) errors.push('Modalidad inválida (FOAM, CLOTH)');
     if (year === null) errors.push('Año inválido');
     if (edition === undefined) errors.push('Edición inválida (máx. 30 caracteres)');
+    if (formatLabel === undefined) errors.push('Nombre del formato inválido (máx. 40 caracteres)');
     if (!FORMATS.includes(format)) errors.push('Formato inválido (LEAGUE, LEAGUE_CUP, CUP)');
     if (startsAt === undefined || endsAt === undefined) errors.push('Fecha inválida');
     else if (startsAt && endsAt && startsAt > endsAt) {
@@ -120,6 +129,7 @@ router.post('/', ...admin, async (req, res) => {
         year,
         edition,
         format,
+        formatLabel,
         startsAt,
         endsAt,
         ...points,
@@ -311,6 +321,11 @@ router.patch('/:id', ...admin, async (req, res) => {
       const e = parseEdition(b.edition);
       if (e === undefined) errors.push('Edición inválida (máx. 30 caracteres)');
       else data.edition = e;
+    }
+    if (b.formatLabel !== undefined) {
+      const f = parseFormatLabel(b.formatLabel);
+      if (f === undefined) errors.push('Nombre del formato inválido (máx. 40 caracteres)');
+      else data.formatLabel = f;
     }
     for (const key of ['pointsWin', 'pointsDraw', 'pointsLoss']) {
       if (b[key] === undefined) continue;

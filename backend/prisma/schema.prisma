@@ -178,6 +178,7 @@ model Tournament {
   year       Int
   edition    String?
   format     TournamentFormat @default(LEAGUE)
+  formatLabel String? // nombre del formato a gusto de la organización (opcional); si es null se muestra el del formato
   status     TournamentStatus @default(DRAFT)
   pointsWin  Int              @default(3)
   pointsDraw Int              @default(1)
