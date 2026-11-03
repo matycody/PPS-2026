@@ -193,7 +193,8 @@ router.get('/:id/posiciones', async (req, res) => {
           where: { stageId: { in: koIds }, hiddenAt: null },
           include: { sets: true },
         });
-        const spots = [...new Set(ko.flatMap((m) => [m.teamAFrom, m.teamBFrom]).filter((f) => f && f.stageId === zone.id).map((f) => f.position))].sort((x, y) => x - y);
+        const realKo = new Set(stages.filter((x) => x.type === 'KNOCKOUT' && !x.isPromotion).map((x) => x.id)); // la promoción no es un playoff de clasificación
+        const spots = [...new Set(ko.filter((m) => realKo.has(m.stageId)).flatMap((m) => [m.teamAFrom, m.teamBFrom]).filter((f) => f && f.stageId === zone.id).map((f) => f.position))].sort((x, y) => x - y);
         if (spots.length && mine) {
           qualification = { position: mine.position, zoneName: zone.name, done: zoneDone, inSpot: spots.includes(mine.position), maxSpot: spots[spots.length - 1] };
         }
