@@ -3,6 +3,7 @@ const prisma = require('../db');
 const { matchResult } = require('../services/bracket');
 const { teamCareer } = require('../services/teamCareer');
 const { resolveChampions } = require('../services/champion');
+const { podiums } = require('../services/podium');
 
 const router = express.Router();
 const TEAM_SELECT = { id: true, name: true, logo: true };
@@ -91,6 +92,8 @@ router.get('/champions', async (req, res) => {
       .map((t) => ({ ...t, champion: t.champion ?? teams.find((x) => x.id === missing.get(t.id)) ?? null }))
       .filter((t) => t.champion)
       .map(({ championId, ...t }) => t);
+    const pods = await podiums(rows.map((t) => ({ id: t.id, championId: t.championId ?? missing.get(t.id) ?? null })));
+    for (const t of list) t.podium = pods.get(t.id) ?? null;
     const titles = new Map();
     for (const t of list) {
       const e = titles.get(t.champion.id) || { team: t.champion, titles: 0 };

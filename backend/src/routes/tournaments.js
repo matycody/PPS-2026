@@ -1,5 +1,6 @@
 const express = require('express');
 const prisma = require('../db');
+const { podiums } = require('../services/podium');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { FEED_ROOM, notifyMatch } = require('../services/notify');
 const { removeMatch } = require('../timers/matchManager');
@@ -234,7 +235,8 @@ router.get('/:id', async (req, res) => {
       },
     });
     if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
-    res.json(t);
+    const podium = t.status === 'FINISHED' ? (await podiums([{ id: t.id, championId: t.championId }])).get(t.id) ?? null : null;
+    res.json({ ...t, podium });
   } catch (err) {
     handleDbError(err, res);
   }
