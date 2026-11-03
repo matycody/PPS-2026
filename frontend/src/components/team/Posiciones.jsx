@@ -8,7 +8,7 @@ import Forma from '../torneo/Forma'
 import { Skeleton } from '../ui'
 
 // Mismos colores que la tabla del torneo: ascenso (verde), descenso (rojo), playoff de ascenso/permanencia (naranja)
-const ZONE_CLS = { PROMOTION: 'border-l-4 border-l-live bg-live/15', RELEGATION: 'border-l-4 border-l-danger bg-danger/15', PLAYOFF: 'border-l-4 border-l-warn bg-warn/15' }
+const ZONE_CLS = { PROMOTION: 'bg-live/10', RELEGATION: 'bg-danger/10', PLAYOFF: 'bg-warn/10' }
 const ZONE_POS = { PROMOTION: 'bg-live text-black', RELEGATION: 'bg-danger text-white', PLAYOFF: 'bg-warn text-black' }
 
 const WINDOW = 6 // si la zona es más grande, se muestran los equipos cercanos al propio
@@ -37,8 +37,8 @@ function Tabla({ rows, teamId, zone }) {
         {view.map((r) => {
           const me = r.team.id === teamId
           return (
-            <tr key={r.team.id} className={(ZONE_CLS[r.zone] ?? 'border-l-4 border-l-transparent') + (me ? ' font-extrabold ring-1 ring-inset ring-accent' : '')}>
-              <td className={'py-1.5 pl-1 tabular-nums font-extrabold ' + (ZONE_POS[r.zone] ?? '')}>{rows.indexOf(r) + 1}</td>
+            <tr key={r.team.id} className={(ZONE_CLS[r.zone] ?? '') + (me ? ' font-extrabold ring-1 ring-inset ring-accent' : '')}>
+              <td className="py-1.5 pl-1"><span className={'grid h-6 w-6 place-items-center rounded-full text-xs font-extrabold tabular-nums ' + (ZONE_POS[r.zone] ?? '')}>{rows.indexOf(r) + 1}</span></td>
               <td className="max-w-0 truncate py-1.5">{r.team.name}</td>
               <td className="py-1.5 text-center tabular-nums">{r.played}</td>
               <td className="py-1.5 text-center tabular-nums">{r.pointDiff > 0 ? '+' + r.pointDiff : r.pointDiff}</td>
@@ -71,6 +71,8 @@ function playoffText(q) {
 function Card({ it, teamId, open, onToggle }) {
   const t = it.tournament
   const text = playoffText(it.qualification)
+  const mine = it.rows.find((r) => r.team.id === teamId)
+  const place = !text && t.status === 'FINISHED' && mine ? 'Terminó ' + mine.position + '.º en la tabla' + (it.zone ? ' · ' + it.zone.name : '') : null
   return (
     <div className="rounded-3xl border border-line bg-surface">
       <button onClick={onToggle} aria-expanded={open} className="flex w-full items-center gap-3 p-4 text-left">
@@ -86,6 +88,7 @@ function Card({ it, teamId, open, onToggle }) {
       {open && (
         <div className="space-y-3 px-4 pb-4">
           {it.rows.length > 0 ? <Tabla rows={it.rows} teamId={teamId} zone={it.zone} /> : <p className="text-sm text-muted">Este torneo no tiene tabla de posiciones.</p>}
+          {place && <p className="text-center text-sm font-bold">{place}</p>}
           <Link to={'/liga/' + t.id} className="block text-center text-sm font-bold text-accent">Ver torneo completo ›</Link>
           {(text || it.playoffs.length > 0) && (
             <div className="space-y-3 border-t border-line pt-3">
