@@ -153,7 +153,9 @@ export default function SanctionsCard({ m, tick, items, control, nameA, nameB, a
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {kinds.map((k) => (
                   <button key={k} disabled={!control.can} onClick={() => open(side, k)} className="flex items-center justify-center gap-1.5 rounded-xl border border-line bg-surface-2 py-2.5 text-xs font-extrabold disabled:opacity-40">
-                    <span className={'h-2.5 w-2.5 rounded-sm ' + KIND[k].dot} />{KIND[k].label}
+                    {k === 'WARNING'
+                      ? <span className={'h-2.5 w-2.5 rounded-full ' + KIND[k].dot} />
+                      : <span className={'h-5 w-3.5 shrink-0 rotate-6 rounded-[3px] shadow-md ring-1 ring-black/30 ' + KIND[k].dot} />}{KIND[k].label}
                   </button>
                 ))}
               </div>
