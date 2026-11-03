@@ -69,6 +69,7 @@ function TeamsTab({ t, reload, setErr }) {
 // ───────────── Estructura ─────────────
 function StructureTab({ t, reload, setErr }) {
   const draft = t.status === 'DRAFT' || (!!t.pausedAt && t.status !== 'FINISHED')
+  const light = !draft // fuera de borrador o pausa solo se corrigen nombre, fase, categoría y cupos (sin tocar el fixture)
   const [stages, setStages] = useState(() =>
     t.stages.filter((s) => !s.isPromotion).map((s) => ({
       key: s.id, name: s.name, type: s.type, phase: s.phase, tier: s.tier ?? '', promotions: s.promotions, relegations: s.relegations, playoffPositions: s.playoffPositions ?? [],
@@ -131,10 +132,12 @@ function StructureTab({ t, reload, setErr }) {
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
 
-  async function saveQuotas(s) {
+  async function saveStage(s) {
     setBusy(true); setErr('')
     try {
-      await api('PATCH', '/tournaments/' + t.id + '/stages/' + s.key + '/quotas', { promotions: Number(s.promotions) || 0, relegations: Number(s.relegations) || 0 })
+      const body = { name: s.name, phase: Number(s.phase) || 1 }
+      if (s.type === 'LEAGUE') Object.assign(body, { tier: s.tier === '' ? null : Number(s.tier), promotions: Number(s.promotions) || 0, relegations: Number(s.relegations) || 0 })
+      await api('PATCH', '/tournaments/' + t.id + '/stages/' + s.key, body)
       await reload()
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
@@ -144,30 +147,30 @@ function StructureTab({ t, reload, setErr }) {
   const renderStage = (s, i) => (
         <div key={s.key} className="space-y-3 rounded-3xl border border-line bg-surface p-4">
           <div className="flex items-center gap-2">
-            <input disabled={!draft} className={inputCls} value={s.name} onChange={(e) => setStage(i, { name: e.target.value })} />
+            <input disabled={!light} className={inputCls} value={s.name} onChange={(e) => setStage(i, { name: e.target.value })} />
             <span className="shrink-0 rounded-full bg-surface-2 px-3 py-1 text-xs font-bold">{s.type === 'LEAGUE' ? 'Zona' : 'Llave'}</span>
             {draft && <button aria-label="Quitar" onClick={() => setStages((a) => a.filter((_, k) => k !== i))}><Trash2 size={18} className="text-danger" /></button>}
           </div>
           <div className="grid grid-cols-2 gap-3 text-xs text-muted [&>*]:min-w-0 sm:grid-cols-4">
-            <label>Fase<input disabled={!draft} type="number" min="1" className={inputCls} value={s.phase} onChange={(e) => setStage(i, { phase: e.target.value })} /></label>
+            <label>Fase<input disabled={!light} type="number" min="1" className={inputCls} value={s.phase} onChange={(e) => setStage(i, { phase: e.target.value })} /></label>
             <label>Categoría
-              <select disabled={!draft} className={inputCls} value={s.tier} onChange={(e) => setStage(i, { tier: e.target.value })}>
+              <select disabled={!light} className={inputCls} value={s.tier} onChange={(e) => setStage(i, { tier: e.target.value })}>
                 <option value="">—</option>
                 {Array.from({ length: 26 }, (_, k) => <option key={k} value={k + 1}>{String.fromCharCode(65 + k)}</option>)}
               </select>
             </label>
             {s.type === 'LEAGUE' && (
               <>
-                <label>Ascienden<input disabled={!draft && t.status !== 'FINISHED'} type="number" min="0" className={inputCls} value={s.promotions} onChange={(e) => setStage(i, { promotions: e.target.value })} /></label>
-                <label>Descienden<input disabled={!draft && t.status !== 'FINISHED'} type="number" min="0" className={inputCls} value={s.relegations} onChange={(e) => setStage(i, { relegations: e.target.value })} /></label>
+                <label>Ascienden<input disabled={!light} type="number" min="0" className={inputCls} value={s.promotions} onChange={(e) => setStage(i, { promotions: e.target.value })} /></label>
+                <label>Descienden<input disabled={!light} type="number" min="0" className={inputCls} value={s.relegations} onChange={(e) => setStage(i, { relegations: e.target.value })} /></label>
               </>
             )}
           </div>
           {s.type === 'LEAGUE' && <p className="text-xs text-muted">{s.teams.length} equipos</p>}
-          {s.type === 'LEAGUE' && t.status === 'FINISHED' && (
+          {!draft && (
             <div className="space-y-1">
-              <Btn tone="accent" disabled={busy} onClick={() => saveQuotas(s)} className="w-full">Guardar cupos de ascenso/descenso</Btn>
-              <p className="text-[11px] text-muted">Corrige solo los cupos; el fixture, los resultados y las llaves no se tocan.</p>
+              <Btn tone="accent" disabled={busy} onClick={() => saveStage(s)} className="w-full">Guardar cambios de {s.type === 'LEAGUE' ? 'la zona' : 'la llave'}</Btn>
+              <p className="text-[11px] text-muted">Podés cambiar nombre, fase, categoría y cupos; el fixture, los resultados y las llaves no se tocan.</p>
             </div>
           )}
         </div>
@@ -420,7 +423,24 @@ function BracketBuilder({ t, stage, onDone, setErr }) {
   )
 }
 
-function BracketsSection({ t, setErr }) {
+// Nombre de una llave o playoff, editable por la organización (no toca fixture ni cruces)
+function StageName({ stage, t, reload, setErr }) {
+  const [v, setV] = useState(stage.name)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => setV(stage.name), [stage.name])
+  async function save() {
+    setBusy(true); setErr('')
+    try { await api('PATCH', '/tournaments/' + t.id + '/stages/' + stage.id, { name: v }); await reload() } catch (e) { setErr(e.message); setV(stage.name) } finally { setBusy(false) }
+  }
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      <input className={inputCls} maxLength={40} value={v} onChange={(e) => setV(e.target.value)} aria-label="Nombre" />
+      {v.trim() !== stage.name && <Btn tone="accent" disabled={busy || !v.trim()} onClick={save}>Guardar</Btn>}
+    </div>
+  )
+}
+
+function BracketsSection({ t, setErr, reload }) {
   const ask = useConfirm()
   const [tick, setTick] = useState(0)
   const [counts, setCounts] = useState({})
@@ -461,7 +481,7 @@ function BracketsSection({ t, setErr }) {
       {knockouts.map((s) => (
         <div key={s.id} className="space-y-3 rounded-3xl border border-line bg-surface p-3">
           <div className="flex items-center gap-2">
-            <p className="flex-1 text-xs font-bold uppercase tracking-widest text-muted">{s.name}</p>
+            <StageName stage={s} t={t} reload={reload} setErr={setErr} />
             {!s.isPromotion && counts[s.id] > 0 && t.status !== 'FINISHED' && editor?.id !== s.id && <Btn onClick={() => startEdit(s)}>Editar cruces</Btn>}
             {!s.isPromotion && counts[s.id] > 0 && editor?.id !== s.id && <Btn tone="danger" onClick={() => drop(s)}>Eliminar llave</Btn>}
           </div>
@@ -689,7 +709,7 @@ export default function TorneoAdminPage() {
       {tab === 'estructura' && (
         <div className="space-y-6">
           <StructureTab key={t.stages.map((s) => s.id).join()} t={t} reload={load} setErr={setErr} />
-          <BracketsSection t={t} setErr={setErr} />
+          <BracketsSection t={t} setErr={setErr} reload={load} />
         </div>
       )}
       {tab === 'fixture' && <FixtureTab t={t} setErr={setErr} />}
