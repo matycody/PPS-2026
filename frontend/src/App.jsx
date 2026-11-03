@@ -104,7 +104,7 @@ function App() {
             <Route path="/sedes" element={<SedesPublicPage />} />
             <Route path="/noticias" element={<NoticiasPage />} />
             <Route path="/noticias/:id" element={<NoticiaDetalle />} />
-            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos', '/partidos', '/sedes', '/noticias', '/predicciones'].includes(g.to)).map((g) => (
+            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos', '/partidos', '/sedes', '/noticias', '/predicciones', '/sanciones'].includes(g.to)).map((g) => (
               <Route key={g.to} path={g.to} element={<Placeholder title={g.label} />} />
             ))}
 
