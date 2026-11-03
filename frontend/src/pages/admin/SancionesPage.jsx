@@ -86,17 +86,18 @@ function Card({ r, onSaved }) {
   )
 }
 
-export default function SancionesPage() {
+// Rojas y suspensiones de jugadores. Con tournamentId solo muestra las de ese torneo.
+export function SancionesPanel({ tournamentId = null }) {
   const [tab, setTab] = useState('pending')
   const [list, setList] = useState(null)
   const [err, setErr] = useState('')
 
-  const load = () => api('GET', tab === 'active' ? '/sanctions/active' : '/sanctions/reds?status=' + tab).then((r) => setList(r.items)).catch((e) => setErr(e.message))
+  const q = tournamentId ? 'tournamentId=' + tournamentId : ''
+  const load = () => api('GET', tab === 'active' ? '/sanctions/active' + (q ? '?' + q : '') : '/sanctions/reds?status=' + tab + (q ? '&' + q : '')).then((r) => setList(r.items)).catch((e) => setErr(e.message))
   useEffect(() => { setList(null); load() }, [tab])
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 p-4">
-      <h1 className="flex items-center gap-2 text-xl font-extrabold"><Gavel size={20} /> Departamento de sanciones</h1>
+    <div className="space-y-4">
       <div className="flex gap-1 rounded-2xl bg-surface-2 p-1 text-sm font-bold">
         {[['pending', 'Pendientes'], ['active', 'Vigentes'], ['decided', 'Evaluadas']].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} className={'flex-1 rounded-xl py-2 ' + (tab === k ? 'bg-surface text-accent' : 'text-muted')}>{l}</button>
@@ -115,6 +116,15 @@ export default function SancionesPage() {
           <Card r={r} onSaved={load} />
         </div>
       ))}
+    </div>
+  )
+}
+
+export default function SancionesPage() {
+  return (
+    <div className="mx-auto max-w-2xl space-y-4 p-4">
+      <h1 className="flex items-center gap-2 text-xl font-extrabold"><Gavel size={20} /> Departamento de sanciones</h1>
+      <SancionesPanel />
     </div>
   )
 }

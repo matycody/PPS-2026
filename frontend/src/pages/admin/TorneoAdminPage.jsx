@@ -6,6 +6,7 @@ import { api } from '../../lib/api'
 import { BRANCH, MODALITY, formatName, TSTATUS, CRITERIA, PENALTY_KIND, penaltyWhy } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import { useConfirm } from '../../components/ConfirmProvider'
+import { SancionesPanel } from './SancionesPage'
 import StandingsView from '../../components/torneo/StandingsView'
 import { useTournamentLive } from '../../hooks/useTournamentLive'
 import BracketView from '../../components/torneo/BracketView'
@@ -15,7 +16,7 @@ import BracketEditor, { emptyBracket, fromView } from '../../components/torneo/B
 
 const TABS = [
   ['resumen', 'Resumen'], ['equipos', 'Equipos'], ['estructura', 'Estructura'],
-  ['fixture', 'Fixture'], ['tabla', 'Tabla'], ['llave', 'Playoffs'],
+  ['fixture', 'Fixture'], ['tabla', 'Tabla'], ['llave', 'Playoffs'], ['sanciones', 'Sanciones'],
 ]
 const letter = (i) => String.fromCharCode(65 + (i % 26)) + (i >= 26 ? Math.floor(i / 26) : '')
 
@@ -672,7 +673,7 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
 }
 
 // Quita de puntos a un equipo (no presentó árbitros de línea o mesa): 1 punto por cada persona faltante, en la tabla de la zona elegida
-function PenaltiesPanel({ t, setErr, onChange }) {
+function PenaltiesPanel({ t, setErr }) {
   const [data, setData] = useState(null)
   const [stageId, setStageId] = useState('')
   const [teamId, setTeamId] = useState('')
@@ -695,12 +696,12 @@ function PenaltiesPanel({ t, setErr, onChange }) {
     try {
       await api('POST', '/tournaments/' + t.id + '/stages/' + stageId + '/penalties', staff ? { teamId, kind, missing: picked, reason } : { teamId, kind, points: Number(extra), reason })
       setMiss({ l1: false, l2: false, mesa: false }); setExtra(''); setReason('')
-      await load(); onChange?.()
+      await load()
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
   async function remove(x) {
     if (!(await ask({ title: 'Quitar la sanción', message: 'Se devuelven ' + x.points + ' punto(s) al equipo.', confirmText: 'Quitar', danger: true }))) return
-    try { await api('DELETE', '/tournaments/' + t.id + '/stages/' + stageId + '/penalties/' + x.id); await load(); onChange?.() } catch (e) { setErr(e.message) }
+    try { await api('DELETE', '/tournaments/' + t.id + '/stages/' + stageId + '/penalties/' + x.id); await load() } catch (e) { setErr(e.message) }
   }
 
   if (!data) return null
@@ -758,7 +759,6 @@ export default function TorneoAdminPage() {
   const [tab, setTab] = useState('resumen')
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
-  const [tabVer, setTabVer] = useState(0)
 
   const load = useCallback(() => api('GET', '/tournaments/' + id).then(setT).catch((e) => setErr(e.message)), [id])
   useEffect(() => { load() }, [load])
@@ -796,10 +796,17 @@ export default function TorneoAdminPage() {
       )}
       {tab === 'fixture' && <FixtureTab t={t} setErr={setErr} />}
       {tab === 'llave' && <BracketTab t={t} goStructure={() => setTab('estructura')} />}
-      {tab === 'tabla' && (
-        <div className="space-y-4">
-          <PenaltiesPanel t={t} setErr={setErr} onChange={() => setTabVer((v) => v + 1)} />
-          <StandingsView key={tabVer} branch={t.branch} tournamentId={t.id} finished={t.status === 'FINISHED'} />
+      {tab === 'tabla' && <StandingsView branch={t.branch} tournamentId={t.id} finished={t.status === 'FINISHED'} />}
+      {tab === 'sanciones' && (
+        <div className="space-y-6">
+          <PenaltiesPanel t={t} setErr={setErr} />
+          <section className="space-y-3">
+            <div>
+              <h3 className="text-sm font-extrabold">Sanciones a jugadores · este torneo</h3>
+              <p className="text-xs text-muted">Rojas y suspensiones de los partidos de {t.name}. El listado de todos los torneos está en Departamento de sanciones.</p>
+            </div>
+            <SancionesPanel tournamentId={t.id} />
+          </section>
         </div>
       )}
     </div>
