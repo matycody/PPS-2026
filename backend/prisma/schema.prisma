@@ -699,7 +699,8 @@ model TeamPenalty {
   stageId     String
   teamId      String
   points      Int // puntos que se restan (>0)
-  missing     String[] @default([]) // LINE | TABLE por cada persona que faltó (vacío si es otro motivo)
+  kind        String   @default("STAFF") // STAFF (faltan árbitros/mesa) | NO_SHOW | LATE | NO_PLAYERS | AGGRESSION | OTHER
+  missing     String[] @default([]) // LINE | TABLE por cada persona que faltó (solo kind STAFF)
   reason      String?  @db.VarChar(200)
   createdById String?
   createdAt   DateTime @default(now())

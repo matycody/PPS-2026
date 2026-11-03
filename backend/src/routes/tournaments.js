@@ -833,6 +833,7 @@ router.delete('/:id/purge', ...admin, async (req, res) => {
 // Quita de puntos a un equipo en la tabla de una zona. Por cada persona que no presentó (árbitro de línea o mesa) se resta 1 punto;
 // también se puede cargar una cantidad libre. La tabla del torneo (rama + categoría de la zona) la descuenta sola.
 const MISSING = ['LINE', 'TABLE'];
+const PENALTY_KINDS = ['STAFF', 'NO_SHOW', 'LATE', 'NO_PLAYERS', 'AGGRESSION', 'OTHER'];
 router.post('/:id/stages/:stageId/penalties', ...admin, async (req, res) => {
   try {
     const stage = await prisma.stage.findFirst({
@@ -845,13 +846,16 @@ router.post('/:id/stages/:stageId/penalties', ...admin, async (req, res) => {
     const teamId = String(b.teamId || '');
     const inZone = await prisma.stageTeam.findUnique({ where: { stageId_teamId: { stageId: stage.id, teamId } }, select: { teamId: true } });
     if (!inZone) return res.status(400).json({ error: 'El equipo no juega en esa zona' });
-    const missing = Array.isArray(b.missing) ? b.missing.map(String) : [];
+    const kind = b.kind === undefined ? (Array.isArray(b.missing) && b.missing.length ? 'STAFF' : 'OTHER') : String(b.kind);
+    if (!PENALTY_KINDS.includes(kind)) return res.status(400).json({ error: 'Motivo inválido' });
+    const missing = kind === 'STAFF' && Array.isArray(b.missing) ? b.missing.map(String) : [];
     if (missing.some((m) => !MISSING.includes(m))) return res.status(400).json({ error: 'Faltante inválido (LINE o TABLE)' });
     if (missing.length > 3) return res.status(400).json({ error: 'Máximo 3 personas (2 de línea y 1 de mesa)' });
+    if (kind === 'STAFF' && !missing.length) return res.status(400).json({ error: 'Indicá qué persona faltó (línea o mesa)' });
     const points = missing.length ? missing.length : Number(b.points);
     if (!Number.isInteger(points) || points < 1 || points > 20) return res.status(400).json({ error: 'Los puntos a quitar son un entero entre 1 y 20' });
     const reason = b.reason == null || String(b.reason).trim() === '' ? null : String(b.reason).trim().slice(0, 200);
-    const row = await prisma.teamPenalty.create({ data: { stageId: stage.id, teamId, points, missing, reason, createdById: req.user?.id ?? null } });
+    const row = await prisma.teamPenalty.create({ data: { stageId: stage.id, teamId, points, kind, missing, reason, createdById: req.user?.id ?? null } });
     res.status(201).json(row);
   } catch (err) {
     console.error('[tournaments penalties]', err);

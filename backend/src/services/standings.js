@@ -168,7 +168,7 @@ async function computeStandingsRaw(tournamentId, stageId = null, withPaused = fa
   const stages = await prisma.stage.findMany({
     where: { tournamentId, type: 'LEAGUE', ...(stageId ? { id: stageId } : {}) },
     orderBy: [{ phase: 'asc' }, { tier: 'asc' }, { name: 'asc' }],
-    include: { teams: { include: { team: { select: TEAM_SELECT } } }, penalties: { select: { id: true, teamId: true, points: true, missing: true, reason: true, createdAt: true }, orderBy: { createdAt: 'asc' } } },
+    include: { teams: { include: { team: { select: TEAM_SELECT } } }, penalties: { select: { id: true, teamId: true, points: true, kind: true, missing: true, reason: true, createdAt: true }, orderBy: { createdAt: 'asc' } } },
   });
   const matches = stages.length
     ? await prisma.match.findMany({
