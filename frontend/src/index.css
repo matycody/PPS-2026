@@ -176,3 +176,10 @@ select:-webkit-autofill {
 select option, select optgroup { background-color: var(--surface); color: var(--fg); }
 select { color-scheme: light; }
 .dark select { color-scheme: dark; }
+
+/* Acero: fondo negro con escudo negro (sin la capa ni la foto del estilo azul) y menú inferior solo con íconos */
+html.dark[data-skin="acero"] body::before {
+  background-image: url('/fondo-acero.svg');
+}
+html[data-skin="acero"].dark .nav-label { display: none; }
+html[data-skin="acero"].dark nav a { padding-top: 0.9rem; padding-bottom: 0.9rem; }

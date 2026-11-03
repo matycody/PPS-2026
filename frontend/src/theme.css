@@ -64,3 +64,12 @@ html, body, #root {
   color: var(--fg);
   font-family: var(--font-sans);
 }
+
+/* Oscuro "Acero": negro total con escudo negro y tarjetas gris azulado (el azul noche sigue siendo el estilo por defecto) */
+.dark[data-skin="acero"] {
+  --bg: #000000;
+  --surface: #1a2029;
+  --surface-2: #262f3b;
+  --line: #39465a;
+  --muted: #9aa8bb;
+}

@@ -18,6 +18,7 @@
           var m = localStorage.getItem('theme');
           var dark = m === 'light' ? false : m === 'system' ? matchMedia('(prefers-color-scheme: dark)').matches : true;
           document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.dataset.skin = localStorage.getItem('skin') === 'acero' ? 'acero' : 'azul';
           var meta = document.querySelector('meta[name="theme-color"]');
           if (meta) meta.setAttribute('content', dark ? '#0a0a0b' : '#f5f6f8');
         } catch (e) {}

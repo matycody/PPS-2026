@@ -25,13 +25,15 @@ export default function BottomNav() {
             key={to}
             to={to}
             end={to === '/'}
+            aria-label={label}
+            title={label}
             className={({ isActive }) =>
               'flex min-w-0 flex-col items-center justify-start gap-1 px-0.5 py-2.5 text-center text-[11px] font-semibold leading-tight ' +
               (isActive ? 'text-accent' : 'text-muted')
             }
           >
             <Icon size={22} />
-            <span className="line-clamp-2 w-full break-words">{label}</span>
+            <span className="nav-label line-clamp-2 w-full break-words">{label}</span>
           </NavLink>
         ))}
       </div>
