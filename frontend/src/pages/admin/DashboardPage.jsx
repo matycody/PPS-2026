@@ -75,20 +75,6 @@ function CourtMatch({ m, tick, full, run, busy }) {
         )}
       </div>
 
-      {open && sets.length > 0 && (
-        <ul className="space-y-1">
-          {sets.map((s) => {
-            const draw = s.draw === true || s.winnerTeamId == null
-            const w = s.winnerTeamId === m.teamA?.id ? m.teamA : m.teamB
-            return (
-              <li key={s.number} className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2 text-sm">
-                <span>Set {s.number}: <b>{draw ? 'Empate' : (w?.name ?? '—')}</b></span>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-
       {open && !confirm && <Btn tone="danger" className="w-full" disabled={busy} onClick={() => setConfirm(true)}>Finalizar partido</Btn>}
       {open && confirm && (
         <div className="space-y-2 rounded-2xl border box-danger p-3">
