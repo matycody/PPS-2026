@@ -85,7 +85,7 @@ export default function Drawer({ open, onClose }) {
           })}
 
           <Title>General</Title>
-          {sortKeys(generalFor(menu).map((g) => g.to), order?.General).map((to) => <Item key={to} {...generalFor(menu).find((g) => g.to === to)} onClose={onClose} />)}
+          {sortKeys(generalFor(menu, !!user).map((g) => g.to), order?.General).map((to) => <Item key={to} {...generalFor(menu, !!user).find((g) => g.to === to)} onClose={onClose} />)}
           {menu.includes('perfil') && <Item {...ITEMS.perfil} onClose={onClose} />}
         </nav>
 

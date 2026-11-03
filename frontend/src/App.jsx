@@ -32,6 +32,7 @@ import SedesPage from './pages/admin/SedesPage'
 import SedesPublicPage from './pages/SedesPublicPage'
 import NoticiasPage, { NoticiaDetalle } from './pages/NoticiasPage'
 import SancionesPage from './pages/admin/SancionesPage'
+import SancionesPublicaPage from './pages/SancionesPublicaPage'
 import AdminTeamPage from './pages/admin/AdminTeamPage'
 import PartidosPage from './pages/admin/PartidosPage'
 import AdminMatchPage from './pages/admin/AdminMatchPage'
@@ -117,6 +118,7 @@ function App() {
               <Route path="/mi-equipo" element={<MiEquipoPage />} />
               <Route path="/mis-partidos" element={<MisPartidosPage />} />
               <Route path="/mis-estadisticas" element={<MisEstadisticasPage />} />
+              <Route path="/sanciones" element={<SancionesPublicaPage />} />
               <Route path="/control/:id" element={<ControlPage />} />
             </Route>
 

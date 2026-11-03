@@ -42,6 +42,8 @@ export const GENERAL = [
   { to: '/partidos', label: 'Partidos', Icon: CalendarDays, hideIf: 'partidos' },
   { to: '/noticias', label: 'Noticias', Icon: Newspaper, bottomOnly: true }, // fija en la barra inferior para todos (no va en el drawer)
   { to: '/predicciones', label: 'Predicciones', Icon: Target },
+  // Con sesión iniciada (no para visitas); el organizador ya tiene 'Sanciones' (con edición) en Administración
+  { to: '/sanciones', label: 'Sanciones', Icon: Gavel, hideIf: 'sanciones', authOnly: true },
   // El organizador ya tiene 'Equipos' en Administración
   { to: '/equipos', label: 'Equipos', Icon: Users, hideIf: 'equipos' },
   // El organizador ya tiene 'Sedes' (con edición) en Administración
@@ -59,7 +61,7 @@ export const BOTTOM_PRIORITY = [
 ]
 
 // Entradas de GENERAL que corresponden al menú de esta persona
-export const generalFor = (menu = []) => GENERAL.filter((g) => !g.bottomOnly && (!g.hideIf || !menu.includes(g.hideIf)) && (!g.showIf || menu.includes(g.showIf)))
+export const generalFor = (menu = [], loggedIn = true) => GENERAL.filter((g) => !g.bottomOnly && (!g.authOnly || loggedIn) && (!g.hideIf || !menu.includes(g.hideIf)) && (!g.showIf || menu.includes(g.showIf)))
 
 // "Mesa" no es un rol explícito: quien opera la mesa figura como Jugador (o lo que sea además)
 export function roleLabel(user) {
