@@ -291,7 +291,7 @@ export default function HomeInicio({ byId, loading, error, children }) {
                   )}
                 </div>
               ) : (
-                <p className="rounded-2xl border border-line bg-surface px-4 py-4 text-sm font-semibold text-muted">No seguís partidos en este día.</p>
+                <div className="rounded-2xl border border-line bg-surface px-4 py-4 text-sm font-semibold text-muted">No seguís partidos en este día.</div>
               )}
               <h2 className="pt-2 text-xs font-bold uppercase tracking-widest text-muted">Todos los partidos</h2>
             </section>

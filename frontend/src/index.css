@@ -93,12 +93,12 @@ html:not(.dark) header.menu-glass {
 /* Pestañas, filtros, checkboxes y textos sueltos sobre la imagen: recuadro sólido, nada transparente */
 button.rounded-full.border:not([class*="bg-"]):not(.bg-surface *):not(.menu-glass *):not(.menu-glass-drawer *),
 label:has(> input[type="checkbox"]):not(.bg-surface *),
-p.text-muted:not(.bg-surface *) {
+p.text-muted:not(.bg-surface):not(.bg-surface *) {
   background: var(--surface);
   text-shadow: none !important;
 }
 label:has(> input[type="checkbox"]):not(.bg-surface *),
-p.text-muted:not(.bg-surface *) {
+p.text-muted:not(.bg-surface):not(.bg-surface *) {
   width: fit-content;
   max-width: 100%;
   padding: 0.3rem 0.8rem;
@@ -186,7 +186,7 @@ html.dark[data-skin="acero"] :is(h1, h2, h3, .text-muted) {
 }
 html.dark[data-skin="acero"] .uppercase.tracking-widest.text-muted:not(.bg-surface *),
 html.dark[data-skin="acero"] label:has(> input[type="checkbox"]):not(.bg-surface *),
-html.dark[data-skin="acero"] p.text-muted:not(.bg-surface *) {
+html.dark[data-skin="acero"] p.text-muted:not(.bg-surface):not(.bg-surface *) {
   background: none;
   border: 0;
   padding: 0;
