@@ -49,6 +49,7 @@ router.get('/reds', async (req, res) => {
         revokedAt: null,
         profileId: { not: null },
         suspension: decided ? { is: { revokedAt: null } } : { is: null },
+        ...(req.query.tournamentId ? { match: { tournamentId: String(req.query.tournamentId) } } : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: 200,
@@ -71,10 +72,10 @@ router.get('/reds/count', async (_req, res) => {
 });
 
 // Suspendidos vigentes (admin): quién está afuera, por cuántas fechas y con qué alcance
-router.get('/active', async (_req, res) => {
+router.get('/active', async (req, res) => {
   try {
     const rows = await prisma.playerSuspension.findMany({
-      where: { revokedAt: null, OR: [{ fechas: { gt: 0 } }, { sameDay: true }], sanction: { revokedAt: null, kind: 'RED' } },
+      where: { revokedAt: null, OR: [{ fechas: { gt: 0 } }, { sameDay: true }], sanction: { revokedAt: null, kind: 'RED', ...(req.query.tournamentId ? { match: { tournamentId: String(req.query.tournamentId) } } : {}) } },
       include: { profile: { select: { id: true, name: true, nickname: true, showNickname: true, number: true } }, sanction: { include: include } },
     });
     const state = await activeSuspensions(rows.map((r) => r.profileId));
