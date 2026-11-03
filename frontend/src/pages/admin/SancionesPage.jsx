@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Gavel, Undo2 } from 'lucide-react'
 import { api } from '../../lib/api'
-import { BRANCH, MODALITY, PENALTY_KIND, penaltyWhy } from '../../lib/format'
+import { BRANCH, MODALITY, PENALTY_KIND, penaltyWhy, catLabel } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import { useConfirm } from '../../components/ConfirmProvider'
 
@@ -107,7 +107,7 @@ function StandaloneCard({ r, onSaved }) {
       </div>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
       <div className="flex items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2 text-sm">
-        <span className="font-semibold">{resumen(r.suspension)}{r.modality ? ' · ' + (r.modality === 'CLOTH' ? 'Cloth' : 'Foam') : ''}{r.suspension.note ? ' · ' + r.suspension.note : ''}</span>
+        <span className="font-semibold">{[r.suspension.sameDay && 'resto de la jornada', r.suspension.fechas > 0 && r.suspension.fechas + (r.suspension.fechas === 1 ? ' fecha' : ' fechas')].filter(Boolean).join(' + ') || 'Sin suspensión'} · {(r.categories ?? []).map(catLabel).join(', ')}{r.suspension.note ? ' · ' + r.suspension.note : ''}</span>
         <button onClick={undo} aria-label="Levantar" className="rounded-lg px-2 py-1 text-xs font-bold text-accent">Levantar</button>
       </div>
     </div>
@@ -115,7 +115,7 @@ function StandaloneCard({ r, onSaved }) {
 }
 
 // Formulario: sancionar a un jugador del torneo por algo fuera de su partido
-export function StandaloneForm({ tournamentId, modality, onSaved }) {
+export function StandaloneForm({ tournamentId, modality, branch, onSaved }) {
   const [teams, setTeams] = useState([])
   const [teamId, setTeamId] = useState('')
   const [roster, setRoster] = useState([])
@@ -123,8 +123,7 @@ export function StandaloneForm({ tournamentId, modality, onSaved }) {
   const [reason, setReason] = useState('')
   const [fechas, setFechas] = useState(1)
   const [sameDay, setSameDay] = useState(false)
-  const [scope, setScope] = useState('MODALITY')
-  const [mod, setMod] = useState(modality ?? 'CLOTH')
+  const [cats, setCats] = useState(() => (modality && branch ? [modality + ':' + branch] : []))
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   useEffect(() => {
@@ -140,7 +139,7 @@ export function StandaloneForm({ tournamentId, modality, onSaved }) {
   const save = async () => {
     setBusy(true); setErr('')
     try {
-      await api('POST', '/sanctions/standalone', { tournamentId, profileId, modality: mod, fechas, sameDay, scope, reason })
+      await api('POST', '/sanctions/standalone', { tournamentId, profileId, categories: cats, fechas, sameDay, reason })
       setProfileId(''); setReason(''); setFechas(1); setSameDay(false)
       onSaved?.()
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
@@ -168,15 +167,19 @@ export function StandaloneForm({ tournamentId, modality, onSaved }) {
         <span>Fechas siguientes sin jugar</span>
         <input type="number" min="0" max="20" value={fechas} onChange={(e) => setFechas(Math.max(0, Math.min(20, Number(e.target.value) || 0)))} className={inputCls + ' !w-24 text-center'} />
       </label>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <select className={inputCls} value={mod} onChange={(e) => setMod(e.target.value)}>
-          <option value="CLOTH">Modalidad: Cloth</option><option value="FOAM">Modalidad: Foam</option>
-        </select>
-        <select className={inputCls} value={scope} onChange={(e) => setScope(e.target.value)}>
-          <option value="MODALITY">Solo esa modalidad</option><option value="ALL">Todas las modalidades</option>
-        </select>
+      <div className="space-y-1.5">
+        <p className="text-xs font-bold uppercase tracking-widest text-muted">Rige en (podés elegir varias)</p>
+        <div className="flex flex-wrap gap-2">
+          {['FOAM', 'CLOTH'].flatMap((m) => ['MIXED', 'MALE', 'FEMALE'].map((b) => m + ':' + b)).map((c) => {
+            const on = cats.includes(c)
+            return (
+              <button key={c} type="button" aria-pressed={on} onClick={() => setCats(on ? cats.filter((x) => x !== c) : [...cats, c])}
+                className={'rounded-full px-3 py-1.5 text-xs font-bold ' + (on ? 'bg-accent text-black' : 'border border-line bg-surface-2')}>{catLabel(c)}</button>
+            )
+          })}
+        </div>
       </div>
-      <Btn tone="accent" disabled={busy || !profileId || !reason.trim() || (fechas === 0 && !sameDay)} onClick={save}>Aplicar sanción</Btn>
+      <Btn tone="accent" disabled={busy || !profileId || !reason.trim() || !cats.length || (fechas === 0 && !sameDay)} onClick={save}>Aplicar sanción</Btn>
     </div>
   )
 }

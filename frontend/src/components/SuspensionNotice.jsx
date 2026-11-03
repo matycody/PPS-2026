@@ -1,5 +1,5 @@
 import { Gavel } from 'lucide-react'
-import { MODALITY } from '../lib/format'
+import { MODALITY, catLabel } from '../lib/format'
 
 // Texto de lo que le falta cumplir: "resto de la jornada + 2 fechas"
 export function suspensionText(s) {
@@ -8,7 +8,7 @@ export function suspensionText(s) {
   if (s.remaining > 0) parts.push(s.remaining + (s.remaining === 1 ? ' fecha' : ' fechas'))
   return parts.join(' + ')
 }
-export const suspensionScope = (s) => (s.scope === 'ALL' ? 'todas las modalidades' : MODALITY[s.modality] ?? 'su modalidad')
+export const suspensionScope = (s) => (s.categories?.length ? s.categories.map(catLabel).join(', ') : s.scope === 'ALL' ? 'todas las modalidades' : MODALITY[s.modality] ?? 'su modalidad')
 
 // Cartel de suspensión vigente (banner del jugador y perfil propio)
 export default function SuspensionNotice({ s, self }) {

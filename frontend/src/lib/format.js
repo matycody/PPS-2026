@@ -62,3 +62,6 @@ export const PENALTY_KIND = { STAFF: 'Faltan árbitros o mesa', NO_SHOW: 'No se 
 export const penaltyWhy = (x) => (x.kind === 'STAFF' || x.missing?.length
   ? 'sin ' + x.missing.map((m) => (m === 'TABLE' ? 'mesa' : 'árbitro de línea')).join(' ni ')
   : (PENALTY_KIND[x.kind] ?? '') + (x.reason ? ' (' + x.reason + ')' : ''))
+
+// Alcance de una sanción sin partido: "FOAM:MIXED" -> "Foam Mixto"
+export const catLabel = (c) => { const [m, b] = String(c).split(':'); return [MODALITY[m], BRANCH[b]].filter(Boolean).join(' ') }

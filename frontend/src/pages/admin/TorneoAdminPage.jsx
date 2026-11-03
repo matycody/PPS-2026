@@ -806,7 +806,7 @@ export default function TorneoAdminPage() {
               <h3 className="text-sm font-extrabold">Sanciones a jugadores · este torneo</h3>
               <p className="text-xs text-muted">Rojas y suspensiones de los partidos de {t.name}. El listado de todos los torneos está en Departamento de sanciones.</p>
             </div>
-            <StandaloneForm key={sanKey} tournamentId={t.id} modality={t.modality} onSaved={() => setSanKey((k) => k + 1)} />
+            <StandaloneForm key={sanKey} tournamentId={t.id} modality={t.modality} branch={t.branch} onSaved={() => setSanKey((k) => k + 1)} />
             <SancionesPanel key={'p' + sanKey} tournamentId={t.id} />
           </section>
         </div>
