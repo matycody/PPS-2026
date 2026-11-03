@@ -6,7 +6,7 @@ import { api } from '../../lib/api'
 import { BRANCH, MODALITY, formatName, TSTATUS, CRITERIA, PENALTY_KIND, penaltyWhy } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import { useConfirm } from '../../components/ConfirmProvider'
-import { SancionesPanel } from './SancionesPage'
+import { SancionesPanel, StandaloneForm } from './SancionesPage'
 import StandingsView from '../../components/torneo/StandingsView'
 import { useTournamentLive } from '../../hooks/useTournamentLive'
 import BracketView from '../../components/torneo/BracketView'
@@ -759,6 +759,7 @@ export default function TorneoAdminPage() {
   const [tab, setTab] = useState('resumen')
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
+  const [sanKey, setSanKey] = useState(0)
 
   const load = useCallback(() => api('GET', '/tournaments/' + id).then(setT).catch((e) => setErr(e.message)), [id])
   useEffect(() => { load() }, [load])
@@ -805,7 +806,8 @@ export default function TorneoAdminPage() {
               <h3 className="text-sm font-extrabold">Sanciones a jugadores · este torneo</h3>
               <p className="text-xs text-muted">Rojas y suspensiones de los partidos de {t.name}. El listado de todos los torneos está en Departamento de sanciones.</p>
             </div>
-            <SancionesPanel tournamentId={t.id} />
+            <StandaloneForm key={sanKey} tournamentId={t.id} modality={t.modality} onSaved={() => setSanKey((k) => k + 1)} />
+            <SancionesPanel key={'p' + sanKey} tournamentId={t.id} />
           </section>
         </div>
       )}

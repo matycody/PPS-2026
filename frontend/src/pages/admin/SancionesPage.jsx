@@ -87,6 +87,100 @@ function Card({ r, onSaved }) {
   )
 }
 
+// Sanción a un jugador de un torneo sin partido (ej. tirar la pelota a otro partido a propósito para perjudicarlo)
+function StandaloneCard({ r, onSaved }) {
+  const ask = useConfirm()
+  const [err, setErr] = useState('')
+  const undo = async () => {
+    if (!(await ask({ title: 'Levantar la sanción', message: 'El jugador vuelve a quedar habilitado.', confirmText: 'Levantar' }))) return
+    await api('DELETE', '/sanctions/standalone/' + r.id).then(onSaved).catch((e) => setErr(e.message))
+  }
+  return (
+    <div className="space-y-2 rounded-3xl border border-line bg-surface p-4">
+      <div className="flex items-start gap-3">
+        <Gavel size={18} className="mt-0.5 shrink-0 text-danger" />
+        <div className="min-w-0 flex-1">
+          <p className="font-extrabold leading-tight">{r.player?.name}{r.player?.number != null ? ' #' + r.player.number : ''}</p>
+          <p className="text-xs text-muted">Sanción de torneo sin partido{r.tournament ? ' · ' + r.tournament.name + (r.tournament.edition ? ' · ' + r.tournament.edition : '') : ''} · {fmt(r.createdAt)}</p>
+          {r.reason && <p className="mt-1 text-sm">“{r.reason}”</p>}
+        </div>
+      </div>
+      {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
+      <div className="flex items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2 text-sm">
+        <span className="font-semibold">{resumen(r.suspension)}{r.modality ? ' · ' + (r.modality === 'CLOTH' ? 'Cloth' : 'Foam') : ''}{r.suspension.note ? ' · ' + r.suspension.note : ''}</span>
+        <button onClick={undo} aria-label="Levantar" className="rounded-lg px-2 py-1 text-xs font-bold text-accent">Levantar</button>
+      </div>
+    </div>
+  )
+}
+
+// Formulario: sancionar a un jugador del torneo por algo fuera de su partido
+export function StandaloneForm({ tournamentId, modality, onSaved }) {
+  const [teams, setTeams] = useState([])
+  const [teamId, setTeamId] = useState('')
+  const [roster, setRoster] = useState([])
+  const [profileId, setProfileId] = useState('')
+  const [reason, setReason] = useState('')
+  const [fechas, setFechas] = useState(1)
+  const [sameDay, setSameDay] = useState(false)
+  const [scope, setScope] = useState('MODALITY')
+  const [mod, setMod] = useState(modality ?? 'CLOTH')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    api('GET', '/tournaments/' + tournamentId + '/standings').then((d) => {
+      const m = new Map(d.stages.flatMap((z) => z.rows.map((r) => [r.team.id, r.team.name])))
+      setTeams([...m].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)))
+    }).catch((e) => setErr(e.message))
+  }, [tournamentId])
+  useEffect(() => {
+    setProfileId(''); setRoster([])
+    if (teamId) api('GET', '/teams/' + teamId).then((t) => setRoster(t.roster ?? [])).catch((e) => setErr(e.message))
+  }, [teamId])
+  const save = async () => {
+    setBusy(true); setErr('')
+    try {
+      await api('POST', '/sanctions/standalone', { tournamentId, profileId, modality: mod, fechas, sameDay, scope, reason })
+      setProfileId(''); setReason(''); setFechas(1); setSameDay(false)
+      onSaved?.()
+    } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
+  return (
+    <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
+      <div>
+        <h4 className="text-sm font-extrabold">Sancionar a un jugador sin partido</h4>
+        <p className="text-xs text-muted">Para cuando el jugador no estaba jugando ese partido (ej. tiró la pelota a otra cancha a propósito). La suspensión cuenta desde ahora y se aplica a todos sus partidos del alcance elegido.</p>
+      </div>
+      {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
+      <div className="grid gap-2 sm:grid-cols-2">
+        <select className={inputCls} value={teamId} onChange={(e) => setTeamId(e.target.value)}>
+          <option value="">Equipo…</option>
+          {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        <select className={inputCls} value={profileId} onChange={(e) => setProfileId(e.target.value)} disabled={!teamId}>
+          <option value="">Jugador…</option>
+          {roster.filter((p) => !p.coach).map((p) => <option key={p.profileId} value={p.profileId}>{p.number != null ? '#' + p.number + ' ' : ''}{p.name}</option>)}
+        </select>
+      </div>
+      <input className={inputCls} maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Motivo (obligatorio)" />
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sameDay} onChange={(e) => setSameDay(e.target.checked)} className="h-4 w-4" /> No juega lo que resta de la jornada</label>
+      <label className="flex items-center justify-between gap-3 text-sm">
+        <span>Fechas siguientes sin jugar</span>
+        <input type="number" min="0" max="20" value={fechas} onChange={(e) => setFechas(Math.max(0, Math.min(20, Number(e.target.value) || 0)))} className={inputCls + ' !w-24 text-center'} />
+      </label>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <select className={inputCls} value={mod} onChange={(e) => setMod(e.target.value)}>
+          <option value="CLOTH">Modalidad: Cloth</option><option value="FOAM">Modalidad: Foam</option>
+        </select>
+        <select className={inputCls} value={scope} onChange={(e) => setScope(e.target.value)}>
+          <option value="MODALITY">Solo esa modalidad</option><option value="ALL">Todas las modalidades</option>
+        </select>
+      </div>
+      <Btn tone="accent" disabled={busy || !profileId || !reason.trim() || (fechas === 0 && !sameDay)} onClick={save}>Aplicar sanción</Btn>
+    </div>
+  )
+}
+
 // Rojas y suspensiones de jugadores. Con tournamentId solo muestra las de ese torneo.
 export function SancionesPanel({ tournamentId = null }) {
   const [tab, setTab] = useState('pending')
@@ -114,7 +208,7 @@ export function SancionesPanel({ tournamentId = null }) {
               Le falta: {[r.state.sameDayLeft ? 'resto de la jornada' : null, r.state.remaining > 0 ? r.state.remaining + (r.state.remaining === 1 ? ' fecha' : ' fechas') : null].filter(Boolean).join(' + ')}
             </p>
           )}
-          <Card r={r} onSaved={load} />
+          {r.standalone ? <StandaloneCard r={r} onSaved={load} /> : <Card r={r} onSaved={load} />}
         </div>
       ))}
     </div>
