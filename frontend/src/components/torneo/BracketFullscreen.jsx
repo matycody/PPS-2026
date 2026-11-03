@@ -203,7 +203,7 @@ export default function BracketFullscreen({ onClose, title = 'Playoffs', childre
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-[100] flex flex-col bg-bg"
+      className="fixed inset-0 z-[100] flex flex-col bg-surface-2"
       style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
