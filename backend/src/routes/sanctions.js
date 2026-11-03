@@ -83,6 +83,7 @@ const shapeStandalone = (r) => ({
   createdAt: r.createdAt,
   tournamentId: r.tournamentId,
   modality: r.modality,
+  categories: r.categories,
   player: r.profile ? { id: r.profile.id, name: publicName(r.profile), number: r.profile.number } : null,
   match: null,
   suspension: { id: r.id, fechas: r.fechas, sameDay: r.sameDay, scope: r.scope, note: r.note, createdAt: r.createdAt },
@@ -119,17 +120,19 @@ router.get('/standalone', async (req, res) => {
   }
 });
 
-// { tournamentId, profileId, modality: FOAM|CLOTH, fechas: 0..20, sameDay, scope: MODALITY|ALL, reason (obligatorio) }
+// { tournamentId, profileId, categories: ['FOAM:MIXED','CLOTH:MALE',...], fechas: 0..20, sameDay, reason (obligatorio) }
 router.post('/standalone', async (req, res) => {
   try {
     const b = req.body || {};
     const fechas = Number(b.fechas ?? 0);
     const sameDay = Boolean(b.sameDay);
-    const scope = b.scope === 'ALL' ? 'ALL' : 'MODALITY';
+    const scope = 'ALL';
     const reason = b.reason ? String(b.reason).trim().slice(0, 200) : '';
     const note = b.note ? String(b.note).trim().slice(0, 300) : null;
     if (!reason) return res.status(400).json({ error: 'El motivo es obligatorio' });
-    if (!['FOAM', 'CLOTH'].includes(b.modality)) return res.status(400).json({ error: 'Modalidad inválida' });
+    const categories = [...new Set(Array.isArray(b.categories) ? b.categories.map(String) : [])];
+    if (!categories.length) return res.status(400).json({ error: 'Elegí al menos una modalidad y rama donde rige' });
+    if (categories.some((c) => !/^(FOAM|CLOTH):(MIXED|MALE|FEMALE)$/.test(c))) return res.status(400).json({ error: 'Modalidad o rama inválida' });
     if (!Number.isInteger(fechas) || fechas < 0 || fechas > 20) return res.status(400).json({ error: 'Fechas inválidas (0 a 20)' });
     if (fechas === 0 && !sameDay) return res.status(400).json({ error: 'Indicá cuántas fechas o el resto de la jornada' });
     const [t, p] = await Promise.all([
@@ -139,7 +142,7 @@ router.post('/standalone', async (req, res) => {
     if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
     if (!p) return res.status(404).json({ error: 'Jugador no encontrado' });
     const row = await prisma.playerSuspension.create({
-      data: { profileId: p.id, tournamentId: t.id, modality: b.modality, reason, fechas, sameDay, scope, note, sourceAt: new Date(), decidedById: req.user.id },
+      data: { profileId: p.id, tournamentId: t.id, modality: categories[0].split(':')[0], categories, reason, fechas, sameDay, scope, note, sourceAt: new Date(), decidedById: req.user.id },
     });
     res.status(201).json({ id: row.id });
   } catch (err) {

@@ -47,7 +47,13 @@ const SUS_INCLUDE = {
 function ref(sus) {
   const m = sus.sanction?.match;
   if (m) return { id: m.id, modality: m.modality, at: new Date(m.scheduledAt || m.finishedAt || m.createdAt) };
-  return { id: null, modality: sus.modality, at: new Date(sus.sourceAt || sus.createdAt) };
+  return { id: null, modality: sus.modality ?? sus.categories?.[0]?.split(':')[0], at: new Date(sus.sourceAt || sus.createdAt) };
+}
+
+// Sanción sin partido con categorías elegidas ("MODALIDAD:RAMA"): rige en esos partidos de sus equipos. null = alcance clásico (modalidad / todas)
+function categoriesOf(sus) {
+  if (!sus.categories?.length) return null;
+  return sus.categories.map((c) => { const [modality, branch] = c.split(':'); return { modality, branch }; });
 }
 
 // Partidos "del jugador" dentro del alcance de la suspension: de los equipos/ramas donde juega hoy
@@ -56,13 +62,16 @@ async function playerMatches(sus, { after } = {}) {
   const red = ref(sus);
   const memberships = await prisma.playerTeam.findMany({ where: { profileId: sus.profileId, to: null }, select: { teamId: true, branch: true } });
   if (!memberships.length) return [];
+  const cats = categoriesOf(sus);
   const where = {
     status: { not: 'CANCELLED' },
     hiddenAt: null,
     scheduledAt: after ? { gt: after } : { not: null },
-    OR: memberships.map((m) => ({ branch: m.branch, OR: [{ teamAId: m.teamId }, { teamBId: m.teamId }] })),
+    OR: cats
+      ? cats.flatMap((c) => memberships.map((m) => ({ modality: c.modality, branch: c.branch, OR: [{ teamAId: m.teamId }, { teamBId: m.teamId }] })))
+      : memberships.map((m) => ({ branch: m.branch, OR: [{ teamAId: m.teamId }, { teamBId: m.teamId }] })),
   };
-  if (sus.scope !== 'ALL') where.modality = red.modality;
+  if (!cats && sus.scope !== 'ALL') where.modality = red.modality;
   return prisma.match.findMany({ where, select: { id: true, status: true, scheduledAt: true, teamAId: true, teamBId: true, modality: true, branch: true } });
 }
 
@@ -94,9 +103,11 @@ async function suspensionState(sus) {
 async function isBlocked(sus, match, memberships) {
   const red = ref(sus);
   if (match.id === red.id || !match.scheduledAt) return false;
-  const inTeam = memberships.some((m) => m.branch === match.branch && (m.teamId === match.teamAId || m.teamId === match.teamBId));
+  const cats = categoriesOf(sus);
+  const inTeam = memberships.some((m) => (cats || m.branch === match.branch) && (m.teamId === match.teamAId || m.teamId === match.teamBId));
   if (!inTeam) return false;
-  if (sus.scope !== 'ALL' && match.modality !== red.modality) return false;
+  if (cats) { if (!cats.some((c) => c.modality === match.modality && c.branch === match.branch)) return false; }
+  else if (sus.scope !== 'ALL' && match.modality !== red.modality) return false;
   const { sameDayList, lost } = await sequence(sus);
   if (sameDayList.some((m) => m.id === match.id)) return OPEN.includes(match.status);
   return lost.some((m) => m.id === match.id);
@@ -131,7 +142,7 @@ async function activeSuspensions(profileIds) {
   for (const r of rows) {
     const st = await suspensionState(r);
     if (!st.active) continue;
-    out.set(r.profileId, { remaining: st.remaining, sameDayLeft: st.sameDayLeft, scope: r.scope, modality: ref(r).modality, note: r.note, sanctionId: r.sanctionId });
+    out.set(r.profileId, { remaining: st.remaining, sameDayLeft: st.sameDayLeft, scope: r.scope, modality: ref(r).modality, categories: r.categories ?? [], note: r.note, sanctionId: r.sanctionId });
   }
   return out;
 }

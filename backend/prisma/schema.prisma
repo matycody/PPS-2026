@@ -597,6 +597,7 @@ model PlayerSuspension {
   sanctionId  String?  @unique // null = sanción de torneo sin partido (ej. tirar la pelota a otro partido a propósito)
   tournamentId String? // torneo de una sanción sin partido
   modality    Modality? // modalidad de referencia de una sanción sin partido
+  categories  String[]  @default([]) // sanción sin partido: modalidad:rama donde rige (ej. FOAM:MIXED, CLOTH:MALE); vacío = usa modality/scope
   reason      String?  @db.VarChar(200) // motivo de una sanción sin partido
   sourceAt    DateTime? // desde cuándo cuenta una sanción sin partido
   profileId   String
