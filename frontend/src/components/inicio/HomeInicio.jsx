@@ -205,7 +205,7 @@ export default function HomeInicio({ byId, loading, error, children }) {
                 {d === liveBefore && liveTab}
                 <button id={'daytab-' + d} onClick={() => setParams({ d, t: null })} aria-pressed={v.sel === d} className={pill(v.sel === d)}>
                   {dayTab(d)}{countOf(d) ? ' · ' + countOf(d) : ''}
-                  {v.favDays.has(d) && <span aria-label="Juega un equipo tuyo" className={'ml-1.5 inline-block h-2 w-2 rounded-full align-middle ' + (v.sel === d ? 'bg-black' : 'bg-accent')} />}
+                  {v.favDays.has(d) && <Heart aria-label="Juega un equipo tuyo" size={12} className={'ml-1.5 inline-block align-[-1px] fill-current ' + (v.sel === d ? 'text-black' : 'text-accent')} />}
                 </button>
               </Fragment>
             ))}
