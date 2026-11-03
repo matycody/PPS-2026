@@ -220,7 +220,7 @@ function HeadToHead({ m }) {
       </div>
       <div className="flex gap-2">
         {[['ALL', 'Todas'], ['FOAM', 'Foam'], ['CLOTH', 'Cloth']].map(([k, l]) => (
-          <button key={k} type="button" onClick={() => setMod(k)} className={'rounded-full border px-4 py-1.5 text-sm font-bold ' + (mod === k ? 'border-accent bg-accent-soft' : 'border-line bg-surface')}>{l} · {count(k)}</button>
+          <button key={k} type="button" onClick={() => setMod(k)} className={'rounded-full border px-4 py-1.5 text-sm font-bold ' + (mod === k ? 'border-accent bg-accent text-black' : 'border-line bg-surface')}>{l} · {count(k)}</button>
         ))}
       </div>
       <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-line bg-surface text-center">
@@ -266,7 +266,7 @@ export default function MatchSpectator({ m, tick, over, notice, onCloseNotice, s
       )}
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4" role="tablist">
         {tabs.map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={'shrink-0 rounded-full border px-4 py-2 text-sm font-bold ' + (tab === k ? 'border-accent bg-accent-soft' : 'border-line bg-surface')}>{l}</button>
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={'shrink-0 rounded-full border px-4 py-2 text-sm font-bold ' + (tab === k ? 'border-accent bg-accent text-black' : 'border-line bg-surface')}>{l}</button>
         ))}
       </div>
 
