@@ -177,9 +177,19 @@ select option, select optgroup { background-color: var(--surface); color: var(--
 select { color-scheme: light; }
 .dark select { color-scheme: dark; }
 
-/* Acero: fondo negro con escudo negro (sin la capa ni la foto del estilo azul) y menú inferior solo con íconos */
+/* Acero: fondo negro con escudo negro; sobre el negro los textos sueltos van planos, sin recuadros ni halos */
 html.dark[data-skin="acero"] body::before {
   background-image: url('/fondo-acero.svg');
 }
-html[data-skin="acero"].dark .nav-label { display: none; }
-html[data-skin="acero"].dark nav a { padding-top: 0.9rem; padding-bottom: 0.9rem; }
+html.dark[data-skin="acero"] :is(h1, h2, h3, .text-muted) {
+  text-shadow: none;
+}
+html.dark[data-skin="acero"] .uppercase.tracking-widest.text-muted:not(.bg-surface *),
+html.dark[data-skin="acero"] label:has(> input[type="checkbox"]):not(.bg-surface *),
+html.dark[data-skin="acero"] p.text-muted:not(.bg-surface *) {
+  background: none;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+  width: auto;
+}
