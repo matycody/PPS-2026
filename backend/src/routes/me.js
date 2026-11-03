@@ -2,6 +2,7 @@ const express = require('express');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const storage = require('../services/storage');
+const { teamCareer } = require('../services/teamCareer');
 
 const router = express.Router();
 
@@ -182,6 +183,85 @@ router.get('/assignments', authenticate, async (req, res) => {
 });
 
 // Mi ficha: datos propios, equipos actuales por rama y foto
+// Estadísticas propias del jugador, a partir de los partidos de sus equipos actuales (por rama) y de sus sanciones
+function score(m) {
+  const win = m.modality === 'CLOTH' ? 2 : 1;
+  let a = 0;
+  let b = 0;
+  for (const st of m.sets) {
+    if (!st.winnerTeamId) { if (m.modality === 'CLOTH') { a += 1; b += 1; } }
+    else if (st.winnerTeamId === m.teamAId) a += win;
+    else if (st.winnerTeamId === m.teamBId) b += win;
+  }
+  return { a, b };
+}
+
+router.get('/stats', authenticate, async (req, res) => {
+  try {
+    const { profileId } = req.user;
+    if (!profileId) return res.json({ teams: [], total: null, form: [], recent: [], next: null, medals: { gold: 0, silver: 0, bronze: 0 }, career: [], sanctions: null });
+    const pts = await prisma.playerTeam.findMany({
+      where: { profileId, to: null },
+      include: { team: { select: { id: true, name: true, logo: true } } },
+    });
+    const TEAM = { id: true, name: true, logo: true };
+    const rows = [];
+    const upcoming = [];
+    const career = [];
+    for (const pt of pts) {
+      const where = { branch: pt.branch, hiddenAt: null, OR: [{ teamAId: pt.teamId }, { teamBId: pt.teamId }] };
+      const [done, next, car] = await Promise.all([
+        prisma.match.findMany({
+          where: { ...where, status: 'FINISHED' },
+          select: { id: true, modality: true, teamAId: true, teamBId: true, finishedAt: true, scheduledAt: true, tournament: { select: { name: true, year: true } }, teamA: { select: TEAM }, teamB: { select: TEAM }, sets: { select: { winnerTeamId: true } } },
+        }),
+        prisma.match.findFirst({
+          where: { ...where, status: { in: ['SCHEDULED', 'READY', 'LIVE'] } },
+          orderBy: [{ scheduledAt: { sort: 'asc', nulls: 'last' } }],
+          select: { id: true, status: true, scheduledAt: true, tournament: { select: { name: true } }, teamA: { select: TEAM }, teamB: { select: TEAM } },
+        }),
+        teamCareer(pt.teamId, { branch: pt.branch }).catch(() => []),
+      ]);
+      for (const m of done) {
+        const sc = score(m);
+        const mineIsA = m.teamAId === pt.teamId;
+        const mine = mineIsA ? sc.a : sc.b;
+        const other = mineIsA ? sc.b : sc.a;
+        rows.push({ id: m.id, teamId: pt.teamId, branch: pt.branch, tournament: m.tournament?.name ?? null, year: m.tournament?.year ?? null, rival: mineIsA ? m.teamB : m.teamA, mine, other, res: mine > other ? 'G' : mine < other ? 'P' : 'E', date: m.finishedAt ?? m.scheduledAt });
+      }
+      if (next) upcoming.push({ id: next.id, status: next.status, scheduledAt: next.scheduledAt, tournament: next.tournament?.name ?? null, teamId: pt.teamId, rival: next.teamA?.id === pt.teamId ? next.teamB : next.teamA });
+      car.forEach((c) => career.push({ ...c, teamId: pt.teamId, teamName: pt.team.name, branch: pt.branch }));
+    }
+    rows.sort((x, y) => new Date(y.date ?? 0) - new Date(x.date ?? 0));
+    upcoming.sort((x, y) => (x.scheduledAt ? new Date(x.scheduledAt).getTime() : Infinity) - (y.scheduledAt ? new Date(y.scheduledAt).getTime() : Infinity));
+    const count = (r) => rows.filter((x) => x.res === r).length;
+    const total = { played: rows.length, won: count('G'), drawn: count('E'), lost: count('P') };
+    total.pct = total.played ? Math.round((total.won / total.played) * 100) : 0;
+    const kinds = (k) => career.filter((c) => c.result?.kind === k).length;
+
+    const sanc = await prisma.matchSanction.findMany({
+      where: { profileId, revokedAt: null },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, matchId: true, kind: true, reason: true, createdAt: true, match: { select: { tournament: { select: { name: true } }, teamA: { select: { name: true } }, teamB: { select: { name: true } } } } },
+    });
+    const sc = (k) => sanc.filter((x) => x.kind === k).length;
+
+    res.json({
+      teams: pts.map((p) => ({ ...p.team, branch: p.branch })),
+      total,
+      form: rows.slice(0, 5).map((x) => x.res),
+      recent: rows.slice(0, 5),
+      next: upcoming[0] ?? null,
+      medals: { gold: kinds('CHAMPION'), silver: kinds('RUNNER_UP'), bronze: kinds('THIRD') },
+      career: career.filter((c) => c.result).sort((x, y) => (y.year ?? 0) - (x.year ?? 0)).slice(0, 12),
+      sanctions: { total: sanc.length, warning: sc('WARNING'), yellow: sc('YELLOW'), blue: sc('BLUE'), red: sc('RED'), recent: sanc.slice(0, 5).map((x) => ({ id: x.id, matchId: x.matchId, kind: x.kind, reason: x.reason, date: x.createdAt, tournament: x.match?.tournament?.name ?? null, vs: [x.match?.teamA?.name, x.match?.teamB?.name].filter(Boolean).join(' vs ') })) },
+    });
+  } catch (err) {
+    console.error('[me/stats]', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 router.get('/profile', authenticate, async (req, res) => {
   try {
     const { id, email, roles, profileId } = req.user;
