@@ -449,6 +449,35 @@ router.put('/:id/teams', ...admin, async (req, res) => {
 
 // Define la estructura del torneo (zonas o llaves) y los equipos de cada una.
 // Reemplaza la estructura anterior. Solo en borrador y antes de generar partidos.
+// Corrige solo los cupos de ascenso/descenso de una zona, también con el torneo cerrado.
+// No toca fixture, partidos ni llaves; si el torneo está cerrado, vuelve a marcar la zona de la tabla congelada.
+router.patch('/:id/stages/:stageId/quotas', ...admin, async (req, res) => {
+  try {
+    const stage = await prisma.stage.findFirst({ where: { id: req.params.stageId, tournamentId: req.params.id, type: 'LEAGUE' }, select: { id: true, playoffPositions: true } });
+    if (!stage) return res.status(404).json({ error: 'Zona no encontrada' });
+    const num = (v) => (Number.isInteger(v) && v >= 0 ? v : null);
+    const promotions = num(req.body?.promotions);
+    const relegations = num(req.body?.relegations);
+    if (promotions === null || relegations === null) return res.status(400).json({ error: 'promotions y relegations deben ser enteros desde 0' });
+    const standings = await prisma.stageStanding.findMany({ where: { stageId: stage.id }, select: { teamId: true, position: true } });
+    const total = standings.length;
+    if (total && promotions + relegations > total) return res.status(400).json({ error: 'Ascensos + descensos superan la cantidad de equipos' });
+    const zoneOf = (pos) => {
+      if (pos <= promotions) return 'PROMOTION';
+      if (relegations > 0 && pos > total - relegations) return 'RELEGATION';
+      if ((stage.playoffPositions ?? []).includes(pos)) return 'PLAYOFF';
+      return null;
+    };
+    await prisma.$transaction([
+      prisma.stage.update({ where: { id: stage.id }, data: { promotions, relegations } }),
+      ...standings.map((x) => prisma.stageStanding.update({ where: { stageId_teamId: { stageId: stage.id, teamId: x.teamId } }, data: { zone: zoneOf(x.position) } })),
+    ]);
+    res.json({ ok: true, promotions, relegations, relabeled: standings.length });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
 router.put('/:id/stages', ...admin, async (req, res) => {
   try {
     const STAGE_TYPES = ['LEAGUE', 'KNOCKOUT'];
