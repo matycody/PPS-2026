@@ -830,4 +830,49 @@ router.delete('/:id/purge', ...admin, async (req, res) => {
   }
 });
 
+// Quita de puntos a un equipo en la tabla de una zona. Por cada persona que no presentó (árbitro de línea o mesa) se resta 1 punto;
+// también se puede cargar una cantidad libre. La tabla del torneo (rama + categoría de la zona) la descuenta sola.
+const MISSING = ['LINE', 'TABLE'];
+router.post('/:id/stages/:stageId/penalties', ...admin, async (req, res) => {
+  try {
+    const stage = await prisma.stage.findFirst({
+      where: { id: req.params.stageId, tournamentId: req.params.id, type: 'LEAGUE' },
+      select: { id: true, tournament: { select: { status: true } } },
+    });
+    if (!stage) return res.status(404).json({ error: 'Zona de liga no encontrada' });
+    if (stage.tournament.status === 'FINISHED') return res.status(409).json({ error: 'El torneo está cerrado: reabrilo para cargar una quita de puntos' });
+    const b = req.body || {};
+    const teamId = String(b.teamId || '');
+    const inZone = await prisma.stageTeam.findUnique({ where: { stageId_teamId: { stageId: stage.id, teamId } }, select: { teamId: true } });
+    if (!inZone) return res.status(400).json({ error: 'El equipo no juega en esa zona' });
+    const missing = Array.isArray(b.missing) ? b.missing.map(String) : [];
+    if (missing.some((m) => !MISSING.includes(m))) return res.status(400).json({ error: 'Faltante inválido (LINE o TABLE)' });
+    if (missing.length > 3) return res.status(400).json({ error: 'Máximo 3 personas (2 de línea y 1 de mesa)' });
+    const points = missing.length ? missing.length : Number(b.points);
+    if (!Number.isInteger(points) || points < 1 || points > 20) return res.status(400).json({ error: 'Los puntos a quitar son un entero entre 1 y 20' });
+    const reason = b.reason == null || String(b.reason).trim() === '' ? null : String(b.reason).trim().slice(0, 200);
+    const row = await prisma.teamPenalty.create({ data: { stageId: stage.id, teamId, points, missing, reason, createdById: req.user?.id ?? null } });
+    res.status(201).json(row);
+  } catch (err) {
+    console.error('[tournaments penalties]', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.delete('/:id/stages/:stageId/penalties/:penaltyId', ...admin, async (req, res) => {
+  try {
+    const pn = await prisma.teamPenalty.findFirst({
+      where: { id: req.params.penaltyId, stageId: req.params.stageId, stage: { tournamentId: req.params.id } },
+      select: { id: true, stage: { select: { tournament: { select: { status: true } } } } },
+    });
+    if (!pn) return res.status(404).json({ error: 'Quita de puntos no encontrada' });
+    if (pn.stage.tournament.status === 'FINISHED') return res.status(409).json({ error: 'El torneo está cerrado: reabrilo para modificarla' });
+    await prisma.teamPenalty.delete({ where: { id: pn.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[tournaments penalties]', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 module.exports = router;

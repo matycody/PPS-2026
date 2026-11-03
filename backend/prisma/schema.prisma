@@ -107,6 +107,7 @@ model Team {
   name String
   logo String?
   news News[]
+  penalties TeamPenalty[]
 
   nickname    String? @db.VarChar(40) // apodo del equipo (banner público)
   city        String? @db.VarChar(60)
@@ -473,6 +474,7 @@ model Stage {
   matchdays  Matchday[]
   matches    Match[]
   standings  StageStanding[]
+  penalties  TeamPenalty[]
 
   @@index([tournamentId])
 }
@@ -689,4 +691,22 @@ model Prediction {
 
   @@unique([userId, matchId])
   @@index([matchId])
+}
+
+// Quita de puntos a un equipo en la tabla de una zona (ej. no presentó árbitros de línea o mesa: 1 punto por cada persona faltante)
+model TeamPenalty {
+  id          String   @id @default(uuid())
+  stageId     String
+  teamId      String
+  points      Int // puntos que se restan (>0)
+  missing     String[] @default([]) // LINE | TABLE por cada persona que faltó (vacío si es otro motivo)
+  reason      String?  @db.VarChar(200)
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  stage Stage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  team  Team  @relation(fields: [teamId], references: [id])
+
+  @@index([stageId])
+  @@index([teamId])
 }
