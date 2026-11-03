@@ -170,7 +170,7 @@ export default function BracketEditor({ t, stage, initial, onSaved, onCancel, se
     const prevMatches = matches.filter((x) => x.round < m.round)
     const usedByOther = (id) => used.team.has(id) && curKey !== 't:' + id
     return (
-      <select className="w-full rounded-lg border border-line bg-bg px-2 py-2 text-sm" value={curKey} onChange={(e) => setSide(m.ref, side, e.target.value)}>
+      <select className="w-full rounded-lg border border-line bg-surface-2 px-2 py-2 text-sm" value={curKey} onChange={(e) => setSide(m.ref, side, e.target.value)}>
         <option value="">— A definir —</option>
         {ranked.groups.map((g) => (
           <optgroup key={g.name} label={'Tabla · ' + g.name}>

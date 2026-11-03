@@ -123,7 +123,7 @@ export default function PlanillasPage() {
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center" onClick={() => setOpen(null)}>
-          <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-line bg-bg p-4 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-line bg-surface-2 p-4 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-start gap-3">
               <ClipboardCheck size={18} className="mt-0.5 shrink-0 text-muted" />
               <div className="min-w-0 flex-1">

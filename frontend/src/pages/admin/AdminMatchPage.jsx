@@ -62,7 +62,7 @@ function PickList({ query, onQuery, options, placeholder, emptyText, onPick, dis
         disabled={disabled}
       />
       {!disabled && (
-        <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-line bg-bg p-1">
+        <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-line bg-surface-2 p-1">
           {options.length === 0 && <p className="p-2 text-sm text-muted">{emptyText}</p>}
           {options.map((o) => (
             <button

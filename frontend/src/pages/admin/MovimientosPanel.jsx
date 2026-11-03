@@ -29,7 +29,7 @@ function Feed({ params }) {
       {list === null && !err && <p className="text-sm text-muted">Cargando…</p>}
       {list?.length === 0 && <p className="text-sm text-muted">Sin movimientos registrados.</p>}
       {(list ?? []).map((l) => (
-        <div key={l.id} className="flex items-start gap-3 rounded-xl border border-line bg-bg p-3 text-sm">
+        <div key={l.id} className="flex items-start gap-3 rounded-xl border border-line bg-surface-2 p-3 text-sm">
           <span className={'mt-1.5 h-2 w-2 shrink-0 rounded-full ' + dot(l.method)} />
           <div className="min-w-0 flex-1">
             <p className="font-semibold">{l.label}</p>

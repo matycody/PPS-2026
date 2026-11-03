@@ -170,14 +170,14 @@ export default function SanctionsCard({ m, tick, items, control, nameA, nameB, a
             {pick.kind === 'RED' && <p className="text-xs text-muted">Expulsión: el jugador no puede volver a jugar. Después la evalúa el departamento de sanciones (puede sumar fechas de suspensión).</p>}
             {pick.kind === 'WARNING' && <p className="text-xs text-muted">{m.modality === 'FOAM' ? 'La 2.ª advertencia del mismo jugador lo elimina y el equipo pasa a jugar con 5.' : 'Advertencia por una acción inapropiada: en Cloth no elimina al jugador.'}</p>}
             <label className="block text-xs font-bold text-muted">Jugador{needPlayer ? '' : ' (opcional)'}
-              <select value={playerId} onChange={(e) => setPlayerId(e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-bg px-3 py-3 text-sm">
+              <select value={playerId} onChange={(e) => setPlayerId(e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-3 text-sm">
                 <option value="">{list === null ? 'Cargando…' : needPlayer ? 'Elegí al jugador' : 'Sin identificar'}</option>
                 {(list ?? []).map((p) => <option key={p.profileId} value={p.profileId}>{p.number != null ? '#' + p.number + ' ' : ''}{p.nickname || p.name}{suspIds.has(p.profileId) ? ' · SUSPENDIDO' : ''}</option>)}
               </select>
             </label>
             {suspIds.has(playerId) && <p className="rounded-xl bg-danger/15 px-3 py-2 text-xs font-bold text-danger">Este jugador figura suspendido: no debería estar jugando este partido.</p>}
             <label className="block text-xs font-bold text-muted">Motivo (opcional)
-              <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} placeholder="Ej.: salida en falso, reclamo, juego brusco" className="mt-1 w-full rounded-xl border border-line bg-bg px-3 py-3 text-sm" />
+              <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} placeholder="Ej.: salida en falso, reclamo, juego brusco" className="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-3 text-sm" />
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => setPick(null)} className="rounded-2xl border border-line py-3 font-extrabold">Cancelar</button>

@@ -323,7 +323,7 @@ export default function JornadaPage() {
   }
 
   const stepper = (label, value, set, min, max, step = 1) => (
-    <div className="flex items-center justify-between gap-2 rounded-xl border border-line bg-bg px-2 py-1.5">
+    <div className="flex items-center justify-between gap-2 rounded-xl border border-line bg-surface-2 px-2 py-1.5">
       <span className="pl-1 text-xs font-bold text-muted">{label}</span>
       <div className="flex items-center gap-1">
         <button aria-label={'Menos ' + label} disabled={value <= min} onClick={() => set(Math.max(min, value - step))} className="grid h-8 w-8 place-items-center rounded-full bg-surface-2 disabled:opacity-30"><Minus size={14} /></button>
@@ -350,7 +350,7 @@ export default function JornadaPage() {
       {ok && <Alert tone="ok" onClose={() => setOk('')}>{ok}</Alert>}
 
       <section className="space-y-3 rounded-3xl border border-line bg-surface p-4">
-        <div className="flex items-center justify-between rounded-2xl border border-line bg-bg px-2 py-1.5">
+        <div className="flex items-center justify-between rounded-2xl border border-line bg-surface-2 px-2 py-1.5">
           <button aria-label="Día anterior" onClick={() => changeDay(shiftDay(day, -1))} className="grid h-9 w-9 place-items-center rounded-full bg-surface-2"><ChevronLeft size={18} /></button>
           <button onClick={() => changeDay(dayOf(new Date().toISOString()))} className="text-sm font-extrabold">{dayTab(day)} · {day.split('-').reverse().join('/')}</button>
           <button aria-label="Día siguiente" onClick={() => changeDay(shiftDay(day, 1))} className="grid h-9 w-9 place-items-center rounded-full bg-surface-2"><ChevronRight size={18} /></button>
@@ -366,7 +366,7 @@ export default function JornadaPage() {
           {stepper('Canchas', courts, setCourts, 1, MAX_COURTS)}
           {stepper('Turnos', turns, setTurns, 1, MAX_TURNS)}
           {stepper('Min por turno', turn, changeTurn, 10, 240, TURN_STEP)}
-          <label className="flex items-center justify-between gap-2 rounded-xl border border-line bg-bg px-3 py-1.5">
+          <label className="flex items-center justify-between gap-2 rounded-xl border border-line bg-surface-2 px-3 py-1.5">
             <span className="text-xs font-bold text-muted">Inicio</span>
             <input type="time" value={start} onChange={(e) => changeStart(e.target.value)} className="bg-transparent py-1 text-right font-extrabold outline-none" />
           </label>

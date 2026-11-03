@@ -1,5 +1,5 @@
 ﻿export const inputCls =
-  'w-full rounded-xl border border-line bg-bg px-4 py-3 outline-none focus:border-accent disabled:opacity-40'
+  'w-full rounded-xl border border-line bg-surface-2 px-4 py-3 outline-none focus:border-accent disabled:opacity-40'
 
 export function Btn({ children, onClick, disabled, tone = 'base', className = '', type = 'button' }) {
   const tones = {

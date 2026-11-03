@@ -100,7 +100,7 @@ function Clock({ label, timer, time, paused, can, send, color }) {
           placeholder="mmss"
           inputMode="numeric"
           disabled={!can}
-          className="min-w-0 flex-1 rounded-2xl border border-line bg-bg px-4 py-3 text-center font-mono outline-none focus:border-live disabled:opacity-40"
+          className="min-w-0 flex-1 rounded-2xl border border-line bg-surface-2 px-4 py-3 text-center font-mono outline-none focus:border-live disabled:opacity-40"
         />
         <Btn disabled={!can || parseMMSS(val) == null} onClick={apply}>Fijar</Btn>
       </div>
@@ -117,7 +117,7 @@ function MiniClock({ label, time, paused, timer, color, can, send }) {
     setVal('')
   }
   return (
-    <div className="min-w-0 flex-1 rounded-2xl border border-line bg-bg p-2 text-center">
+    <div className="min-w-0 flex-1 rounded-2xl border border-line bg-surface-2 p-2 text-center">
       <div className="flex items-center justify-between gap-1">
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted">{label}</p>
         <span className={'rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase ' + (paused ? 'bg-danger/15 text-danger' : 'bg-live/15 text-live')}>
@@ -138,7 +138,7 @@ function MiniClock({ label, time, paused, timer, color, can, send }) {
       </div>
       <button disabled={!can} onClick={() => send('match:reset', { timer })} className="mt-1.5 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-line bg-surface-2 text-sm font-extrabold disabled:opacity-40"><RotateCcw size={14} /> Reiniciar</button>
       <div className="mt-1.5 flex gap-1.5">
-        <input value={val} onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} placeholder="mmss" inputMode="numeric" disabled={!can} className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-bg px-1 text-center font-mono text-sm outline-none focus:border-live disabled:opacity-40" />
+        <input value={val} onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} placeholder="mmss" inputMode="numeric" disabled={!can} className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-surface-2 px-1 text-center font-mono text-sm outline-none focus:border-live disabled:opacity-40" />
         <button disabled={!can || parseMMSS(val) == null} onClick={apply} className="h-11 shrink-0 rounded-xl border border-line bg-surface-2 px-3 text-sm font-extrabold disabled:opacity-40">Fijar</button>
       </div>
     </div>

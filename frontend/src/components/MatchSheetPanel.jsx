@@ -94,7 +94,7 @@ export default function MatchSheetPanel({ match, teamA, teamB, onConfirmed, embe
 
   const Wrap = embedded ? 'div' : 'section'
   return (
-    <Wrap className={embedded ? 'mb-3 rounded-2xl border border-line bg-bg' : 'rounded-3xl border border-line bg-surface'}>
+    <Wrap className={embedded ? 'mb-3 rounded-2xl border border-line bg-surface-2' : 'rounded-3xl border border-line bg-surface'}>
       {embedded ? (
         <p className="flex items-center gap-2 px-4 pt-3 text-xs font-bold uppercase tracking-widest text-muted"><ClipboardCheck size={16} /> Planilla de juego</p>
       ) : (

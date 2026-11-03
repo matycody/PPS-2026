@@ -142,7 +142,7 @@ function ClockCard({ label, clock, defaultSec, color, locked }) {
           onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 4))}
           placeholder="mmss"
           inputMode="numeric"
-          className="min-w-0 flex-1 rounded-2xl border border-line bg-bg px-4 py-3 text-center font-mono outline-none focus:border-live"
+          className="min-w-0 flex-1 rounded-2xl border border-line bg-surface-2 px-4 py-3 text-center font-mono outline-none focus:border-live"
         />
         <Btn disabled={parseDigits(val) == null} onClick={apply}>Set</Btn>
       </div>

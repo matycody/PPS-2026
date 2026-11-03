@@ -82,7 +82,7 @@ export default function PerfilPage() {
   }
 
   const initials = (user?.email ?? '?').slice(0, 2).toUpperCase()
-  const field = 'w-full rounded-xl border border-line bg-bg px-4 py-3 outline-none focus:border-accent'
+  const field = 'w-full rounded-xl border border-line bg-surface-2 px-4 py-3 outline-none focus:border-accent'
 
   return (
     <div className="space-y-4">

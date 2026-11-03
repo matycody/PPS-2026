@@ -202,7 +202,7 @@ function StructureTab({ t, reload, setErr }) {
                       return (
                         <button key={pos} type="button" disabled={!draft || blocked}
                           onClick={() => setStage(i, { playoffPositions: on ? z.playoffPositions.filter((x) => x !== pos) : [...z.playoffPositions, pos].sort((x, y) => x - y) })}
-                          className={'h-9 w-9 rounded-xl border text-sm font-extrabold disabled:opacity-40 ' + (on ? 'border-warn bg-warn text-black' : 'border-line bg-bg')}>
+                          className={'h-9 w-9 rounded-xl border text-sm font-extrabold disabled:opacity-40 ' + (on ? 'border-warn bg-warn text-black' : 'border-line bg-surface-2')}>
                           {pos}
                         </button>
                       )
@@ -221,7 +221,7 @@ function StructureTab({ t, reload, setErr }) {
           {enrolled.map((x) => (
             <div key={x.id} className="flex items-center gap-2 text-sm">
               <span className="min-w-0 flex-1 truncate">{x.name}</span>
-              <select disabled={!draft} className="rounded-xl border border-line bg-bg px-2 py-1" value={where(x.id)} onChange={(e) => assign(x.id, Number(e.target.value))}>
+              <select disabled={!draft} className="rounded-xl border border-line bg-surface-2 px-2 py-1" value={where(x.id)} onChange={(e) => assign(x.id, Number(e.target.value))}>
                 <option value={-1}>Sin zona</option>
                 {leagueIdx.map((i) => <option key={i} value={i}>{stages[i].name}</option>)}
               </select>
@@ -358,7 +358,7 @@ function BracketBuilder({ t, stage, onDone, setErr }) {
               <span className="w-5 font-bold text-muted">{i + 1}</span>
               <span className="min-w-0 flex-1 truncate">{x.name}</span>
               {o.ladder && (
-                <select className="rounded-lg border border-line bg-bg px-1 py-0.5" value={entry[x.id] ?? 1} onChange={(e) => setEntry({ ...entry, [x.id]: e.target.value })}>
+                <select className="rounded-lg border border-line bg-surface-2 px-1 py-0.5" value={entry[x.id] ?? 1} onChange={(e) => setEntry({ ...entry, [x.id]: e.target.value })}>
                   {[1, 2, 3, 4, 5, 6].map((r) => <option key={r} value={r}>Ronda {r}</option>)}
                 </select>
               )}
@@ -445,7 +445,7 @@ function BracketsSection({ t, setErr }) {
     <div className="space-y-6">
       <p className="text-xs text-muted">Llaves de eliminación: acá se arman los cruces. Los resultados se cargan desde Fixture y se ven en Playoffs.</p>
       {knockouts.map((s) => (
-        <div key={s.id} className="space-y-3 rounded-3xl border border-line bg-bg p-3">
+        <div key={s.id} className="space-y-3 rounded-3xl border border-line bg-surface-2 p-3">
           <div className="flex items-center gap-2">
             <p className="flex-1 text-xs font-bold uppercase tracking-widest text-muted">{s.name}</p>
             {!s.isPromotion && counts[s.id] > 0 && t.status !== 'FINISHED' && editor?.id !== s.id && <Btn onClick={() => startEdit(s)}>Editar cruces</Btn>}
@@ -496,7 +496,7 @@ function BracketTab({ t, goStructure }) {
   return (
     <div className="space-y-6">
       {knockouts.map((s) => (
-        <div key={s.id} className="rounded-3xl border border-line bg-bg p-3 space-y-3">
+        <div key={s.id} className="rounded-3xl border border-line bg-surface-2 p-3 space-y-3">
           <p className="text-xs font-bold uppercase tracking-widest text-muted">{s.name}</p>
           <BracketView branch={t.branch} tournamentId={t.id} stageId={s.id} base="/admin/partidos/" roundTitle={s.isPromotion ? 'Promoción ' + t.name : null} />
         </div>

@@ -171,7 +171,7 @@ export default function AdminTeamPage() {
               <p className="text-xs text-muted">{p.dni} · {p.sex === 'M' ? 'Masc.' : 'Fem.'}</p>
             </div>
             <select
-              className="rounded-lg border border-line bg-bg px-2 py-2 text-sm"
+              className="rounded-lg border border-line bg-surface-2 px-2 py-2 text-sm"
               value={pick[p.id] ?? team.branches?.[0]}
               onChange={(e) => setPick({ ...pick, [p.id]: e.target.value })}
             >

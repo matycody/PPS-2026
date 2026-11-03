@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 
-const field = 'w-full rounded-xl border border-line bg-bg px-4 py-3 outline-none focus:border-accent'
+const field = 'w-full rounded-xl border border-line bg-surface-2 px-4 py-3 outline-none focus:border-accent'
 
 // Una fila de la cuenta: muestra el valor actual y, al tocarla, se despliega su editor (una a la vez)
 function Row({ id, open, setOpen, Icon, label, value, hint, children }) {
