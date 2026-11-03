@@ -114,7 +114,7 @@ router.post('/:id/close', ...admin, async (req, res) => {
     }
 
     // Torneo solo de liga sin campeón definido a mano: líder único de la zona de mayor nivel
-    if (!championId && (t.format === 'LEAGUE' || !t.stages.some((s) => s.type === 'KNOCKOUT'))) {
+    if (!championId && (t.format === 'LEAGUE' || !t.stages.some((s) => s.type === 'KNOCKOUT' && !s.isPromotion))) {
       const leagues = t.stages.filter((s) => s.type === 'LEAGUE');
       const topPhase = Math.max(...leagues.map((s) => s.phase));
       const topTier = Math.min(...leagues.filter((s) => s.phase === topPhase).map((s) => s.tier ?? 1));

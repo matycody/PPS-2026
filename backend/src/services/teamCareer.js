@@ -45,7 +45,7 @@ async function teamCareer(teamId, tournamentWhere) {
     where: { ...tournamentWhere, status: { in: ['ACTIVE', 'FINISHED'] }, teams: { some: { teamId } } },
     select: {
       id: true, name: true, year: true, edition: true, status: true, championId: true,
-      stages: { select: { id: true, name: true, type: true } },
+      stages: { select: { id: true, name: true, type: true, isPromotion: true } },
     },
     orderBy: [{ year: 'desc' }, { name: 'asc' }],
   });
@@ -63,7 +63,7 @@ async function teamCareer(teamId, tournamentWhere) {
       }
     }
 
-    const koIds = t.stages.filter((s) => s.type === 'KNOCKOUT').map((s) => s.id);
+    const koIds = t.stages.filter((s) => s.type === 'KNOCKOUT' && !s.isPromotion).map((s) => s.id);
     let result = null;
     if (koIds.length) {
       const ko = await prisma.match.findMany({
@@ -79,7 +79,7 @@ async function teamCareer(teamId, tournamentWhere) {
           ? { kind: 'GROUP_ONLY', label: 'No clasificó a playoffs' }
           : { kind: 'GROUP_ONLY', label: 'Fase de zonas' };
       }
-    } else if (t.championId === teamId) {
+    } else if (t.championId === teamId) { // sin llaves reales (liga, aun con promoción)
       result = { kind: 'CHAMPION', label: 'Campeón' };
     } else if (zone) {
       result = { kind: 'LEAGUE', label: zone.position + '.º en la tabla' };

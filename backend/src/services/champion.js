@@ -4,7 +4,7 @@ const { decide } = require('./bracket');
 // Campeón de un torneo con llaves: el ganador de la final de la última etapa eliminatoria.
 // La final es el partido de la ronda más alta que no es el de tercer puesto (el tercer puesto recibe a los dos perdedores de semis).
 function knockoutChampion(stages, matchesByStage) {
-  const ko = stages.filter((s) => s.type === 'KNOCKOUT');
+  const ko = stages.filter((s) => s.type === 'KNOCKOUT' && !s.isPromotion); // la promoción (ascenso/permanencia) no define campeón
   if (!ko.length) return null;
   const top = Math.max(...ko.map((s) => s.phase));
   const last = ko.filter((s) => s.phase === top);
@@ -25,7 +25,7 @@ async function resolveChampions(tournamentIds) {
   const out = new Map();
   if (!tournamentIds.length) return out;
   const [stages, matches] = await Promise.all([
-    prisma.stage.findMany({ where: { tournamentId: { in: tournamentIds } }, select: { id: true, tournamentId: true, type: true, phase: true } }),
+    prisma.stage.findMany({ where: { tournamentId: { in: tournamentIds } }, select: { id: true, tournamentId: true, type: true, phase: true, isPromotion: true } }),
     prisma.match.findMany({
       where: { tournamentId: { in: tournamentIds }, hiddenAt: null, stage: { type: 'KNOCKOUT' } },
       select: { id: true, tournamentId: true, stageId: true, round: true, slot: true, status: true, teamAId: true, teamBId: true, loserMatchId: true, sets: { select: { winnerTeamId: true } } },

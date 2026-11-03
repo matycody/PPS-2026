@@ -6,7 +6,7 @@ const TEAM = { id: true, name: true, logo: true };
 // Podio de las llaves de la última etapa eliminatoria: final (1.º y 2.º) y partido por el tercer puesto (3.º).
 // El tercer puesto es el partido al que van los perdedores de las dos semis (lo apuntan dos loserMatchId).
 function knockoutPodium(stages, matches) {
-  const ko = stages.filter((s) => s.type === 'KNOCKOUT');
+  const ko = stages.filter((s) => s.type === 'KNOCKOUT' && !s.isPromotion);
   if (!ko.length) return null;
   const top = Math.max(...ko.map((s) => s.phase));
   const last = ko.filter((s) => s.phase === top);
@@ -31,7 +31,7 @@ async function podiums(rows) {
   if (!rows.length) return out;
   const ids = rows.map((r) => r.id);
   const [stages, matches] = await Promise.all([
-    prisma.stage.findMany({ where: { tournamentId: { in: ids } }, select: { id: true, tournamentId: true, type: true, phase: true } }),
+    prisma.stage.findMany({ where: { tournamentId: { in: ids } }, select: { id: true, tournamentId: true, type: true, phase: true, isPromotion: true } }),
     prisma.match.findMany({
       where: { tournamentId: { in: ids }, hiddenAt: null, stage: { type: 'KNOCKOUT' } },
       select: { id: true, tournamentId: true, stageId: true, round: true, slot: true, status: true, teamAId: true, teamBId: true, loserMatchId: true, sets: { select: { winnerTeamId: true } } },
@@ -42,7 +42,7 @@ async function podiums(rows) {
   for (const r of rows) {
     const st = stages.filter((s) => s.tournamentId === r.id);
     const pod = knockoutPodium(st, matches.filter((m) => m.tournamentId === r.id));
-    const full = st.some((s) => s.type === 'KNOCKOUT');
+    const full = st.some((s) => s.type === 'KNOCKOUT' && !s.isPromotion);
     const p = { firstId: pod?.firstId ?? r.championId ?? null, secondId: full ? pod?.secondId ?? null : null, thirdId: full ? pod?.thirdId ?? null : null, full };
     raw.set(r.id, p);
     [p.firstId, p.secondId, p.thirdId].filter(Boolean).forEach((x) => teamIds.add(x));
