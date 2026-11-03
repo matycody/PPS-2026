@@ -120,7 +120,7 @@ router.get('/standalone', async (req, res) => {
   }
 });
 
-// { tournamentId, profileId, categories: ['FOAM:MIXED','CLOTH:MALE',...], fechas: 0..20, sameDay, reason (obligatorio) }
+// { tournamentId (opcional), profileId, categories: ['FOAM:MIXED','CLOTH:MALE',...], fechas: 0..20, sameDay, reason (obligatorio) }
 router.post('/standalone', async (req, res) => {
   try {
     const b = req.body || {};
@@ -136,13 +136,13 @@ router.post('/standalone', async (req, res) => {
     if (!Number.isInteger(fechas) || fechas < 0 || fechas > 20) return res.status(400).json({ error: 'Fechas inválidas (0 a 20)' });
     if (fechas === 0 && !sameDay) return res.status(400).json({ error: 'Indicá cuántas fechas o el resto de la jornada' });
     const [t, p] = await Promise.all([
-      prisma.tournament.findUnique({ where: { id: String(b.tournamentId || '') }, select: { id: true } }),
+      b.tournamentId ? prisma.tournament.findUnique({ where: { id: String(b.tournamentId) }, select: { id: true } }) : Promise.resolve(null),
       prisma.profile.findUnique({ where: { id: String(b.profileId || '') }, select: { id: true } }),
     ]);
-    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+    if (b.tournamentId && !t) return res.status(404).json({ error: 'Torneo no encontrado' });
     if (!p) return res.status(404).json({ error: 'Jugador no encontrado' });
     const row = await prisma.playerSuspension.create({
-      data: { profileId: p.id, tournamentId: t.id, modality: categories[0].split(':')[0], categories, reason, fechas, sameDay, scope, note, sourceAt: new Date(), decidedById: req.user.id },
+      data: { profileId: p.id, tournamentId: t?.id ?? null, modality: categories[0].split(':')[0], categories, reason, fechas, sameDay, scope, note, sourceAt: new Date(), decidedById: req.user.id },
     });
     res.status(201).json({ id: row.id });
   } catch (err) {
