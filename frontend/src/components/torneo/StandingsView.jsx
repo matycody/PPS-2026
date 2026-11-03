@@ -36,8 +36,10 @@ export default function StandingsView({ tournamentId, finished, branch = null })
           api('GET', '/tournaments/' + tournamentId + '/standings').catch(() => null), // solo para "Últimas"
         ]).then(([d, live]) => {
           const formOf = new Map((live?.stages ?? []).flatMap((z) => z.rows.map((r) => [r.team.id, r.form])))
+          const penOf = new Map((live?.stages ?? []).map((z) => [z.id, z.penalties ?? []]))
           return d.stages.map((s) => ({
             ...s,
+            penalties: penOf.get(s.id) ?? [],
             rows: s.standings.map((r) => ({ ...r, pointsFor: r.setsFor, pointsAgainst: r.setsAgainst, pointDiff: r.setsFor - r.setsAgainst, form: formOf.get(r.team.id) })), // al congelar se guardan los puntos de juego
           }))
         })
@@ -106,7 +108,7 @@ export default function StandingsView({ tournamentId, finished, branch = null })
                     <td className="px-2 py-2">{r.pointsFor}</td>
                     <td className="px-2 py-2">{r.pointsAgainst}</td>
                     <td className="px-2 py-2">{r.pointDiff > 0 ? '+' + r.pointDiff : r.pointDiff}</td>
-                    <td className="px-3 py-2 font-extrabold">{r.points}</td>
+                    <td className="px-3 py-2 font-extrabold">{r.points}{r.penalty > 0 && <span title={'Quita de puntos: ' + r.penalty} className="ml-1 text-[10px] font-extrabold text-danger">−{r.penalty}</span>}</td>
                     <td className="px-2 py-2"><Forma form={r.form} /></td>
                   </tr>
                   )
@@ -114,6 +116,15 @@ export default function StandingsView({ tournamentId, finished, branch = null })
               </tbody>
             </table>
           </div>
+          {s.penalties?.length > 0 && (
+            <div className="space-y-0.5 px-4 pt-2 text-[11px] font-bold text-danger">
+              {s.penalties.map((x) => {
+                const name = (s.rows.find((r) => r.team.id === x.teamId) ?? {}).team?.name ?? 'Equipo'
+                const why = x.missing?.length ? 'sin ' + x.missing.map((m) => (m === 'TABLE' ? 'mesa' : 'árbitro de línea')).join(' ni ') : x.reason
+                return <p key={x.id}>−{x.points} pt{x.points === 1 ? '' : 's'} a {name}{why ? ' · ' + why : ''}</p>
+              })}
+            </div>
+          )}
           {(s.promotions > 0 || s.relegations > 0 || s.playoffPositions?.length > 0) && (
             <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 pt-2 text-[11px] font-bold">
               {s.promotions > 0 && <span className="flex items-center gap-1.5 text-live"><span className="h-2.5 w-2.5 rounded-sm bg-live" /> {s.promotions === 1 ? 'Asciende' : 'Ascienden ' + s.promotions}</span>}
