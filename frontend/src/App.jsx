@@ -18,6 +18,7 @@ import PlayerPage from './pages/PlayerPage'
 import EquiposListPage from './pages/EquiposListPage'
 import MiEquipoPage from './pages/MiEquipoPage'
 import MisPartidosPage from './pages/MisPartidosPage'
+import MisEstadisticasPage from './pages/MisEstadisticasPage'
 import DashboardPage from './pages/admin/DashboardPage'
 import JornadaPage from './pages/admin/JornadaPage'
 import TorneosPage from './pages/admin/TorneosPage'
@@ -67,7 +68,7 @@ function PerfilTemp() {
   )
 }
 
-const PROTECTED = Object.entries(ITEMS).filter(([k]) => !['home', 'perfil', 'favoritos', 'mi_equipo', 'asignaciones', 'historial_asignaciones', 'mis_partidos', 'dashboard_canchas', 'torneos', 'equipos', 'sedes', 'sanciones', 'partidos', 'personas', 'usuarios', 'registro_ediciones'].includes(k))
+const PROTECTED = Object.entries(ITEMS).filter(([k]) => !['home', 'perfil', 'favoritos', 'mi_equipo', 'asignaciones', 'historial_asignaciones', 'mis_partidos', 'mis_estadisticas', 'dashboard_canchas', 'torneos', 'equipos', 'sedes', 'sanciones', 'partidos', 'personas', 'usuarios', 'registro_ediciones'].includes(k))
 
 function App() {
   const init = useAuthStore((s) => s.init)
@@ -115,6 +116,7 @@ function App() {
               <Route path="/prode" element={<Navigate to="/predicciones" replace />} />
               <Route path="/mi-equipo" element={<MiEquipoPage />} />
               <Route path="/mis-partidos" element={<MisPartidosPage />} />
+              <Route path="/mis-estadisticas" element={<MisEstadisticasPage />} />
               <Route path="/control/:id" element={<ControlPage />} />
             </Route>
 

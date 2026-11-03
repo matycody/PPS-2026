@@ -10,7 +10,7 @@ export const ITEMS = {
   perfil: { to: '/perfil', label: 'Mi perfil', Icon: User },
   mis_partidos: { to: '/mis-partidos', label: 'Mis partidos', Icon: CalendarDays },
   mi_equipo: { to: '/mi-equipo', label: 'Ficha de mi equipo', Icon: Users },
-  mis_estadisticas: { to: '/mis-estadisticas', label: 'Mis estadísticas', Icon: BarChart3, soon: true },
+  mis_estadisticas: { to: '/mis-estadisticas', label: 'Mis estadísticas', Icon: BarChart3 },
   historial_asignaciones: { to: '/asignaciones/historial', label: 'Historial', Icon: HistoryIcon },
   asignaciones: { to: '/asignaciones', label: 'Mis asignaciones', Icon: ClipboardList }, // árbitro + mesa en una sola pantalla
   dashboard_canchas: { to: '/admin/canchas', label: 'Dashboard de canchas', Icon: LayoutDashboard },
