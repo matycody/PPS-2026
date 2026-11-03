@@ -119,4 +119,29 @@ router.delete('/:id/suspension', async (req, res) => {
   }
 });
 
+// Sanciones a equipos (quita de puntos) de todos los torneos; ?tournamentId filtra por torneo
+router.get('/team-penalties', async (req, res) => {
+  try {
+    const rows = await prisma.teamPenalty.findMany({
+      where: req.query.tournamentId ? { stage: { tournamentId: String(req.query.tournamentId) } } : {},
+      orderBy: { createdAt: 'desc' },
+      take: 300,
+      include: {
+        team: { select: { id: true, name: true, logo: true } },
+        stage: { select: { id: true, name: true, tier: true, tournament: { select: { id: true, name: true, edition: true, status: true, branch: true, modality: true } } } },
+      },
+    });
+    res.json({
+      items: rows.map((r) => ({
+        id: r.id, kind: r.kind, points: r.points, missing: r.missing, reason: r.reason, createdAt: r.createdAt,
+        team: r.team,
+        stage: { id: r.stage.id, name: r.stage.name, tier: r.stage.tier },
+        tournament: r.stage.tournament,
+      })),
+    });
+  } catch (err) {
+    handle(err, res);
+  }
+});
+
 module.exports = router;
