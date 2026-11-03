@@ -194,6 +194,3 @@ html.dark[data-skin="acero"] p.text-muted:not(.bg-surface *) {
   width: auto;
 }
 
-/* Acero: menú inferior solo con texto (sin íconos) */
-html.dark[data-skin="acero"] nav .nav-icon { display: none; }
-html.dark[data-skin="acero"] nav a { justify-content: center; padding-top: 1.1rem; padding-bottom: 1.1rem; font-size: 12px; }

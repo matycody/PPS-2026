@@ -30,7 +30,7 @@ export default function BottomNav() {
               (isActive ? 'text-accent' : 'text-muted')
             }
           >
-            <Icon size={22} className="nav-icon" />
+            <Icon size={22} />
             <span className="line-clamp-2 w-full break-words">{label}</span>
           </NavLink>
         ))}
