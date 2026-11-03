@@ -9,7 +9,7 @@ const SIGNED_TTL = 60 * 60; // 1 hora
 
 const rawImage = express.raw({
   type: 'image/*', // cualquier formato de imagen: sharp valida que sea real y la pasa a WebP
-  limit: '5mb',
+  limit: '15mb',
 });
 
 // El cuerpo de la request ES la imagen (con su Content-Type)
@@ -18,11 +18,11 @@ function imageBody(req, res, next) {
     if (err) {
       return res
         .status(err.status === 413 ? 413 : 400)
-        .json({ error: 'Imagen inválida o mayor a 5 MB' });
+        .json({ error: 'Imagen inválida o mayor a 15 MB' });
     }
     if (!Buffer.isBuffer(req.body) || !req.body.length) {
       return res.status(400).json({
-        error: 'Enviá la imagen (máx. 5 MB) como cuerpo, con su Content-Type',
+        error: 'Enviá la imagen (máx. 15 MB) como cuerpo, con su Content-Type',
       });
     }
     next();
