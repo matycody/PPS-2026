@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Gavel, Undo2 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { BRANCH, MODALITY, PENALTY_KIND, penaltyWhy } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import { useConfirm } from '../../components/ConfirmProvider'
 
@@ -120,11 +121,60 @@ export function SancionesPanel({ tournamentId = null }) {
   )
 }
 
+// Quitas de puntos a equipos de todos los torneos (se cargan desde la pestaña Sanciones de cada torneo)
+function TeamPenalties() {
+  const [items, setItems] = useState(null)
+  const [tour, setTour] = useState('')
+  const [err, setErr] = useState('')
+  const ask = useConfirm()
+  const load = () => api('GET', '/sanctions/team-penalties').then((r) => setItems(r.items)).catch((e) => setErr(e.message))
+  useEffect(() => { load() }, [])
+  const tours = [...new Map((items ?? []).map((x) => [x.tournament.id, x.tournament])).values()]
+  const list = (items ?? []).filter((x) => !tour || x.tournament.id === tour)
+  async function remove(x) {
+    if (x.tournament.status === 'FINISHED') return setErr('El torneo está cerrado: reabrilo para quitar la sanción')
+    if (!(await ask({ title: 'Quitar la sanción', message: 'Se devuelven ' + x.points + ' punto(s) a ' + x.team.name + '.', confirmText: 'Quitar', danger: true }))) return
+    await api('DELETE', '/tournaments/' + x.tournament.id + '/stages/' + x.stage.id + '/penalties/' + x.id).then(load).catch((e) => setErr(e.message))
+  }
+  return (
+    <div className="space-y-3">
+      {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
+      {items === null && !err && <p className="text-sm text-muted">Cargando…</p>}
+      {items && tours.length > 1 && (
+        <select className={inputCls} value={tour} onChange={(e) => setTour(e.target.value)}>
+          <option value="">Todos los torneos</option>
+          {tours.map((t) => <option key={t.id} value={t.id}>{t.name}{t.edition ? ' · ' + t.edition : ''}</option>)}
+        </select>
+      )}
+      {items && !list.length && <p className="rounded-3xl border border-line bg-surface p-6 text-center text-sm text-muted">Todavía no hay sanciones a equipos. Se cargan desde Torneos → Sanciones.</p>}
+      {list.map((x) => (
+        <div key={x.id} className="flex items-start justify-between gap-3 rounded-3xl border border-line bg-surface p-4">
+          <div className="min-w-0">
+            <p className="font-extrabold leading-tight"><span className="text-danger">−{x.points}</span> {x.team.name}</p>
+            <p className="text-sm">{penaltyWhy(x) || PENALTY_KIND[x.kind]}{x.reason && (x.kind === 'STAFF' || x.missing?.length) ? ' · ' + x.reason : ''}</p>
+            <p className="text-xs text-muted">
+              <Link to={'/admin/torneos/' + x.tournament.id} className="underline">{x.tournament.name}{x.tournament.edition ? ' · ' + x.tournament.edition : ''}</Link>
+              {' · ' + [MODALITY[x.tournament.modality], BRANCH[x.tournament.branch]].filter(Boolean).join(' ') + ' · ' + x.stage.name + (x.stage.tier ? ' · Cat. ' + String.fromCharCode(64 + x.stage.tier) : '') + ' · ' + fmt(x.createdAt)}
+            </p>
+          </div>
+          <button onClick={() => remove(x)} aria-label="Quitar sanción" className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-muted">Quitar</button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function SancionesPage() {
+  const [kind, setKind] = useState('players')
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
       <h1 className="flex items-center gap-2 text-xl font-extrabold"><Gavel size={20} /> Departamento de sanciones</h1>
-      <SancionesPanel />
+      <div className="flex gap-2">
+        {[['players', 'Jugadores'], ['teams', 'Equipos']].map(([k, l]) => (
+          <button key={k} onClick={() => setKind(k)} className={'rounded-full px-4 py-2 text-sm font-bold ' + (kind === k ? 'bg-accent text-black' : 'border border-line bg-surface')}>{l}</button>
+        ))}
+      </div>
+      {kind === 'players' ? <SancionesPanel /> : <TeamPenalties />}
     </div>
   )
 }
