@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import PenaltiesPanel from '../../components/admin/PenaltiesPanel'
 import { Link } from 'react-router-dom'
 import { Gavel, Undo2 } from 'lucide-react'
 import { api } from '../../lib/api'
@@ -101,7 +102,7 @@ function StandaloneCard({ r, onSaved }) {
         <Gavel size={18} className="mt-0.5 shrink-0 text-danger" />
         <div className="min-w-0 flex-1">
           <p className="font-extrabold leading-tight">{r.player?.name}{r.player?.number != null ? ' #' + r.player.number : ''}</p>
-          <p className="text-xs text-muted">Sanción de torneo sin partido{r.tournament ? ' · ' + r.tournament.name + (r.tournament.edition ? ' · ' + r.tournament.edition : '') : ''} · {fmt(r.createdAt)}</p>
+          <p className="text-xs text-muted">{r.tournament ? 'Sanción de torneo sin partido' : 'Sanción general sin partido'}{r.tournament ? ' · ' + r.tournament.name + (r.tournament.edition ? ' · ' + r.tournament.edition : '') : ''} · {fmt(r.createdAt)}</p>
           {r.reason && <p className="mt-1 text-sm">“{r.reason}”</p>}
         </div>
       </div>
@@ -115,7 +116,7 @@ function StandaloneCard({ r, onSaved }) {
 }
 
 // Formulario: sancionar a un jugador del torneo por algo fuera de su partido
-export function StandaloneForm({ tournamentId, modality, branch, onSaved }) {
+export function StandaloneForm({ tournamentId = null, modality, branch, onSaved }) {
   const [teams, setTeams] = useState([])
   const [teamId, setTeamId] = useState('')
   const [roster, setRoster] = useState([])
@@ -127,6 +128,10 @@ export function StandaloneForm({ tournamentId, modality, branch, onSaved }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   useEffect(() => {
+    if (!tournamentId) { // sanción general: cualquier equipo
+      api('GET', '/teams').then((l) => setTeams((l.items ?? l).map((t) => ({ id: t.id, name: t.name })).sort((a, b) => a.name.localeCompare(b.name)))).catch((e) => setErr(e.message))
+      return
+    }
     api('GET', '/tournaments/' + tournamentId + '/standings').then((d) => {
       const m = new Map(d.stages.flatMap((z) => z.rows.map((r) => [r.team.id, r.team.name])))
       setTeams([...m].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)))
@@ -139,7 +144,7 @@ export function StandaloneForm({ tournamentId, modality, branch, onSaved }) {
   const save = async () => {
     setBusy(true); setErr('')
     try {
-      await api('POST', '/sanctions/standalone', { tournamentId, profileId, categories: cats, fechas, sameDay, reason })
+      await api('POST', '/sanctions/standalone', { tournamentId: tournamentId || undefined, profileId, categories: cats, fechas, sameDay, reason })
       setProfileId(''); setReason(''); setFechas(1); setSameDay(false)
       onSaved?.()
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
@@ -261,8 +266,32 @@ function TeamPenalties() {
   )
 }
 
+// Cargar una quita de puntos desde el apartado general: se elige el torneo y la zona
+function TeamPenaltyCreate({ onChange }) {
+  const [list, setList] = useState(null)
+  const [tid, setTid] = useState('')
+  const [err, setErr] = useState('')
+  useEffect(() => { api('GET', '/tournaments?limit=200').then((r) => setList(r.items ?? r)).catch((e) => setErr(e.message)) }, [])
+  const t = (list ?? []).find((x) => x.id === tid)
+  return (
+    <details className="rounded-3xl border border-line bg-surface p-4">
+      <summary className="cursor-pointer text-sm font-extrabold">Nueva sanción a un equipo</summary>
+      <div className="mt-3 space-y-3">
+        {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
+        <select className={inputCls} value={tid} onChange={(e) => setTid(e.target.value)}>
+          <option value="">Torneo…</option>
+          {(list ?? []).filter((x) => x.status !== 'DRAFT').map((x) => <option key={x.id} value={x.id}>{x.name}{x.edition ? ' · ' + x.edition : ''}{x.status === 'FINISHED' ? ' (cerrado)' : ''}</option>)}
+        </select>
+        {t && <PenaltiesPanel key={t.id} t={t} setErr={setErr} onChange={onChange} />}
+      </div>
+    </details>
+  )
+}
+
 export default function SancionesPage() {
   const [kind, setKind] = useState('players')
+  const [v, setV] = useState(0)
+  const bump = () => setV((x) => x + 1)
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
       <h1 className="flex items-center gap-2 text-xl font-extrabold"><Gavel size={20} /> Departamento de sanciones</h1>
@@ -271,7 +300,20 @@ export default function SancionesPage() {
           <button key={k} onClick={() => setKind(k)} className={'rounded-full px-4 py-2 text-sm font-bold ' + (kind === k ? 'bg-accent text-black' : 'border border-line bg-surface')}>{l}</button>
         ))}
       </div>
-      {kind === 'players' ? <SancionesPanel /> : <TeamPenalties />}
+      {kind === 'players' ? (
+        <>
+          <details className="rounded-3xl border border-line bg-surface p-4">
+            <summary className="cursor-pointer text-sm font-extrabold">Nueva sanción a un jugador (sin partido)</summary>
+            <div className="mt-3"><StandaloneForm key={v} onSaved={bump} /></div>
+          </details>
+          <SancionesPanel key={'p' + v} />
+        </>
+      ) : (
+        <>
+          <TeamPenaltyCreate onChange={bump} />
+          <TeamPenalties key={'t' + v} />
+        </>
+      )}
     </div>
   )
 }
