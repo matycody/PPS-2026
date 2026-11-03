@@ -131,6 +131,14 @@ function StructureTab({ t, reload, setErr }) {
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
 
+  async function saveQuotas(s) {
+    setBusy(true); setErr('')
+    try {
+      await api('PATCH', '/tournaments/' + t.id + '/stages/' + s.key + '/quotas', { promotions: Number(s.promotions) || 0, relegations: Number(s.relegations) || 0 })
+      await reload()
+    } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
+
   const where = (teamId) => stages.findIndex((s) => s.type === 'LEAGUE' && s.teams.includes(teamId))
 
   const renderStage = (s, i) => (
@@ -150,12 +158,18 @@ function StructureTab({ t, reload, setErr }) {
             </label>
             {s.type === 'LEAGUE' && (
               <>
-                <label>Ascienden<input disabled={!draft} type="number" min="0" className={inputCls} value={s.promotions} onChange={(e) => setStage(i, { promotions: e.target.value })} /></label>
-                <label>Descienden<input disabled={!draft} type="number" min="0" className={inputCls} value={s.relegations} onChange={(e) => setStage(i, { relegations: e.target.value })} /></label>
+                <label>Ascienden<input disabled={!draft && t.status !== 'FINISHED'} type="number" min="0" className={inputCls} value={s.promotions} onChange={(e) => setStage(i, { promotions: e.target.value })} /></label>
+                <label>Descienden<input disabled={!draft && t.status !== 'FINISHED'} type="number" min="0" className={inputCls} value={s.relegations} onChange={(e) => setStage(i, { relegations: e.target.value })} /></label>
               </>
             )}
           </div>
           {s.type === 'LEAGUE' && <p className="text-xs text-muted">{s.teams.length} equipos</p>}
+          {s.type === 'LEAGUE' && t.status === 'FINISHED' && (
+            <div className="space-y-1">
+              <Btn tone="accent" disabled={busy} onClick={() => saveQuotas(s)} className="w-full">Guardar cupos de ascenso/descenso</Btn>
+              <p className="text-[11px] text-muted">Corrige solo los cupos; el fixture, los resultados y las llaves no se tocan.</p>
+            </div>
+          )}
         </div>
   )
 
