@@ -3,7 +3,7 @@ import { useTournamentLive } from '../../hooks/useTournamentLive'
 import { Link, useNavigate } from 'react-router-dom'
 import { Pencil, Trash2, ChevronUp, ChevronDown, ChevronRight, Trophy } from 'lucide-react'
 import { api, apiUpload } from '../../lib/api'
-import { BRANCH, MODALITY, FORMAT, TSTATUS, CRITERIA, fmtDate } from '../../lib/format'
+import { BRANCH, MODALITY, FORMAT, formatName, TSTATUS, CRITERIA, fmtDate } from '../../lib/format'
 import { Btn, Alert, inputCls, Skeleton } from '../../components/ui'
 import { useConfirm } from '../../components/ConfirmProvider'
 import LogoPicker from '../../components/LogoPicker'
@@ -11,7 +11,7 @@ import TeamBadge from '../../components/TeamBadge'
 
 const NOW_YEAR = new Date().getFullYear()
 const EMPTY = {
-  name: '', year: NOW_YEAR, edition: '', branch: 'MIXED', modality: 'FOAM', format: 'LEAGUE',
+  name: '', year: NOW_YEAR, edition: '', branch: 'MIXED', modality: 'FOAM', format: 'LEAGUE', formatLabel: '',
   startsAt: '', endsAt: '', pointsWin: 3, pointsDraw: 1, pointsLoss: 0,
 }
 // Mediodía UTC para que la fecha no se corra por zona horaria
@@ -66,7 +66,7 @@ export default function TorneosPage() {
     try {
       if (editId) {
         const body = {
-          name: form.name.trim(), edition: form.edition.trim() || null,
+          name: form.name.trim(), edition: form.edition.trim() || null, formatLabel: form.formatLabel.trim() || null,
           startsAt: toIso(form.startsAt) ?? null, endsAt: toIso(form.endsAt) ?? null,
           pointsWin: Number(form.pointsWin), pointsDraw: Number(form.pointsDraw), pointsLoss: Number(form.pointsLoss),
           ...(tb ? { tiebreakers: tb } : {}),
@@ -77,7 +77,7 @@ export default function TorneosPage() {
         setForm(EMPTY); setTb(null); setEditId(null); setCurLogo(null); await load()
       } else {
         const body = {
-          name: form.name.trim(), year: Number(form.year), edition: form.edition.trim() || undefined,
+          name: form.name.trim(), year: Number(form.year), edition: form.edition.trim() || undefined, formatLabel: form.formatLabel.trim() || undefined,
           branch: form.branch, modality: form.modality, format: form.format,
           startsAt: toIso(form.startsAt), endsAt: toIso(form.endsAt),
           pointsWin: Number(form.pointsWin), pointsDraw: Number(form.pointsDraw), pointsLoss: Number(form.pointsLoss),
@@ -118,7 +118,7 @@ export default function TorneosPage() {
       clearPending()
       setEditDraft(full.status === 'DRAFT')
       setForm({
-        name: full.name, year: full.year, edition: full.edition ?? '', branch: full.branch, modality: full.modality, format: full.format,
+        name: full.name, year: full.year, edition: full.edition ?? '', branch: full.branch, modality: full.modality, format: full.format, formatLabel: full.formatLabel ?? '',
         startsAt: full.startsAt?.slice(0, 10) ?? '', endsAt: full.endsAt?.slice(0, 10) ?? '',
         pointsWin: full.pointsWin, pointsDraw: full.pointsDraw, pointsLoss: full.pointsLoss,
       })
@@ -164,6 +164,9 @@ export default function TorneosPage() {
               <select disabled={!editDraft} className={inputCls} value={form.format} onChange={(e) => set('format', e.target.value)}>
                 {Object.entries(FORMAT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
+            </Field>
+            <Field label="Nombre del formato (opcional)">
+              <input className={inputCls} maxLength={40} placeholder={'Ej.: Todos contra todos + Final (si no, se llama «' + FORMAT[form.format] + '»)'} value={form.formatLabel} onChange={(e) => set('formatLabel', e.target.value)} />
             </Field>
         </>
         <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
@@ -219,7 +222,7 @@ export default function TorneosPage() {
             <div className="min-w-0">
               <p className="truncate font-bold">{t.name}{t.edition ? ' · ' + t.edition : ''}</p>
               <p className="text-sm text-muted">
-                {t.year} · {FORMAT[t.format]} · {BRANCH[t.branch]} · {MODALITY[t.modality]} · {t._count?.teams ?? 0} equipos
+                {t.year} · {formatName(t)} · {BRANCH[t.branch]} · {MODALITY[t.modality]} · {t._count?.teams ?? 0} equipos
               </p>
               <p className="text-xs text-muted">Eliminado el {t.deletedAt ? new Date(t.deletedAt).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</p>
             </div>
@@ -236,7 +239,7 @@ export default function TorneosPage() {
               <span className="min-w-0 flex-1">
               <p className="truncate font-bold">{t.name}{t.edition ? ' · ' + t.edition : ''}</p>
               <p className="text-sm text-muted">
-                {t.year} · {FORMAT[t.format]} · {BRANCH[t.branch]} · {MODALITY[t.modality]} · {t._count?.teams ?? 0} equipos
+                {t.year} · {formatName(t)} · {BRANCH[t.branch]} · {MODALITY[t.modality]} · {t._count?.teams ?? 0} equipos
               </p>
               <p className="flex items-center gap-2 text-xs text-muted">
                 <span className={'rounded-full px-2 py-0.5 font-bold uppercase ' + TSTATUS[t.status].cls}>{TSTATUS[t.status].label}</span>

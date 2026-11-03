@@ -35,6 +35,8 @@ export function toSeconds(t) {
 }
 
 export const FORMAT = { LEAGUE: 'Liga', LEAGUE_CUP: 'Liga + Copa', CUP: 'Copa' }
+// Nombre del formato: el que puso la organización o, si no puso, el estándar
+export const formatName = (t) => t?.formatLabel || FORMAT[t?.format]
 
 export const TSTATUS = {
   DRAFT: { label: 'Borrador', cls: 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400' },

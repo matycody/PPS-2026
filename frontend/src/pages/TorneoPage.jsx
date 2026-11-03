@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ChevronRight, Trophy } from 'lucide-react'
 import BackLink from '../components/BackLink'
 import { api } from '../lib/api'
-import { BRANCH, MODALITY, FORMAT, TSTATUS, CRITERIA, normMatch, phaseCmp } from '../lib/format'
+import { BRANCH, MODALITY, formatName, TSTATUS, CRITERIA, normMatch, phaseCmp } from '../lib/format'
 import StandingsView from '../components/torneo/StandingsView'
 import BracketView from '../components/torneo/BracketView'
 import FixtureView from '../components/torneo/FixtureView'
@@ -105,7 +105,7 @@ export default function TorneoPage() {
     ['estadisticas', 'Estadísticas'],
     ['info', 'Info'],
   ]
-  const subtitle = [BRANCH[t.branch], MODALITY[t.modality], FORMAT[t.format]].filter(Boolean).join(' · ')
+  const subtitle = [BRANCH[t.branch], MODALITY[t.modality], formatName(t)].filter(Boolean).join(' · ')
 
   return (
     <div className="space-y-4">
@@ -222,7 +222,7 @@ export default function TorneoPage() {
 
       {tab === 'info' && (
         <Block title="Información del torneo">
-          <Row label="Formato">{FORMAT[t.format]}</Row>
+          <Row label="Formato">{formatName(t)}</Row>
           <Row label="Rama">{BRANCH[t.branch]}</Row>
           <Row label="Modalidad">{MODALITY[t.modality]}</Row>
           <Row label="Año">{t.year}{t.edition ? ' · ' + t.edition : ''}</Row>

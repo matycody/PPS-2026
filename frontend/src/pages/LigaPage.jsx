@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Trophy, ChevronRight, SlidersHorizontal, Users, CalendarDays } from 'lucide-react'
 import { api } from '../lib/api'
-import { BRANCH, MODALITY, FORMAT } from '../lib/format'
+import { BRANCH, MODALITY, formatName } from '../lib/format'
 import TeamBadge from '../components/TeamBadge'
 import FavHeart from '../components/FavHeart'
 
@@ -11,7 +11,7 @@ const Chip = ({ on, onClick, children }) => (
 )
 
 const title = (t) => t.name + (t.edition ? ' · ' + t.edition : '')
-const tags = (t) => [BRANCH[t.branch], MODALITY[t.modality], FORMAT[t.format]].filter(Boolean)
+const tags = (t) => [BRANCH[t.branch], MODALITY[t.modality], formatName(t)].filter(Boolean)
 
 // Torneo en curso: tarjeta grande con avance y partidos en vivo
 function ActiveCard({ t }) {

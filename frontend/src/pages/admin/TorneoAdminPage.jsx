@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { ArrowLeft, Trophy, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
 import BackLink from '../../components/BackLink'
 import { api } from '../../lib/api'
-import { BRANCH, MODALITY, FORMAT, TSTATUS, CRITERIA } from '../../lib/format'
+import { BRANCH, MODALITY, formatName, TSTATUS, CRITERIA } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import { useConfirm } from '../../components/ConfirmProvider'
 import StandingsView from '../../components/torneo/StandingsView'
@@ -626,7 +626,7 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
   return (
     <div className="space-y-4">
       <div className="space-y-1 rounded-3xl border border-line bg-surface p-4 text-sm">
-        <p><span className="text-muted">Formato:</span> {FORMAT[t.format]}</p>
+        <p><span className="text-muted">Formato:</span> {formatName(t)}</p>
         <p><span className="text-muted">Rama / modalidad:</span> {BRANCH[t.branch]} · {MODALITY[t.modality]}</p>
         <p><span className="text-muted">Puntos:</span> victoria {t.pointsWin} · empate {t.pointsDraw} · derrota {t.pointsLoss}</p>
         <p><span className="text-muted">Desempates:</span> {t.tiebreakers.map((x) => CRITERIA[x.criterion]).join(' → ')}</p>
