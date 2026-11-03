@@ -14,7 +14,7 @@ function handleError(err, res) {
 
 const matchSelect = {
   id: true, status: true, hiddenAt: true, modality: true, branch: true, scheduledAt: true, timeSet: true, tournamentId: true,
-  teamAId: true, teamBId: true, closingOdds: true, stage: { select: { type: true } },
+  teamAId: true, teamBId: true, closingOdds: true, round: true, stage: { select: { type: true, isPromotion: true } },
   tournament: { select: { id: true, name: true } },
   teamA: { select: { id: true, name: true, logo: true } },
   teamB: { select: { id: true, name: true, logo: true } },
@@ -158,7 +158,7 @@ router.post('/', async (req, res) => {
     const blocked = await blockedReason(req.user, match);
     if (blocked) return res.status(403).json({ error: blocked });
     const odds = (await oddsForMatches([match])).get(match.id);
-    if (pick === 'DRAW' && !odds.drawAllowed) return res.status(400).json({ error: 'En una llave no hay empate' });
+    if (pick === 'DRAW' && !odds.drawAllowed) return res.status(400).json({ error: 'En llaves, playoffs y ascenso/descenso no hay empate' });
     const where = { userId_matchId: { userId: req.user.id, matchId: match.id } };
     const prev = await prisma.prediction.findUnique({ where });
     if (prev?.voidedAt) return res.status(403).json({ error: VOID_TEXT[prev.voidReason] ?? 'Tu predicción de este partido no es válida' });

@@ -72,7 +72,7 @@ async function freezePredictions(matchId) {
   await voidPredictionsOfReferees(matchId);
   const match = await prisma.match.findUnique({
     where: { id: matchId },
-    select: { id: true, modality: true, branch: true, scheduledAt: true, teamAId: true, teamBId: true, closingOdds: true, stage: { select: { type: true } } },
+    select: { id: true, modality: true, branch: true, scheduledAt: true, teamAId: true, teamBId: true, closingOdds: true, round: true, stage: { select: { type: true, isPromotion: true } } },
   });
   if (!match) return;
   const odds = (await oddsForMatches([match])).get(match.id);

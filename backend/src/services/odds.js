@@ -54,7 +54,7 @@ async function strengthsFor(modality, branch) {
 
 // { A: { p, pts }, DRAW: { p, pts }, B: { p, pts }, drawAllowed } — p en porcentaje entero
 function oddsFor(match, s) {
-  const drawAllowed = match.stage?.type !== 'KNOCKOUT'; // en una llave alguien tiene que ganar
+  const drawAllowed = !(match.stage?.type === 'KNOCKOUT' || match.stage?.isPromotion || match.round != null); // llaves, playoffs y ascenso/descenso: alguien tiene que ganar
   const E = sig(C * ((s[match.teamAId] ?? 0) - (s[match.teamBId] ?? 0)));
   const d = drawAllowed ? (NU[match.modality] ?? NU.FOAM) * Math.sqrt(E * (1 - E)) : 0;
   const t = 1 + d;
