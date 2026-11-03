@@ -63,7 +63,7 @@ export default function PredictBox({ matchId, teamA, teamB }) {
                 disabled={!d.open || busy || !!d.blocked}
                 onClick={() => choose(o.k)}
                 aria-pressed={on}
-                className={'flex min-w-0 flex-col items-center gap-1 rounded-2xl border px-2 py-3 text-center disabled:opacity-60 ' + (on ? 'border-accent bg-accent-soft' : 'border-line bg-surface-2')}
+                className={'flex min-w-0 flex-col items-center gap-1 rounded-2xl border px-2 py-3 text-center disabled:opacity-60 ' + (on ? 'border-accent bg-surface-2 ring-1 ring-accent' : 'border-line bg-surface-2')}
               >
                 <span className="w-full truncate text-xs font-extrabold">{o.label}</span>
                 <span className="text-sm font-extrabold tabular-nums">{fmtCuota(d.odds[o.k].cuota)}</span>
