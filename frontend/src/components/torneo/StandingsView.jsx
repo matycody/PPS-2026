@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
+import { penaltyWhy } from '../../lib/format'
 import { Link } from 'react-router-dom'
 import TeamBadge from '../TeamBadge'
 import Forma from './Forma'
@@ -120,7 +121,7 @@ export default function StandingsView({ tournamentId, finished, branch = null })
             <div className="space-y-0.5 px-4 pt-2 text-[11px] font-bold text-danger">
               {s.penalties.map((x) => {
                 const name = (s.rows.find((r) => r.team.id === x.teamId) ?? {}).team?.name ?? 'Equipo'
-                const why = x.missing?.length ? 'sin ' + x.missing.map((m) => (m === 'TABLE' ? 'mesa' : 'árbitro de línea')).join(' ni ') : x.reason
+                const why = penaltyWhy(x)
                 return <p key={x.id}>−{x.points} pt{x.points === 1 ? '' : 's'} a {name}{why ? ' · ' + why : ''}</p>
               })}
             </div>

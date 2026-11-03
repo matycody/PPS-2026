@@ -56,3 +56,9 @@ export const CRITERIA = {
 export const courtLabel = (c) => (c ? 'Cancha ' + c : 'Sin cancha')
 
 export const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { timeZone: 'UTC' }) : '—')
+
+// Sanciones a equipos (quita de puntos): motivo y texto corto para mostrar
+export const PENALTY_KIND = { STAFF: 'Faltan árbitros o mesa', NO_SHOW: 'No se presentó', LATE: 'Llegó tarde', NO_PLAYERS: 'Sin jugadores suficientes', AGGRESSION: 'Agresión', OTHER: 'Otro motivo' }
+export const penaltyWhy = (x) => (x.kind === 'STAFF' || x.missing?.length
+  ? 'sin ' + x.missing.map((m) => (m === 'TABLE' ? 'mesa' : 'árbitro de línea')).join(' ni ')
+  : (PENALTY_KIND[x.kind] ?? '') + (x.reason ? ' (' + x.reason + ')' : ''))

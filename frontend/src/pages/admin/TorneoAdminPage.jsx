@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { ArrowLeft, Trophy, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
 import BackLink from '../../components/BackLink'
 import { api } from '../../lib/api'
-import { BRANCH, MODALITY, formatName, TSTATUS, CRITERIA } from '../../lib/format'
+import { BRANCH, MODALITY, formatName, TSTATUS, CRITERIA, PENALTY_KIND, penaltyWhy } from '../../lib/format'
 import { Btn, Alert, inputCls } from '../../components/ui'
 import { useConfirm } from '../../components/ConfirmProvider'
 import StandingsView from '../../components/torneo/StandingsView'
@@ -676,6 +676,7 @@ function PenaltiesPanel({ t, setErr, onChange }) {
   const [data, setData] = useState(null)
   const [stageId, setStageId] = useState('')
   const [teamId, setTeamId] = useState('')
+  const [kind, setKind] = useState('STAFF')
   const [miss, setMiss] = useState({ l1: false, l2: false, mesa: false })
   const [extra, setExtra] = useState('')
   const [reason, setReason] = useState('')
@@ -685,13 +686,14 @@ function PenaltiesPanel({ t, setErr, onChange }) {
   const load = useCallback(() => api('GET', '/tournaments/' + t.id + '/standings').then((d) => { setData(d.stages); setStageId((cur) => cur || d.stages[0]?.id || '') }).catch((e) => setErr(e.message)), [t.id, setErr])
   useEffect(() => { load() }, [load])
   const stage = (data ?? []).find((s) => s.id === stageId)
-  const picked = [miss.l1 && 'LINE', miss.l2 && 'LINE', miss.mesa && 'TABLE'].filter(Boolean)
+  const staff = kind === 'STAFF'
+  const picked = staff ? [miss.l1 && 'LINE', miss.l2 && 'LINE', miss.mesa && 'TABLE'].filter(Boolean) : []
   const pts = picked.length || Number(extra) || 0
 
   async function add() {
     setBusy(true)
     try {
-      await api('POST', '/tournaments/' + t.id + '/stages/' + stageId + '/penalties', picked.length ? { teamId, missing: picked, reason } : { teamId, points: Number(extra), reason })
+      await api('POST', '/tournaments/' + t.id + '/stages/' + stageId + '/penalties', staff ? { teamId, kind, missing: picked, reason } : { teamId, kind, points: Number(extra), reason })
       setMiss({ l1: false, l2: false, mesa: false }); setExtra(''); setReason('')
       await load(); onChange?.()
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
@@ -712,7 +714,7 @@ function PenaltiesPanel({ t, setErr, onChange }) {
     <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
       <div>
         <h3 className="text-sm font-extrabold">Sanción a un equipo · quita de puntos</h3>
-        <p className="text-xs text-muted">Cada equipo debe presentar 3 personas (2 árbitros de línea y 1 de mesa). Por cada una que falte se descuenta 1 punto en la tabla de la rama y categoría de la zona elegida.</p>
+        <p className="text-xs text-muted">Se descuenta en la tabla de la rama y categoría de la zona elegida. Si faltan árbitros o mesa (cada equipo presenta 2 de línea y 1 de mesa) son 1 punto por persona; en los demás motivos ponés vos los puntos.</p>
       </div>
       {closed && <p className="text-xs font-bold text-warn">El torneo está cerrado: reabrilo para cargar o quitar sanciones.</p>}
       <div className="grid gap-2 sm:grid-cols-2">
@@ -724,20 +726,22 @@ function PenaltiesPanel({ t, setErr, onChange }) {
           {(stage?.rows ?? []).map((r) => <option key={r.team.id} value={r.team.id}>{r.team.name}</option>)}
         </select>
       </div>
-      <div className="grid gap-2 sm:grid-cols-3">{chk('l1', 'Falta árbitro de línea 1')}{chk('l2', 'Falta árbitro de línea 2')}{chk('mesa', 'Falta mesa')}</div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <input className={inputCls} type="number" min="1" max="20" placeholder="Otra quita (puntos), si no es por faltantes" value={extra} disabled={picked.length > 0} onChange={(e) => setExtra(e.target.value)} />
-        <input className={inputCls} maxLength={200} placeholder="Motivo (opcional)" value={reason} onChange={(e) => setReason(e.target.value)} />
-      </div>
+      <select className={inputCls} value={kind} onChange={(e) => setKind(e.target.value)}>
+        {Object.entries(PENALTY_KIND).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+      </select>
+      {staff
+        ? <div className="grid gap-2 sm:grid-cols-3">{chk('l1', 'Falta árbitro de línea 1')}{chk('l2', 'Falta árbitro de línea 2')}{chk('mesa', 'Falta mesa')}</div>
+        : <input className={inputCls} type="number" min="1" max="20" placeholder="Puntos a quitar" value={extra} onChange={(e) => setExtra(e.target.value)} />}
+      <input className={inputCls} maxLength={200} placeholder="Detalle (opcional)" value={reason} onChange={(e) => setReason(e.target.value)} />
       <Btn onClick={add} disabled={busy || closed || !teamId || pts < 1}>{pts > 0 ? 'Quitar ' + pts + ' punto' + (pts === 1 ? '' : 's') : 'Quitar puntos'}</Btn>
       {(stage?.penalties ?? []).length > 0 && (
         <ul className="divide-y divide-line rounded-2xl border border-line">
           {stage.penalties.map((x) => {
             const nm = stage.rows.find((r) => r.team.id === x.teamId)?.team.name ?? 'Equipo'
-            const why = x.missing?.length ? 'sin ' + x.missing.map((m) => (m === 'TABLE' ? 'mesa' : 'árbitro de línea')).join(' ni ') : ''
+            const why = penaltyWhy(x)
             return (
               <li key={x.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                <span><b className="text-danger">−{x.points}</b> {nm}{why ? ' · ' + why : ''}{x.reason ? ' · ' + x.reason : ''}</span>
+                <span><b className="text-danger">−{x.points}</b> {nm}{why ? ' · ' + why : ''}{x.reason && (x.kind === 'STAFF' || x.missing?.length) ? ' · ' + x.reason : ''}</span>
                 {!closed && <button onClick={() => remove(x)} aria-label="Quitar sanción" className="text-muted"><Trash2 size={16} /></button>}
               </li>
             )
