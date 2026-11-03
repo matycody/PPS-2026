@@ -36,7 +36,7 @@ export const SECTIONS = [
 export const GENERAL = [
   { to: '/cronometro', label: 'Cronómetro offline', Icon: Timer },
   { to: '/liga', label: 'Competiciones', Icon: Trophy },
-  { to: '/estadisticas', label: 'Estadísticas', Icon: BarChart3 },
+  { to: '/estadisticas', label: 'Ranking', Icon: BarChart3 },
   // (va después de los 3 primeros: son los accesos del Inicio)
   // El organizador ya tiene 'Partidos' (con edición) en Administración; los demás roles lo ven solo para consultar
   { to: '/partidos', label: 'Partidos', Icon: CalendarDays, hideIf: 'partidos' },

@@ -6,7 +6,7 @@ import { BRANCH, MODALITY } from '../lib/format'
 import { inputCls } from '../components/ui'
 import TeamBadge from '../components/TeamBadge'
 
-const TABS = [['resumen', 'Resumen'], ['torneos', 'Torneos'], ['equipos', 'Equipos'], ['cara', 'Cara a cara']]
+const TABS = [['resumen', 'Resumen'], ['estadisticas', 'Estadísticas'], ['fama', 'Salón de la fama'], ['torneos', 'Torneos'], ['equipos', 'Equipos'], ['cara', 'Cara a cara']]
 const YEAR = new Date().getFullYear()
 const YEARS = [YEAR, YEAR - 1, YEAR - 2]
 
@@ -267,6 +267,94 @@ function Resumen({ champ, rec, teamsCount }) {
   )
 }
 
+// Tabla general de equipos con los filtros activos (los datos por jugador llegan cuando se carguen quemadas y catches)
+function TablaEquipos({ rec }) {
+  const rows = rec?.ranking ?? []
+  return (
+    <div className="space-y-3">
+      <Card title="Tabla de equipos">
+        {rec === null && <p className="text-muted">Cargando…</p>}
+        {rec === false && <p className="text-sm text-danger">No se pudo cargar.</p>}
+        {rec && rows.length === 0 && <p className="text-sm text-muted">Todavía no hay partidos terminados con estos filtros.</p>}
+        {rows.length > 0 && (
+          <div className="-mx-1 overflow-x-auto">
+            <table className="w-full min-w-[320px] text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wider text-muted">
+                  <th className="px-1 pb-2 font-bold">#</th>
+                  <th className="px-1 pb-2 font-bold">Equipo</th>
+                  <th className="px-1 pb-2 text-center font-bold">PJ</th>
+                  <th className="px-1 pb-2 text-center font-bold">G</th>
+                  <th className="px-1 pb-2 text-center font-bold">E</th>
+                  <th className="px-1 pb-2 text-center font-bold">P</th>
+                  <th className="px-1 pb-2 text-right font-bold">Efect.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((x, i) => (
+                  <tr key={x.team.id} className="border-t border-line">
+                    <td className="px-1 py-2 font-extrabold text-muted">{i + 1}</td>
+                    <td className="px-1 py-2">
+                      <Link to={'/equipo/' + x.team.id} className="flex items-center gap-2"><TeamBadge team={x.team} size="sm" /><span className="truncate font-bold">{x.team.name}</span></Link>
+                    </td>
+                    <td className="px-1 py-2 text-center">{x.played}</td>
+                    <td className="px-1 py-2 text-center">{x.won}</td>
+                    <td className="px-1 py-2 text-center">{x.drawn}</td>
+                    <td className="px-1 py-2 text-center">{x.lost}</td>
+                    <td className="px-1 py-2 text-right font-extrabold">{x.pct}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+      <Card title="Por jugador">
+        <p className="text-sm text-muted">Quemadas, catches y presencias por jugador: próximamente. Se arman con lo que la mesa registre en cada partido.</p>
+      </Card>
+    </div>
+  )
+}
+
+// Salón de la fama: quién ganó qué, con los títulos de cada equipo
+function SalonFama({ champ }) {
+  const titles = champ?.titles ?? []
+  const wins = (id) => (champ?.tournaments ?? []).filter((t) => t.champion?.id === id)
+  const top = titles[0]
+  return (
+    <div className="space-y-3">
+      {champ === null && <p className="text-muted">Cargando…</p>}
+      {champ === false && <p className="text-sm text-danger">No se pudo cargar.</p>}
+      {champ && titles.length === 0 && <Card><p className="text-sm text-muted">Todavía no hay campeones con estos filtros. El primero que cierre un torneo entra acá.</p></Card>}
+      {top && (
+        <Link to={'/equipo/' + top.team.id} className="flex items-center gap-3 rounded-3xl border border-accent bg-surface p-4">
+          <TeamBadge team={top.team} size="lg" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-accent">Más campeonatos</p>
+            <p className="truncate text-xl font-extrabold">{top.team.name}</p>
+            <p className="text-xs text-muted">{top.titles} {top.titles === 1 ? 'título' : 'títulos'}</p>
+          </div>
+          <Trophy size={28} className="shrink-0 text-accent" />
+        </Link>
+      )}
+      {titles.map((x) => (
+        <Card key={x.team.id}>
+          <Link to={'/equipo/' + x.team.id} className="flex items-center gap-3">
+            <TeamBadge team={x.team} size="md" />
+            <span className="min-w-0 flex-1 truncate font-extrabold">{x.team.name}</span>
+            <span className="flex items-center gap-1 font-extrabold"><Trophy size={14} className="text-accent" /> {x.titles}</span>
+          </Link>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {wins(x.team.id).map((t) => (
+              <Link key={t.id} to={'/liga/' + t.id} className="rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-bold">{t.year} · {t.name}{t.edition ? ' · ' + t.edition : ''}</Link>
+            ))}
+          </div>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
 export default function EstadisticasPage() {
   const [tab, setTab] = useState('resumen')
   const [champ, setChamp] = useState(null)
@@ -298,11 +386,11 @@ export default function EstadisticasPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Estadísticas</h1>
+      <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Ranking</h1>
 
-      <div className="-mx-4 flex gap-5 overflow-x-auto border-b border-line px-4">
+      <div className="flex gap-5 overflow-x-auto rounded-2xl border border-line bg-surface px-4">
         {TABS.map(([k, l]) => (
-          <button key={k} type="button" onClick={() => setTab(k)} className={'shrink-0 border-b-2 py-2.5 text-sm ' + (tab === k ? 'border-accent font-extrabold' : 'border-transparent text-muted')}>{l}</button>
+          <button key={k} type="button" onClick={() => setTab(k)} className={'shrink-0 border-b-2 py-2.5 text-sm ' + (tab === k ? 'border-accent font-extrabold' : 'border-transparent text-muted [text-shadow:none]')}>{l}</button>
         ))}
       </div>
 
@@ -344,6 +432,9 @@ export default function EstadisticasPage() {
       )}
 
       {tab === 'resumen' && <Resumen champ={champ || undefined} rec={rec} teamsCount={teams.length} />}
+
+      {tab === 'estadisticas' && <TablaEquipos rec={rec} />}
+      {tab === 'fama' && <SalonFama champ={champ} />}
 
       {tab === 'torneos' && (
         <Card title="Torneos finalizados">
