@@ -7,9 +7,13 @@ import MatchCard from '../MatchCard'
 import Forma from '../torneo/Forma'
 import { Skeleton } from '../ui'
 
+// Mismos colores que la tabla del torneo: ascenso (verde), descenso (rojo), playoff de ascenso/permanencia (naranja)
+const ZONE_CLS = { PROMOTION: 'border-l-4 border-l-live bg-live/15', RELEGATION: 'border-l-4 border-l-danger bg-danger/15', PLAYOFF: 'border-l-4 border-l-warn bg-warn/15' }
+const ZONE_POS = { PROMOTION: 'bg-live text-black', RELEGATION: 'bg-danger text-white', PLAYOFF: 'bg-warn text-black' }
+
 const WINDOW = 6 // si la zona es más grande, se muestran los equipos cercanos al propio
 
-function Tabla({ rows, teamId }) {
+function Tabla({ rows, teamId, zone }) {
   const mine = rows.findIndex((r) => r.team.id === teamId)
   let view = rows
   if (rows.length > WINDOW && mine >= 0) {
@@ -17,6 +21,7 @@ function Tabla({ rows, teamId }) {
     view = rows.slice(start, start + WINDOW)
   }
   return (
+    <>
     <table className="w-full text-sm">
       <thead>
         <tr className="text-[11px] uppercase tracking-widest text-muted">
@@ -32,8 +37,8 @@ function Tabla({ rows, teamId }) {
         {view.map((r) => {
           const me = r.team.id === teamId
           return (
-            <tr key={r.team.id} className={me ? 'bg-accent/15 font-extrabold' : ''}>
-              <td className="py-1.5 pl-1 tabular-nums">{rows.indexOf(r) + 1}</td>
+            <tr key={r.team.id} className={(ZONE_CLS[r.zone] ?? 'border-l-4 border-l-transparent') + (me ? ' font-extrabold ring-1 ring-inset ring-accent' : '')}>
+              <td className={'py-1.5 pl-1 tabular-nums font-extrabold ' + (ZONE_POS[r.zone] ?? '')}>{rows.indexOf(r) + 1}</td>
               <td className="max-w-0 truncate py-1.5">{r.team.name}</td>
               <td className="py-1.5 text-center tabular-nums">{r.played}</td>
               <td className="py-1.5 text-center tabular-nums">{r.pointDiff > 0 ? '+' + r.pointDiff : r.pointDiff}</td>
@@ -44,6 +49,14 @@ function Tabla({ rows, teamId }) {
         })}
       </tbody>
     </table>
+    {zone && (zone.promotions > 0 || zone.relegations > 0 || zone.playoffPositions?.length > 0) && (
+      <div className="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-[11px] font-bold">
+        {zone.promotions > 0 && <span className="flex items-center gap-1.5 text-live"><span className="h-2.5 w-2.5 rounded-sm bg-live" /> {zone.promotions === 1 ? 'Asciende' : 'Ascienden ' + zone.promotions}</span>}
+        {zone.relegations > 0 && <span className="flex items-center gap-1.5 text-danger"><span className="h-2.5 w-2.5 rounded-sm bg-danger" /> {zone.relegations === 1 ? 'Desciende' : 'Descienden ' + zone.relegations}</span>}
+        {zone.playoffPositions?.length > 0 && <span className="flex items-center gap-1.5 text-warn"><span className="h-2.5 w-2.5 rounded-sm bg-warn" /> Playoff de ascenso/permanencia</span>}
+      </div>
+    )}
+    </>
   )
 }
 
@@ -72,7 +85,7 @@ function Card({ it, teamId, open, onToggle }) {
       </button>
       {open && (
         <div className="space-y-3 px-4 pb-4">
-          {it.rows.length > 0 ? <Tabla rows={it.rows} teamId={teamId} /> : <p className="text-sm text-muted">Este torneo no tiene tabla de posiciones.</p>}
+          {it.rows.length > 0 ? <Tabla rows={it.rows} teamId={teamId} zone={it.zone} /> : <p className="text-sm text-muted">Este torneo no tiene tabla de posiciones.</p>}
           <Link to={'/liga/' + t.id} className="block text-center text-sm font-bold text-accent">Ver torneo completo ›</Link>
           {(text || it.playoffs.length > 0) && (
             <div className="space-y-3 border-t border-line pt-3">
