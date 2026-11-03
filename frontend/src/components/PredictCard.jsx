@@ -23,7 +23,7 @@ export default function PredictCard({ m, info, onPick, showTournament = true }) 
   const canPick = info.open && !info.blocked
   const tone = (k) => {
     if (info.pick !== k) return 'border-line bg-surface-2'
-    return info.result === 'HIT' ? 'border-live bg-live/15 text-live' : info.result === 'MISS' ? 'border-danger bg-danger/10 text-danger' : 'border-accent bg-accent-soft'
+    return info.result === 'HIT' ? 'border-live bg-live/15 text-live' : info.result === 'MISS' ? 'border-danger bg-danger/10 text-danger' : 'border-accent bg-surface-2 ring-1 ring-accent'
   }
   const choose = async (k) => {
     if (!canPick) return

@@ -16,7 +16,7 @@ const RESULT = {
 const maxCuota = (m) => Math.max(m.prode.odds.A.cuota ?? 0, m.prode.odds.B.cuota ?? 0)
 
 const Pill = ({ on, onClick, children }) => (
-  <button type="button" onClick={onClick} className={'shrink-0 rounded-full border px-4 py-2 text-sm font-bold ' + (on ? 'border-accent bg-accent-soft' : 'border-line bg-surface')}>{children}</button>
+  <button type="button" onClick={onClick} className={'shrink-0 rounded-full border px-4 py-2 text-sm font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')}>{children}</button>
 )
 const Empty = ({ children }) => <p className="rounded-2xl border border-line bg-surface p-4 text-sm text-muted">{children}</p>
 
@@ -78,7 +78,7 @@ function Rank({ data, empty }) {
     <div className="space-y-3">
       <div className="divide-y divide-line rounded-2xl border border-line bg-surface">
         {data.top.map((e) => (
-          <div key={e.userId} className={'flex items-center gap-3 px-3 py-3 ' + (e.isMe ? 'bg-accent-soft' : '')}>
+          <div key={e.userId} className={'flex items-center gap-3 px-3 py-3 ' + (e.isMe ? 'bg-surface-2' : '')}>
             <span className="w-7 text-center text-sm font-extrabold tabular-nums">{e.position}</span>
             <span className="min-w-0 flex-1 truncate text-sm font-bold">{e.name}{e.isMe ? ' (vos)' : ''}</span>
             <span className="text-xs text-muted">{e.hits}/{e.played}</span>
