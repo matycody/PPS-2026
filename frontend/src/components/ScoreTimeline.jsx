@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 import TeamBadge from './TeamBadge'
 
 const clock = (sec) => String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0')
@@ -18,9 +18,9 @@ function Side({ team, set, branch }) {
 }
 
 // Sets del partido: quién ganó cada uno, el marcador resultante y el momento. Desplegable y de altura fija.
-export default function ScoreTimeline({ m }) {
+export default function ScoreTimeline({ m, onDelete = null, busy = false, defaultOpen = true }) {
   const sets = m?.sets ?? []
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(defaultOpen)
   if (!sets.length) return null
   const last = sets.length - 1
   const live = m.status === 'LIVE' || m.status === 'READY'
@@ -38,7 +38,7 @@ export default function ScoreTimeline({ m }) {
             const winner = s.draw ? null : s.winnerTeamId === m.teamA?.id ? 'A' : 'B'
             const now = live && s.number === sets[last].number
             return (
-              <li key={s.number} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-2.5">
+              <li key={s.number} className={'grid items-center gap-2 px-4 py-2.5 ' + (onDelete ? 'grid-cols-[1fr_auto_1fr_auto]' : 'grid-cols-[1fr_auto_1fr]')}>
                 {winner === 'A' ? <Side team={m.teamA} set={s.number} branch={m.branch} /> : <div />}
                 <div className="text-center">
                   <p className={'font-mono text-lg font-extrabold tabular-nums ' + (now ? 'text-live' : '')}>{s.scoreA}-{s.scoreB}</p>
@@ -47,6 +47,9 @@ export default function ScoreTimeline({ m }) {
                   </p>
                 </div>
                 {winner === 'B' ? <div className="flex justify-end text-right"><Side team={m.teamB} set={s.number} branch={m.branch} /></div> : <div />}
+                {onDelete && (
+                  <button type="button" disabled={busy} aria-label={'Deshacer set ' + s.number} onClick={() => onDelete(s)} className="grid h-9 w-9 place-items-center rounded-full text-danger disabled:opacity-40"><X size={16} /></button>
+                )}
               </li>
             )
           })}

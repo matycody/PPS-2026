@@ -1,6 +1,7 @@
 ﻿import { useLeaveGuard } from '../hooks/useLeaveGuard'
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import ScoreTimeline from '../components/ScoreTimeline'
 import { ChevronLeft, Play, Pause, RotateCcw, Minus, Plus, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
@@ -466,22 +467,7 @@ export default function ControlPage() {
           )}
 
           {(m.sets ?? []).length > 0 && (
-            <ul className="space-y-1">
-              {m.sets.map((s) => {
-                const isDraw = s.draw === true || s.winnerTeamId == null
-                const w = s.winnerTeamId === a?.id ? a : b
-                return (
-                  <li key={s.number} className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2 text-sm">
-                    <span>Set {s.number}: <b>{isDraw ? 'Empate' : (w?.name ?? '—')}</b></span>
-                    {perms.canEditResult && (
-                      <button disabled={busy} onClick={() => run(() => api('DELETE', '/matches/' + id + '/sets/' + s.number))} className="text-danger">
-                        <X size={16} />
-                      </button>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
+            <ScoreTimeline m={m} busy={busy} defaultOpen={false} onDelete={perms.canEditResult ? (s) => run(() => api('DELETE', '/matches/' + id + '/sets/' + s.number)) : null} />
           )}
 
           {perms.canFinish && !confirmFinish && (
