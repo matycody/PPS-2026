@@ -11,10 +11,10 @@ const { loadRoster, publicRoster, buildProposal } = require('../services/sheetMa
 const router = express.Router();
 const EXT = { jpeg: 'jpg', png: 'png', webp: 'webp' };
 
-const rawImage = express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '12mb' });
+const rawImage = express.raw({ type: 'image/*', limit: '12mb' });
 const imageBody = (req, res, next) => rawImage(req, res, (err) => {
   if (err) return res.status(err.status === 413 ? 413 : 400).json({ error: 'Imagen inválida o mayor a 12 MB' });
-  if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Enviá la foto (JPG, PNG o WebP) como cuerpo' });
+  if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Enviá la foto como cuerpo' });
   next();
 });
 
@@ -39,12 +39,12 @@ router.post('/:id/sheet/photo', authenticate, imageBody, async (req, res) => {
     const match = await loadForTable(req, res);
     if (!match) return;
     let meta;
-    try { meta = await sharp(req.body).metadata(); } catch { return res.status(400).json({ error: 'La imagen no es un JPG, PNG o WebP válido' }); }
-    if (!EXT[meta.format]) return res.status(400).json({ error: 'La imagen no es un JPG, PNG o WebP válido' });
+    try { meta = await sharp(req.body).metadata(); } catch { return res.status(400).json({ error: 'El archivo no es una imagen válida' }); }
+    if (!meta.format || !meta.width) return res.status(400).json({ error: 'El archivo no es una imagen válida' });
 
     const id = crypto.randomUUID();
     const mime = 'image/' + meta.format;
-    const path = match.id + '/' + id + '.' + EXT[meta.format];
+    const path = match.id + '/' + id + '.' + (EXT[meta.format] ?? meta.format);
     await storage.uploadSheet(path, req.body, mime);
     let sheet = await prisma.matchSheet.create({
       data: {

@@ -9,7 +9,7 @@ const admin = [authenticate, requireRole('ADMIN')];
 
 function handleError(err, res) {
   if (err.message === 'INVALID_IMAGE') {
-    return res.status(400).json({ error: 'La imagen no es un JPG, PNG o WebP válido' });
+    return res.status(400).json({ error: 'El archivo no es una imagen válida (si es HEIC de iPhone, sacala como JPG o usá una captura)' });
   }
   console.error('[photos]', err);
   return res.status(500).json({ error: 'Error interno' });

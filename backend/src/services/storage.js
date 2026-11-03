@@ -6,10 +6,9 @@ const PHOTOS_BUCKET = 'photos'; // privado: URL firmadas solo para cuentas con s
 const LOGOS_BUCKET = 'team-logos'; // público: escudos y logos
 const SHEETS_BUCKET = 'match-sheets'; // privado: planillas de juego (auditoría, solo la organización)
 const SIGNED_TTL = 60 * 60; // 1 hora
-const ALLOWED = ['jpeg', 'png', 'webp'];
 
 const rawImage = express.raw({
-  type: ['image/jpeg', 'image/png', 'image/webp'],
+  type: 'image/*', // cualquier formato de imagen: sharp valida que sea real y la pasa a WebP
   limit: '5mb',
 });
 
@@ -23,7 +22,7 @@ function imageBody(req, res, next) {
     }
     if (!Buffer.isBuffer(req.body) || !req.body.length) {
       return res.status(400).json({
-        error: 'Enviá la imagen (JPG, PNG o WebP, máx. 5 MB) como cuerpo, con su Content-Type',
+        error: 'Enviá la imagen (máx. 5 MB) como cuerpo, con su Content-Type',
       });
     }
     next();
@@ -41,7 +40,7 @@ async function ensureBuckets() {
   ready = true;
 }
 
-// Valida que sea una imagen real (JPG/PNG/WebP), la orienta, redimensiona y pasa a WebP
+// Valida que sea una imagen real (cualquier formato que sharp lea), la orienta, redimensiona y pasa a WebP
 async function processImage(buffer, kind) {
   let meta;
   try {
@@ -49,7 +48,7 @@ async function processImage(buffer, kind) {
   } catch (err) {
     throw new Error('INVALID_IMAGE');
   }
-  if (!ALLOWED.includes(meta.format)) throw new Error('INVALID_IMAGE');
+  if (!meta.format || !meta.width) throw new Error('INVALID_IMAGE');
 
   const img = sharp(buffer).rotate();
   if (kind === 'photo') img.resize(512, 512, { fit: 'cover' });
