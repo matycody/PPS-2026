@@ -8,9 +8,9 @@ import { Skeleton } from '../ui'
 
 // Lugares de ascenso (verde) y descenso (rojo): se marcan para todos los usuarios
 const ZONE_CLS = {
-  PROMOTION: 'border-l-4 border-l-live bg-live/15',
-  RELEGATION: 'border-l-4 border-l-danger bg-danger/15',
-  PLAYOFF: 'border-l-4 border-l-warn bg-warn/15',
+  PROMOTION: 'bg-live/10',
+  RELEGATION: 'bg-danger/10',
+  PLAYOFF: 'bg-warn/10',
 }
 const ZONE_POS = { PROMOTION: 'bg-live text-black', RELEGATION: 'bg-danger text-white', PLAYOFF: 'bg-warn text-black' }
 
@@ -91,8 +91,8 @@ export default function StandingsView({ tournamentId, finished, branch = null })
                 {s.rows.map((r, i) => {
                   const zone = r.zone !== undefined ? r.zone : zoneOf(s, i + 1, s.rows.length)
                   return (
-                  <tr key={r.team.id} className={'border-t border-line text-center ' + (ZONE_CLS[zone] ?? 'border-l-4 border-l-transparent')}>
-                    <td className={'px-3 py-2 text-left font-extrabold ' + (ZONE_POS[zone] ?? '')}>{i + 1}</td>
+                  <tr key={r.team.id} className={'border-t border-line text-center ' + (ZONE_CLS[zone] ?? '')}>
+                    <td className="px-3 py-2 text-left"><span className={'grid h-6 w-6 place-items-center rounded-full text-xs font-extrabold tabular-nums ' + (ZONE_POS[zone] ?? '')}>{i + 1}</span></td>
                     <td className="px-2 py-2 text-left">
                       <Link to={'/equipo/' + r.team.id} className="flex items-center gap-2">
                         <TeamBadge team={r.team} size="sm" branch={branch} />
