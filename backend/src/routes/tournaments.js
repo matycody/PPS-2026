@@ -449,17 +449,39 @@ router.put('/:id/teams', ...admin, async (req, res) => {
 
 // Define la estructura del torneo (zonas o llaves) y los equipos de cada una.
 // Reemplaza la estructura anterior. Solo en borrador y antes de generar partidos.
-// Corrige solo los cupos de ascenso/descenso de una zona, también con el torneo cerrado.
-// No toca fixture, partidos ni llaves; si el torneo está cerrado, vuelve a marcar la zona de la tabla congelada.
-router.patch('/:id/stages/:stageId/quotas', ...admin, async (req, res) => {
+// Corrige nombre, fase, categoría y cupos de una zona o llave sin tocar fixture, partidos ni llaves (sirve con el torneo cerrado).
+// Si el torneo está cerrado, vuelve a marcar la zona (ascenso/descenso/playoff) de la tabla congelada.
+router.patch('/:id/stages/:stageId', ...admin, async (req, res) => {
   try {
-    const stage = await prisma.stage.findFirst({ where: { id: req.params.stageId, tournamentId: req.params.id, type: 'LEAGUE' }, select: { id: true, playoffPositions: true } });
-    if (!stage) return res.status(404).json({ error: 'Zona no encontrada' });
-    const num = (v) => (Number.isInteger(v) && v >= 0 ? v : null);
-    const promotions = num(req.body?.promotions);
-    const relegations = num(req.body?.relegations);
-    if (promotions === null || relegations === null) return res.status(400).json({ error: 'promotions y relegations deben ser enteros desde 0' });
-    const standings = await prisma.stageStanding.findMany({ where: { stageId: stage.id }, select: { teamId: true, position: true } });
+    const stage = await prisma.stage.findFirst({ where: { id: req.params.stageId, tournamentId: req.params.id }, select: { id: true, type: true, playoffPositions: true, promotions: true, relegations: true } });
+    if (!stage) return res.status(404).json({ error: 'Etapa no encontrada' });
+    const b = req.body || {};
+    const data = {};
+    if (b.name !== undefined) {
+      const name = String(b.name).trim();
+      if (!name || name.length > 40) return res.status(400).json({ error: 'El nombre es obligatorio (máx. 40 caracteres)' });
+      const dup = await prisma.stage.findFirst({ where: { tournamentId: req.params.id, id: { not: stage.id }, name: { equals: name, mode: 'insensitive' } }, select: { id: true } });
+      if (dup) return res.status(409).json({ error: 'Ya hay una etapa con ese nombre' });
+      data.name = name;
+    }
+    if (b.phase !== undefined) {
+      if (!Number.isInteger(b.phase) || b.phase < 1) return res.status(400).json({ error: 'La fase debe ser un entero desde 1' });
+      data.phase = b.phase;
+    }
+    if (stage.type === 'LEAGUE') {
+      if (b.tier !== undefined) {
+        if (b.tier !== null && (!Number.isInteger(b.tier) || b.tier < 1 || b.tier > 26)) return res.status(400).json({ error: 'Categoría inválida' });
+        data.tier = b.tier;
+      }
+      for (const k of ['promotions', 'relegations']) {
+        if (b[k] === undefined) continue;
+        if (!Number.isInteger(b[k]) || b[k] < 0) return res.status(400).json({ error: k + ' debe ser un entero desde 0' });
+        data[k] = b[k];
+      }
+    }
+    const promotions = data.promotions ?? stage.promotions ?? 0;
+    const relegations = data.relegations ?? stage.relegations ?? 0;
+    const standings = stage.type === 'LEAGUE' ? await prisma.stageStanding.findMany({ where: { stageId: stage.id }, select: { teamId: true, position: true } }) : [];
     const total = standings.length;
     if (total && promotions + relegations > total) return res.status(400).json({ error: 'Ascensos + descensos superan la cantidad de equipos' });
     const zoneOf = (pos) => {
@@ -469,10 +491,10 @@ router.patch('/:id/stages/:stageId/quotas', ...admin, async (req, res) => {
       return null;
     };
     await prisma.$transaction([
-      prisma.stage.update({ where: { id: stage.id }, data: { promotions, relegations } }),
+      prisma.stage.update({ where: { id: stage.id }, data }),
       ...standings.map((x) => prisma.stageStanding.update({ where: { stageId_teamId: { stageId: stage.id, teamId: x.teamId } }, data: { zone: zoneOf(x.position) } })),
     ]);
-    res.json({ ok: true, promotions, relegations, relabeled: standings.length });
+    res.json({ ok: true, ...data, relabeled: standings.length });
   } catch (err) {
     handleDbError(err, res);
   }
