@@ -3,14 +3,14 @@ import { X, LogOut, LogIn } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import UserAvatar from './UserAvatar'
 import PersonName from './PersonName'
-import { ITEMS, SECTIONS, generalFor, roleLabel } from '../lib/navConfig'
+import { ITEMS, SECTIONS, generalFor, roleLabel, navEnd } from '../lib/navConfig'
 import { useMenuPrefs, sortKeys } from '../stores/menuPrefsStore'
 
 function Item({ to, label, Icon, soon, onClose }) {
   return (
     <NavLink
       to={to}
-      end={to === '/'}
+      end={navEnd(to)}
       onClick={onClose}
       className={({ isActive }) =>
         'flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold ' +

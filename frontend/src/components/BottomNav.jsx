@@ -1,7 +1,7 @@
 ﻿import { NavLink } from 'react-router-dom'
 import { LogIn } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
-import { ITEMS, BOTTOM_PRIORITY, NOTICIAS } from '../lib/navConfig'
+import { ITEMS, BOTTOM_PRIORITY, NOTICIAS, navEnd } from '../lib/navConfig'
 
 // Organizador: Inicio, Noticias, Mis asignaciones (al medio), Dashboard y Partidos
 const ADMIN_ORDER = ['asignaciones', 'dashboard_canchas', 'partidos']
@@ -24,7 +24,7 @@ export default function BottomNav() {
           <NavLink
             key={to}
             to={to}
-            end={to === '/'}
+            end={navEnd(to)}
             className={({ isActive }) =>
               'flex min-w-0 flex-col items-center justify-start gap-1 px-0.5 py-2.5 text-center text-[11px] font-semibold leading-tight ' +
               (isActive ? 'text-accent' : 'text-muted')

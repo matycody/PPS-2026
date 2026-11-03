@@ -70,3 +70,7 @@ export function roleLabel(user) {
   if (r.includes('PLAYER') || user?.profileId) out.push('Jugador')
   return out.length ? out.join(' / ') : 'Registrado'
 }
+
+// Un ítem solo se marca activo en su ruta exacta si otro ítem cuelga de ella (ej. /asignaciones y /asignaciones/historial)
+const NAV_PATHS = [...Object.values(ITEMS).map((i) => i.to), ...GENERAL.map((g) => g.to)].filter(Boolean)
+export const navEnd = (to) => to === '/' || NAV_PATHS.some((p) => p !== to && p.startsWith(to + '/'))
