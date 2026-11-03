@@ -168,7 +168,18 @@ router.get('/:id/posiciones', async (req, res) => {
       if (zone) {
         const data = await computeStandings(t.id, zone.id);
         const z = data && data.stages[0];
-        rows = z ? z.rows.map((r) => ({ position: r.position, tied: r.tied, team: r.team, played: r.played, won: r.won, drawn: r.drawn, lost: r.lost, points: r.points, setDiff: r.setDiff, pointDiff: r.pointDiff, form: r.form })) : [];
+        // Zona de cada fila (ascenso/descenso/playoff): la congelada si el torneo cerró; si no, según los cupos de la etapa
+        const frozen = t.status === 'FINISHED'
+          ? new Map((await prisma.stageStanding.findMany({ where: { stageId: zone.id }, select: { teamId: true, zone: true } })).map((x) => [x.teamId, x.zone]))
+          : null;
+        const total = z ? z.rows.length : 0;
+        const zoneOf = (pos) => {
+          if (pos <= (zone.promotions ?? 0)) return 'PROMOTION';
+          if (pos > total - (zone.relegations ?? 0) && (zone.relegations ?? 0) > 0) return 'RELEGATION';
+          if ((zone.playoffPositions ?? []).includes(pos)) return 'PLAYOFF';
+          return null;
+        };
+        rows = z ? z.rows.map((r) => ({ position: r.position, tied: r.tied, team: r.team, played: r.played, won: r.won, drawn: r.drawn, lost: r.lost, points: r.points, setDiff: r.setDiff, pointDiff: r.pointDiff, form: r.form, zone: frozen && frozen.has(r.team.id) ? frozen.get(r.team.id) : zoneOf(r.position) })) : [];
         const own = await prisma.match.findMany({ where: { stageId: zone.id, hiddenAt: null }, select: { status: true } });
         zoneDone = own.length > 0 && own.every((x) => x.status === 'FINISHED' || x.status === 'CANCELLED');
       }
@@ -225,7 +236,7 @@ router.get('/:id/posiciones', async (req, res) => {
             }));
         }
       }
-      return { tournament: t, zone: zone ? { id: zone.id, name: zone.name } : null, zoneDone, rows, qualification, playoffs };
+      return { tournament: t, zone: zone ? { id: zone.id, name: zone.name, promotions: zone.promotions ?? 0, relegations: zone.relegations ?? 0, playoffPositions: zone.playoffPositions ?? [] } : null, zoneDone, rows, qualification, playoffs };
     }));
 
     items.sort((a, b) => (b.tournament.status === 'ACTIVE') - (a.tournament.status === 'ACTIVE') || b.tournament.year - a.tournament.year);
