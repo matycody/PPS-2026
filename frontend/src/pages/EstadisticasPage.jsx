@@ -4,6 +4,7 @@ import { Trophy, Search, ChevronRight, Swords, Flame, Zap, ShieldCheck, Clock, S
 import { api } from '../lib/api'
 import { BRANCH, MODALITY } from '../lib/format'
 import { inputCls } from '../components/ui'
+import TeamSelect from '../components/TeamSelect'
 import Podium from '../components/Podium'
 import TeamBadge from '../components/TeamBadge'
 
@@ -135,17 +136,8 @@ function TeamStats({ teamId, filter }) {
   )
 }
 
-function TeamPicker({ teams, value, onChange, placeholder }) {
-  const sel = teams.find((t) => t.id === value)
-  return (
-    <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-line bg-surface p-2">
-      {sel ? <TeamBadge team={sel} size="sm" /> : <div className="h-8 w-8 shrink-0 rounded-full bg-surface-2" />}
-      <select className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none" value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{placeholder}</option>
-        {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-      </select>
-    </div>
-  )
+function TeamPicker(props) {
+  return <TeamSelect {...props} />
 }
 
 function HeadToHead({ teams, filter }) {
