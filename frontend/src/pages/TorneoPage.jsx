@@ -9,6 +9,7 @@ import BracketView from '../components/torneo/BracketView'
 import FixtureView from '../components/torneo/FixtureView'
 import ExtraMatchesView from '../components/torneo/ExtraMatchesView'
 import MatchRow from '../components/MatchRow'
+import Podium from '../components/Podium'
 import TeamBadge from '../components/TeamBadge'
 import FavHeart from '../components/FavHeart'
 import { inputCls } from '../components/ui'
@@ -146,12 +147,14 @@ export default function TorneoPage() {
       {tab === 'resumen' && (
         <div className="space-y-4">
           {t.champion && (
-            <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4">
-              <Trophy size={28} className="shrink-0 text-warn" />
-              <div className="min-w-0">
-                <div className="text-xs font-bold uppercase tracking-widest text-muted">Campeón</div>
-                <div className="truncate text-lg font-extrabold">{t.champion.name}</div>
+            <div className="rounded-3xl border-2 border-warn bg-surface p-4 text-center">
+              <Trophy size={30} className="mx-auto text-warn" />
+              <p className="mt-1 text-[11px] font-bold uppercase tracking-widest text-warn">Campeón del torneo</p>
+              <div className="mt-2 flex flex-col items-center gap-2">
+                <TeamBadge team={t.champion} size="xl" />
+                <p className="text-2xl font-extrabold leading-tight">{t.champion.name}</p>
               </div>
+              {t.podium?.full && <Podium podium={t.podium} className="mt-4 border-0 bg-transparent p-0" />}
             </div>
           )}
           {matches === null && <p className="text-muted">Cargando…</p>}

@@ -5,6 +5,7 @@ import FavHeart from '../components/FavHeart'
 import { api } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import { BRANCH, MODALITY, normMatch } from '../lib/format'
+import { MedalPodium } from '../components/Podium'
 import TeamBadge from '../components/TeamBadge'
 import { useDominantColor } from '../hooks/useDominantColor'
 import Roster from '../components/Roster'
@@ -100,6 +101,8 @@ export default function TeamPage() {
 
   const mods = team.modalities ?? []
   const brs = team.branches ?? []
+  const cnt = (k) => (st?.career ?? []).filter((h) => h.result?.kind === k).length
+  const medals = st && (cnt('CHAMPION') || cnt('RUNNER_UP') || cnt('THIRD')) ? { gold: cnt('CHAMPION'), silver: cnt('RUNNER_UP'), bronze: cnt('THIRD') } : null
   // Qué categoría muestran los números y las listas
   const scope = mod === 'all' && br === 'all' ? 'Total: todas las ramas y modalidades' : [br === 'all' ? 'Todas las ramas' : BRANCH[br], mod === 'all' ? 'Todas las modalidades' : MODALITY[mod]].join(' · ')
   const players = (team.roster ?? []).filter((r) => br === 'all' || r.branch === br)
@@ -170,6 +173,7 @@ export default function TeamPage() {
           {mods.map((m) => <span key={m} className="rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold uppercase text-black">{MODALITY[m] ?? m}</span>)}
           <div className="absolute -top-12 right-4"><TeamBadge team={team} size="xl" branch={br !== 'all' ? br : null} /></div>
         </div>
+        {medals && <div className="border-t border-line px-5 pb-3 pt-4"><MedalPodium {...medals} className="mx-auto max-w-xs" /></div>}
         <div className="flex overflow-x-auto border-t border-line" role="tablist">
           {[['resumen', 'Resumen'], ['partidos', 'Partidos'], ['posiciones', 'Posiciones'], ['estadisticas', 'Estadísticas'], ['plantel', 'Plantel'], ['historial', 'Historial']].map(([k, label]) => (
             <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={'shrink-0 border-b-2 px-4 py-3 text-sm font-bold ' + (tab === k ? 'border-accent' : 'border-transparent text-muted')}>

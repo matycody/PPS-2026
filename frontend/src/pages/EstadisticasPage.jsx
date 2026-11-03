@@ -4,6 +4,7 @@ import { Trophy, Search, ChevronRight, Swords, Flame, Zap, ShieldCheck, Clock, S
 import { api } from '../lib/api'
 import { BRANCH, MODALITY } from '../lib/format'
 import { inputCls } from '../components/ui'
+import Podium from '../components/Podium'
 import TeamBadge from '../components/TeamBadge'
 
 const TABS = [['resumen', 'Resumen'], ['estadisticas', 'Estadísticas'], ['fama', 'Salón de la fama'], ['torneos', 'Torneos'], ['equipos', 'Equipos'], ['cara', 'Cara a cara']]
@@ -337,6 +338,14 @@ function SalonFama({ champ }) {
           <Trophy size={28} className="shrink-0 text-accent" />
         </Link>
       )}
+      {(champ?.tournaments ?? []).filter((t) => t.podium?.first).length > 0 && <h2 className="px-1 pt-2 text-xs font-bold uppercase tracking-widest text-muted">Podios por torneo</h2>}
+      {(champ?.tournaments ?? []).filter((t) => t.podium?.first).map((t) => (
+        <div key={t.id}>
+          <Link to={'/liga/' + t.id} className="mb-1.5 block truncate px-1 text-xs font-bold">{t.year} · {t.name}{t.edition ? ' · ' + t.edition : ''}</Link>
+          <Podium podium={t.podium} />
+        </div>
+      ))}
+      <h2 className="px-1 pt-2 text-xs font-bold uppercase tracking-widest text-muted">Títulos por equipo</h2>
       {titles.map((x) => (
         <Card key={x.team.id}>
           <Link to={'/equipo/' + x.team.id} className="flex items-center gap-3">
