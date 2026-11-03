@@ -55,7 +55,7 @@ html:not(.dark) .bg-surface {
 
 :root,
 [data-role] {
-  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+  --accent-soft: color-mix(in srgb, var(--accent) 22%, var(--surface-2)); /* opaco: antes era translúcido y dejaba ver el fondo */
 }
 
 html, body, #root {
