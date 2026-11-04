@@ -4,6 +4,7 @@
 //   Copiar de verdad:     node scripts/copiar-bd.js --aplicar
 // Variables: ORIGEN_URL (dev-torneos) y DESTINO_URL (production), ambas con conexión DIRECTA (sin -pooler).
 // Es seguro repetirlo: usa ON CONFLICT DO NOTHING, o sea que no pisa filas que ya existan en el destino.
+// 'faltan' > 0 en una tabla = filas del origen que chocaron con otra del destino (mismo DNI/nombre/mail pero distinto id).
 const { Client } = require('pg')
 
 const aplicar = process.argv.includes('--aplicar')
@@ -63,29 +64,39 @@ async function main() {
   if (!aplicar) { await o.end(); await d.end(); return }
 
   // Si el rol lo permite, se desactivan los chequeos de claves foráneas durante la copia
-  let replica = false
-  try { await d.query('SET session_replication_role = replica'); replica = true } catch { /* se confía en el orden */ }
-  console.log('Chequeo de FK desactivado:', replica ? 'sí' : 'no (se usa el orden de tablas)')
+  // Por defecto las claves foráneas SE CHEQUEAN: si falta un padre, la tabla da error en vez de dejar filas huérfanas
+  console.log('Chequeo de claves foráneas: activo')
 
   const resumen = []
   for (const t of orden) {
     const total = filas.find((f) => f.tabla === t).origen
-    if (!total) { resumen.push({ tabla: t, copiadas: 0, error: '' }); continue }
-    let copiadas = 0, error = ''
+    if (!total) { resumen.push({ tabla: t, copiadas: 0, faltan: '', error: '' }); continue }
+    let copiadas = 0, error = '', faltan = ''
     try {
       const cur = await o.query(`select row_to_json(x) as r from ${q(t)} x`)
+      const pk = (await d.query(
+        `select a.attname from pg_index i join pg_attribute a on a.attrelid = i.indrelid and a.attnum = any(i.indkey)
+         where i.indrelid = $1::regclass and i.indisprimary`, [q(t)])).rows.map((r) => q(r.attname))
+      let presentes = 0
       for (let i = 0; i < cur.rows.length; i += LOTE) {
         const lote = JSON.stringify(cur.rows.slice(i, i + LOTE).map((r) => r.r))
         const res = await d.query(
           `insert into ${q(t)} select * from json_populate_recordset(null::${q(t)}, $1::json) on conflict do nothing`, [lote])
         copiadas += res.rowCount
+        if (pk.length) {
+          const on = pk.map((c) => `t.${c} = s.${c}`).join(' and ')
+          presentes += (await d.query(
+            `select count(*)::int n from ${q(t)} t join json_populate_recordset(null::${q(t)}, $1::json) s on ${on}`, [lote])).rows[0].n
+        }
       }
+      // Filas del origen que NO quedaron en el destino con el mismo id: chocaron con otra fila (mismo DNI, nombre, mail...)
+      if (pk.length && presentes < cur.rows.length) faltan = cur.rows.length - presentes
     } catch (e) { error = e.message }
-    resumen.push({ tabla: t, copiadas, error })
+    resumen.push({ tabla: t, copiadas, faltan, error })
   }
   console.table(resumen)
-  const fallas = resumen.filter((r) => r.error)
-  console.log(fallas.length ? `Terminó con ${fallas.length} tabla(s) con error. Pasale esa tabla a Claude.` : 'Listo: copia completa sin errores.')
+  const fallas = resumen.filter((r) => r.error || r.faltan)
+  console.log(fallas.length ? `Atención: ${fallas.length} tabla(s) con error o con filas que chocaron. Pasale la tabla de arriba a Claude antes de seguir.` : 'Listo: copia completa sin errores.')
   await o.end(); await d.end()
 }
 
