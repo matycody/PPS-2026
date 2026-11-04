@@ -48,7 +48,7 @@ app.get("/debug-sentry", (req, res) => {
 });
 
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", message: "Servidor backend PPS Dodgeball corriendo" });
+  res.json({ status: "ok", message: "Servidor backend Dodgeball BA corriendo" });
 });
 
 // Auth, perfiles, equipos, torneos, partidos, usuarios y favoritos
