@@ -2,12 +2,14 @@
 // Uso (desde backend/):
 //   Ver qué se copiaría:  node scripts/copiar-bd.js
 //   Copiar de verdad:     node scripts/copiar-bd.js --aplicar
+//   Dejar el destino IGUAL al origen (borra antes los datos del destino): node scripts/copiar-bd.js --aplicar --vaciar-destino
 // Variables: ORIGEN_URL (dev-torneos) y DESTINO_URL (production), ambas con conexión DIRECTA (sin -pooler).
 // Es seguro repetirlo: usa ON CONFLICT DO NOTHING, o sea que no pisa filas que ya existan en el destino.
 // 'faltan' > 0 en una tabla = filas del origen que chocaron con otra del destino (mismo DNI/nombre/mail pero distinto id).
 const { Client } = require('pg')
 
 const aplicar = process.argv.includes('--aplicar')
+const vaciar = process.argv.includes('--vaciar-destino') // BORRA todos los datos del destino antes de copiar (deja una copia exacta del origen)
 const ORIGEN = process.env.ORIGEN_URL
 const DESTINO = process.env.DESTINO_URL
 const SALTAR = new Set(['_prisma_migrations'])
@@ -66,6 +68,10 @@ async function main() {
   // Si el rol lo permite, se desactivan los chequeos de claves foráneas durante la copia
   // Por defecto las claves foráneas SE CHEQUEAN: si falta un padre, la tabla da error en vez de dejar filas huérfanas
   console.log('Chequeo de claves foráneas: activo')
+  if (vaciar) {
+    console.log('VACIANDO destino (todas las tablas de datos, menos _prisma_migrations)...')
+    await d.query(`truncate table ${orden.map(q).join(', ')} restart identity cascade`)
+  }
 
   const resumen = []
   for (const t of orden) {
