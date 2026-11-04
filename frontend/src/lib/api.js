@@ -2,6 +2,19 @@
 
 const BASE = import.meta.env.VITE_BACKEND_URL
 
+// Si no hay red, el navegador tira un error técnico ("Load failed", "Failed to fetch"): lo cambiamos por un mensaje claro
+const MSG_OFFLINE = 'Sin conexión a internet. Revisá tu red y volvé a intentar.'
+const MSG_SERVER = 'No pudimos conectar con el servidor. Puede estar iniciándose: probá de nuevo en unos segundos.'
+async function netFetch(url, opts) {
+  try {
+    return await fetch(url, opts)
+  } catch (e) {
+    if (e?.name === 'AbortError') throw e
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false
+    throw Object.assign(new Error(offline ? MSG_OFFLINE : MSG_SERVER), { status: 0, offline })
+  }
+}
+
 // GET repetidos: los que están en vuelo se comparten y el resultado vive 3 s.
 // Cualquier escritura (POST/PATCH/PUT/DELETE) vacía el caché, así cada persona ve sus cambios al instante.
 const GET_TTL_MS = 3000
@@ -26,7 +39,7 @@ export function api(method, path, body) {
 async function apiFetch(method, path, body) {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  const res = await fetch(BASE + path, {
+  const res = await netFetch(BASE + path, {
     method,
     headers: {
       'ngrok-skip-browser-warning': 'true',
@@ -52,7 +65,7 @@ async function apiFetch(method, path, body) {
 export async function apiUploadPhoto(file) {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  const res = await fetch(BASE + '/me/photo', {
+  const res = await netFetch(BASE + '/me/photo', {
     method: 'PUT',
     headers: {
       'ngrok-skip-browser-warning': 'true',
@@ -69,7 +82,7 @@ export async function apiUploadPhoto(file) {
 export async function apiUpload(path, file) {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  const res = await fetch(BASE + path, {
+  const res = await netFetch(BASE + path, {
     method: 'PUT',
     headers: {
       'ngrok-skip-browser-warning': 'true',
@@ -87,7 +100,7 @@ export async function apiUpload(path, file) {
 export async function apiUploadSheet(matchId, file) {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  const res = await fetch(BASE + '/matches/' + matchId + '/sheet/photo', {
+  const res = await netFetch(BASE + '/matches/' + matchId + '/sheet/photo', {
     method: 'POST',
     headers: {
       'ngrok-skip-browser-warning': 'true',
