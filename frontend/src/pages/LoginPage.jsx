@@ -94,7 +94,7 @@ export default function LoginPage() {
           {error && <p className="text-sm text-danger">{error}</p>}
           {info && <p className="text-sm text-live">{info}</p>}
 
-          <button type="button" onClick={() => { setForgot((v) => !v); setError(''); setInfo('') }} className="self-end text-sm font-bold text-black underline">
+          <button type="button" onClick={() => { setForgot((v) => !v); setError(''); setInfo('') }} className="self-end text-sm font-bold text-accent underline">
             {forgot ? 'Volver a iniciar sesión' : '¿Olvidaste tu contraseña?'}
           </button>
 

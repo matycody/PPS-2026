@@ -24,7 +24,7 @@ export default function VenueInfo({ venue, className = '', compact = false }) {
         <MapPin size={18} className="mt-0.5 shrink-0 text-accent" />
         <div className="min-w-0">
           <div className="font-extrabold leading-tight">{venue.name}</div>
-          <div className="text-sm text-muted">{venue.address}</div>
+          {venue.address && venue.address.trim().toLowerCase() !== (venue.name ?? '').trim().toLowerCase() && <div className="text-sm text-muted">{venue.address}</div>}
           {venue.notes && <div className="mt-1 text-xs text-muted">{venue.notes}</div>}
         </div>
       </div>

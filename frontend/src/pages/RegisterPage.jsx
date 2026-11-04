@@ -160,7 +160,7 @@ export default function RegisterPage() {
         </form>
       )}
 
-      <Link to="/login" className="mt-6 text-center text-sm text-muted">¿Ya tenés cuenta? Ingresá</Link>
+      <Link to="/login" className="mx-auto mt-6 rounded-full border border-line bg-surface px-4 py-2 text-center text-sm font-semibold text-fg">¿Ya tenés cuenta? Ingresá</Link>
     </main>
   )
 }
