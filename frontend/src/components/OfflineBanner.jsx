@@ -32,10 +32,11 @@ export default function OfflineBanner() {
     <div
       role="status"
       aria-live="polite"
-      className={'fixed inset-x-0 top-0 z-50 flex items-center justify-center gap-2 px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] text-center text-sm font-bold ' + (ok ? 'bg-live text-black' : 'bg-warn text-black')}
+      style={{ background: ok ? '#22c55e' : '#f59e0b', color: '#0b1220', textShadow: 'none', opacity: 1 }} // colores sólidos: sin transparencia ni halo del tema
+      className="fixed inset-x-0 top-0 z-50 flex items-center justify-center gap-2 px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] text-center text-sm font-bold"
     >
       {ok ? <Wifi size={16} /> : <WifiOff size={16} />}
-      {ok ? 'Conexión recuperada' : 'Sin conexión: los datos pueden estar desactualizados'}
+      {ok ? 'Conexión recuperada' : 'Sin conexión: datos desactualizados'}
     </div>
   )
 }
