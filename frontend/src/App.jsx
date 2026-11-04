@@ -31,6 +31,8 @@ import EquiposPage from './pages/admin/EquiposPage'
 import SedesPage from './pages/admin/SedesPage'
 import SedesPublicPage from './pages/SedesPublicPage'
 import NoticiasPage, { NoticiaDetalle } from './pages/NoticiasPage'
+import ReglasPage from './pages/ReglasPage'
+import AcercaPage from './pages/AcercaPage'
 import SancionesPage from './pages/admin/SancionesPage'
 import SancionesPublicaPage from './pages/SancionesPublicaPage'
 import AdminTeamPage from './pages/admin/AdminTeamPage'
@@ -102,7 +104,9 @@ function App() {
             <Route path="/equipos" element={<EquiposListPage />} />
             <Route path="/noticias" element={<NoticiasPage />} />
             <Route path="/noticias/:id" element={<NoticiaDetalle />} />
-            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos', '/partidos', '/sedes', '/noticias', '/predicciones', '/sanciones'].includes(g.to)).map((g) => (
+            <Route path="/reglas" element={<ReglasPage />} />
+            <Route path="/acerca" element={<AcercaPage />} />
+            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos', '/partidos', '/sedes', '/noticias', '/predicciones', '/sanciones', '/reglas', '/acerca'].includes(g.to)).map((g) => (
               <Route key={g.to} path={g.to} element={<Placeholder title={g.label} />} />
             ))}
 
