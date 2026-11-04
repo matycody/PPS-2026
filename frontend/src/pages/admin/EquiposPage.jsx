@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Trash2, ChevronRight } from 'lucide-react'
 import { api, apiUpload } from '../../lib/api'
 import { BRANCH, MODALITY } from '../../lib/format'
-import { Btn, Alert, inputCls } from '../../components/ui'
+import { Btn, Alert, inputCls, Skeleton } from '../../components/ui'
 import TeamBadge from '../../components/TeamBadge'
 import LogoPicker from '../../components/LogoPicker'
 import { useConfirm } from '../../components/ConfirmProvider'
@@ -102,7 +102,7 @@ export default function EquiposPage() {
         <Btn type="submit" tone="accent" disabled={busy} className="w-full">Crear equipo</Btn>
       </form>
 
-      {list === null && <p className="text-muted">Cargando…</p>}
+      {list === null && <Skeleton />}
       {list?.length === 0 && <p className="text-muted">Todavía no hay equipos.</p>}
       <div className="space-y-2">
         {(list ?? []).map((t) => (
@@ -115,6 +115,7 @@ export default function EquiposPage() {
               </div>
               <ChevronRight size={18} className="text-muted" />
             </Link>
+            <Link to={'/equipo/' + t.id} className="shrink-0 rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-accent">Ver banner</Link>
             <button aria-label="Eliminar" onClick={() => remove(t)}><Trash2 size={18} className="text-danger" /></button>
           </div>
         ))}

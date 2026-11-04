@@ -1,0 +1,341 @@
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { CalendarDays, Heart, Star, X } from 'lucide-react'
+import MatchCard from '../MatchCard'
+import MatchRow from '../MatchRow'
+import LiveWithNext from './LiveWithNext'
+import GoTo from '../GoTo'
+import { api } from '../../lib/api'
+import { normMatch, phaseCmp, BRANCH, MODALITY } from '../../lib/format'
+import { dayOf, dayTab } from '../../lib/days'
+import { socket } from '../../sockets/socket'
+import { useAuthStore } from '../../stores/authStore'
+import { useFavorites } from '../../stores/favoritesStore'
+import { Skeleton } from '../ui'
+
+const CAL_BACK = 90 // días hacia atrás que se cargan
+const CAL_AHEAD = 180 // y hacia adelante
+const RANK = { LIVE: 0, READY: 1, SCHEDULED: 2, SUSPENDED: 3, FINISHED: 4 }
+const byTime = (a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b) || (a.court || 999) - (b.court || 999)
+const byStatus = (a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9) || byTime(a, b)
+// Fecha del torneo sin la zona: la Fecha 1 junta los partidos de todas las zonas
+const phaseText = (m) => m.phase?.label ?? 'Sin fase'
+const tid = (m) => m.tournament?.id ?? 'none'
+const CAL_KEY = 'inicio-cal-v1'
+const readCal = () => { try { const r = JSON.parse(localStorage.getItem(CAL_KEY) || 'null'); return Array.isArray(r) && r.length ? r : null } catch { return null } }
+const saveCal = (rows) => { try { localStorage.setItem(CAL_KEY, JSON.stringify(rows)) } catch { /* sin espacio o bloqueado: no pasa nada */ } }
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+// Inicio de todos los roles: tira de días (por jornada) y tira de torneos, con la lista agrupada por torneo.
+export default function HomeInicio({ byId, loading, error, children }) {
+  const [sp, setSp] = useSearchParams()
+  const dPick = sp.get('d')
+  const tPick = sp.get('t') || 'all'
+  const [phasePick, setPhasePick] = useState('all')
+  const [mineOpen, setMineOpen] = useState(false) // "Tus partidos" completo en Sin programación
+  const [openGroups, setOpenGroups] = useState(() => new Set()) // torneos expandidos en "Sin programación"
+  const [cal, setCal] = useState(readCal) // lo último guardado se muestra al instante y se actualiza apenas llega lo nuevo
+  const [calTry, setCalTry] = useState(0)
+  const [hist, setHist] = useState([]) // jornadas que se piden a pedido (más antiguas o más lejanas que la ventana inicial)
+  const [ext, setExt] = useState({ back: 0, ahead: 0, loading: null, doneBack: false, doneAhead: false })
+  const uid = useAuthStore((s) => s.user?.id)
+  const { teams: favTeams, tournaments: favTours, loaded: favLoaded, load: loadFavs, clear: clearFavs } = useFavorites()
+  useEffect(() => { if (uid) loadFavs(); else clearFavs() }, [uid])
+  const isAdmin = useAuthStore((s) => !!s.user?.roles?.includes('ADMIN'))
+  const promptKey = 'fav-prompt-off:' + uid
+  const [promptOff, setPromptOff] = useState(() => { try { return localStorage.getItem(promptKey) === '1' } catch { return false } })
+  useEffect(() => { try { setPromptOff(localStorage.getItem(promptKey) === '1') } catch { /* sin storage */ } }, [promptKey])
+  const dismissPrompt = () => { setPromptOff(true); try { localStorage.setItem(promptKey, '1') } catch { /* sin storage */ } }
+  const showFavPrompt = !!uid && favLoaded && !isAdmin && favTeams.size === 0 && !promptOff
+  const favReady = !uid || favLoaded // hasta tener los favoritos no se elige día (evita saltos)
+  const isFav = (m) => favTeams.has(m.teamA?.id) || favTeams.has(m.teamB?.id)
+  const [lock, setLock] = useState(null) // pestaña elegida al entrar: después no se mueve sola
+
+  const setParams = (changes) => {
+    const n = new URLSearchParams(sp)
+    Object.entries(changes).forEach(([k, v]) => (v == null || v === 'all' ? n.delete(k) : n.set(k, v)))
+    setSp(n, { replace: true })
+  }
+
+  // Jornadas pasadas y futuras (incluye finalizados). Reintenta si falla y vuelve a pedir al reconectar
+  useEffect(() => {
+    let alive = true
+    const iso = (d) => new Date(Date.now() + d * 864e5).toLocaleDateString('en-CA') // solo el día: la dirección se repite y el servidor puede reutilizar la respuesta
+    const load = () =>
+      api('GET', '/matches?status=LIVE,READY,SCHEDULED,SUSPENDED,FINISHED&includeUndated=true&limit=200&from=' + iso(-CAL_BACK) + '&to=' + iso(CAL_AHEAD))
+        .then((r) => { if (alive) { const rows = r.map(normMatch); setCal(rows); saveCal(rows) } })
+        .catch(() => { if (alive && calTry < 3) setTimeout(() => alive && setCalTry((n) => n + 1), 2000) })
+    load()
+    socket.on('connect', load)
+    return () => { alive = false; socket.off('connect', load) }
+  }, [calTry])
+
+  // Opcional: 90 días más hacia atrás o hacia adelante. El servidor entrega 200 partidos por pedido, así que se pide por tandas
+  const loadMore = async (dir) => {
+    if (ext.loading) return
+    setExt((e) => ({ ...e, loading: dir }))
+    const day = (d) => new Date(Date.now() + d * 864e5).toLocaleDateString('en-CA')
+    const lo = dir === 'back' ? CAL_BACK + ext.back : CAL_AHEAD + ext.ahead
+    const [from, to] = dir === 'back' ? [day(-(lo + 90)), day(-lo + 1)] : [day(lo), day(lo + 91)]
+    let got = 0
+    try {
+      for (let offset = 0; offset < 2000; offset += 200) {
+        const rows = await api('GET', '/matches?status=LIVE,READY,SCHEDULED,SUSPENDED,FINISHED&limit=200&offset=' + offset + '&from=' + from + '&to=' + to)
+        got += rows.length
+        setHist((prev) => [...prev, ...rows.map(normMatch)])
+        if (rows.length < 200) break
+      }
+      setExt((e) => ({ ...e, [dir]: e[dir] + 90, loading: null, ...(got === 0 ? (dir === 'back' ? { doneBack: true } : { doneAhead: true }) : {}) }))
+    } catch {
+      setExt((e) => ({ ...e, loading: null }))
+    }
+  }
+
+  // Los datos en vivo (socket) pisan a los cargados
+  const all = useMemo(() => {
+    const mp = new Map()
+    hist.forEach((m) => mp.set(m.id, m))
+    ;(cal ?? []).forEach((m) => mp.set(m.id, m))
+    Object.values(byId).forEach((m) => mp.set(m.id, { ...mp.get(m.id), ...m }))
+    return [...mp.values()].filter((m) => m.status !== 'CANCELLED')
+  }, [cal, byId, hist])
+
+  const v = useMemo(() => {
+    const live = all.filter((m) => m.status === 'LIVE').sort(byTime)
+    const undated = all.filter((m) => !m.scheduledAt && m.status !== 'FINISHED')
+    const calDays = {}
+    all.forEach((m) => { const d = dayOf(m.scheduledAt); if (d) (calDays[d] ??= []).push(m) })
+    const dayKeys = Object.keys(calDays).sort()
+    const today = dayOf(new Date())
+    // Hasta que llega el calendario completo no se elige día (evita saltar de la jornada pasada a la próxima)
+    const favDay = favTeams.size ? dayKeys.find((d) => d >= today && calDays[d].some(isFav)) : undefined // próximo día en que juega un equipo favorito
+    const autoRaw = (cal === null && calTry < 3) || !favReady ? null : live.length ? 'live' : favDay ? favDay : dayKeys.includes(today) ? today : dayKeys.find((d) => d >= today) ?? dayKeys[dayKeys.length - 1] ?? (undated.length ? 'none' : null)
+    const auto = lock === 'live' && !live.length ? autoRaw : lock ?? autoRaw // si terminó el último en vivo, vuelve al día
+    const sel = dPick === 'live' || dPick === 'none' || (dPick && DATE_RE.test(dPick)) ? dPick : auto
+    const tabs = [...new Set([...dayKeys, ...(sel && DATE_RE.test(sel) ? [sel] : [])])].sort()
+    const dayList = sel === 'live' ? live : sel === 'none' ? undated : sel ? calDays[sel] ?? [] : []
+
+    const tmap = new Map()
+    all.forEach((m) => { if (!tmap.has(tid(m))) tmap.set(tid(m), { id: tid(m), name: m.tournament?.name ?? 'Amistoso', n: 0 }) })
+    dayList.forEach((m) => { tmap.get(tid(m)).n++ })
+    const tournaments = [...tmap.values()].sort((a, b) => favTours.has(b.id) - favTours.has(a.id) || (b.n > 0) - (a.n > 0) || a.name.localeCompare(b.name))
+    const tCur = tPick !== 'all' && tmap.has(tPick) ? tPick : 'all'
+
+    // Fechas del torneo elegido (Fecha 1, 2, Semifinal…), de cualquier día
+    const phaseOpts = []
+    if (tCur !== 'all') [...all].filter((m) => tid(m) === tCur).sort(phaseCmp).forEach((m) => { const k = phaseText(m); if (!phaseOpts.includes(k)) phaseOpts.push(k) })
+    const phaseCur = phaseOpts.length > 1 && phaseOpts.includes(phasePick) ? phasePick : 'all'
+
+    let shown = tCur === 'all' ? dayList : dayList.filter((m) => tid(m) === tCur)
+    if (phaseCur !== 'all') shown = all.filter((m) => tid(m) === tCur && phaseText(m) === phaseCur)
+    shown = [...shown].sort(byStatus)
+
+    const groups = []
+    if (sel !== 'live') shown.forEach((m) => {
+      let g = groups.find((x) => x.id === tid(m))
+      if (!g) groups.push((g = { id: tid(m), name: m.tournament?.name ?? 'Amistosos', modality: m.modality, branch: m.branch, list: [] }))
+      g.list.push(m)
+    })
+    // Sin programación: los partidos de equipos favoritos van primero dentro de cada torneo
+    if (sel === 'none' && favTeams.size) groups.forEach((g) => { g.list = [...g.list.filter(isFav), ...g.list.filter((m) => !isFav(m))] })
+
+    groups.sort((a, b) => favTours.has(b.id) - favTours.has(a.id))
+    const mineAll = favTeams.size && sel && sel !== 'live' ? dayList.filter((m) => isFav(m) && (tCur === 'all' || tid(m) === tCur)).sort(byStatus) : []
+    // Sin programación: hasta 3 partidos por cada equipo favorito (un partido entre dos favoritos cuenta para ambos)
+    let mine = mineAll
+    if (sel === 'none' && !mineOpen) {
+      const cnt = {}
+      mine = mineAll.filter((m) => {
+        const ids = [m.teamA?.id, m.teamB?.id].filter((id) => favTeams.has(id))
+        if (!ids.some((id) => (cnt[id] ?? 0) < 3)) return false
+        ids.forEach((id) => { cnt[id] = (cnt[id] ?? 0) + 1 })
+        return true
+      })
+    }
+    const favDays = new Set(Object.keys(calDays).filter((d) => calDays[d].some(isFav)))
+    // En vivo: por cancha (la 1 arriba de todo, sin cancha al final)
+    const liveSorted = [...live].sort((a, b) => (a.court || 999) - (b.court || 999) || byTime(a, b))
+    // Próximo de cada cancha: el Habilitado o Programado que sigue, del mismo día (o sin fecha), por horario o, sin horario, por el orden del fixture
+    const nextOnCourt = {}
+    live.forEach((m) => {
+      if (!m.court) return
+      const day = dayOf(m.scheduledAt)
+      const next = all
+        .filter((x) => x.id !== m.id && x.court === m.court && (x.status === 'READY' || x.status === 'SCHEDULED') && (!day || !x.scheduledAt || dayOf(x.scheduledAt) === day))
+        .sort(byStatus)[0]
+      if (next) nextOnCourt[m.id] = next
+    })
+    return { mine, mineTotal: mineAll.length, favDays, liveSorted, nextOnCourt, autoRaw, dayCount: dayList.length, live, calDays, tabs, sel, tournaments, tCur, phaseOpts, phaseCur, shown, groups, hasUndated: undated.length > 0 }
+  }, [all, cal, calTry, lock, dPick, tPick, phasePick, favTeams, favTours, favReady, mineOpen])
+
+  useEffect(() => { if (lock === null && v.autoRaw) setLock(v.autoRaw) }, [lock, v.autoRaw])
+
+  useEffect(() => {
+    document.getElementById('daytab-' + v.sel)?.scrollIntoView({ inline: 'center', block: 'nearest' })
+  }, [v.sel, cal])
+
+  const pill = (on) => 'shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
+  const strip = '-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+  const countOf = (d) => v.calDays[d]?.length ?? 0
+  // "En vivo" va en su lugar del tiempo: justo antes del primer día de hoy en adelante (o al final si no hay)
+  const today = dayOf(new Date())
+  const liveBefore = v.live.length ? v.tabs.find((d) => d >= today) ?? null : undefined
+  const liveTab = v.live.length > 0 && (
+    <button id="daytab-live" onClick={() => setParams({ d: 'live', t: null })} aria-pressed={v.sel === 'live'}
+      className={'shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-bold ' + (v.sel === 'live' ? 'border-live bg-live text-black' : 'border-live/50 bg-surface text-live')}>
+      En vivo ({v.live.length})
+    </button>
+  )
+
+  return (
+    <div className="space-y-4">
+      {children}
+
+      {/* Días */}
+      <div className="flex items-center gap-2">
+        <div className={strip + ' min-w-0 flex-1'}>
+          <div className="flex gap-2">
+            {!ext.doneBack && (
+              <button onClick={() => loadMore('back')} disabled={!!ext.loading} className="shrink-0 whitespace-nowrap rounded-full border border-dashed border-line bg-surface px-3.5 py-2 text-sm font-bold text-muted disabled:opacity-60">
+                {ext.loading === 'back' ? 'Cargando…' : '‹ 90 días antes'}
+              </button>
+            )}
+            {v.tabs.map((d) => (
+              <Fragment key={d}>
+                {d === liveBefore && liveTab}
+                <button id={'daytab-' + d} onClick={() => setParams({ d, t: null })} aria-pressed={v.sel === d} className={pill(v.sel === d)}>
+                  {dayTab(d)}{countOf(d) ? ' · ' + countOf(d) : ''}
+                  {v.favDays.has(d) && <Heart aria-label="Juega un equipo tuyo" size={12} className={'ml-1.5 inline-block align-[-1px] fill-current ' + (v.sel === d ? 'text-black' : 'text-accent')} />}
+                </button>
+              </Fragment>
+            ))}
+            {liveBefore === null && liveTab}
+            {v.hasUndated && (
+              <button id="daytab-none" onClick={() => setParams({ d: 'none', t: null })} aria-pressed={v.sel === 'none'} className={pill(v.sel === 'none')}>Sin programación</button>
+            )}
+            {!ext.doneAhead && (
+              <button onClick={() => loadMore('ahead')} disabled={!!ext.loading} className="shrink-0 whitespace-nowrap rounded-full border border-dashed border-line bg-surface px-3.5 py-2 text-sm font-bold text-muted disabled:opacity-60">
+                {ext.loading === 'ahead' ? 'Cargando…' : '90 días después ›'}
+              </button>
+            )}
+          </div>
+        </div>
+        <label className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full border border-line bg-surface" aria-label="Elegir fecha">
+          <CalendarDays size={18} />
+          <input type="date" className="absolute inset-0 h-full w-full opacity-0" value={DATE_RE.test(v.sel ?? '') ? v.sel : ''}
+            onChange={(e) => e.target.value && setParams({ d: e.target.value, t: null })} />
+        </label>
+      </div>
+
+      {/* Torneos */}
+      {v.sel !== 'live' && v.tournaments.length > 0 && (
+        <div className={strip}>
+          <div className="flex gap-2">
+            <button onClick={() => { setParams({ t: null }); setPhasePick('all') }} aria-pressed={v.tCur === 'all'} className={pill(v.tCur === 'all')}>
+              Todos{v.dayCount ? ' · ' + v.dayCount : ''}
+            </button>
+            {v.tournaments.map((t) => (
+              <button key={t.id} onClick={() => { setParams({ t: t.id }); setPhasePick('all') }} aria-pressed={v.tCur === t.id}
+                className={pill(v.tCur === t.id) + (t.n === 0 && v.tCur !== t.id ? ' opacity-50' : '')}>
+                {favTours.has(t.id) && <Star size={13} className="mr-1 inline fill-current align-[-1px]" />}{t.name}{t.n ? ' · ' + t.n : ''}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fecha del torneo elegido */}
+      {v.sel !== 'live' && v.phaseOpts.length > 1 && (
+        <div className={strip}>
+          <div className="flex gap-2">
+            <button onClick={() => setPhasePick('all')} className={pill(v.phaseCur === 'all') + ' !py-1.5 !text-xs'}>Jornada actual</button>
+            {v.phaseOpts.map((k) => (
+              <button key={k} onClick={() => setPhasePick(k)} aria-pressed={v.phaseCur === k} className={pill(v.phaseCur === k) + ' !py-1.5 !text-xs'}>{k}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {error && <p className="text-danger">{error}</p>}
+      {cal === null && calTry < 3 && <Skeleton />}
+
+      {v.sel === 'live' ? (
+        v.live.length ? <div className="space-y-4">{v.liveSorted.map((m) => <LiveWithNext key={m.id} m={m} next={v.nextOnCourt[m.id]} featured />)}</div> : <p className="text-muted">No hay partidos en vivo.</p>
+      ) : (
+        <>
+          {showFavPrompt && (
+            <div className="flex items-center gap-3 rounded-2xl border border-accent/40 bg-surface p-3">
+              <Link to="/favoritos" className="flex min-w-0 flex-1 items-center gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><Heart size={20} className="fill-current" /></span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-extrabold">Elegí tus equipos favoritos</span>
+                  <span className="block text-xs text-muted">Los partidos de tus equipos aparecen primero.</span>
+                </span>
+              </Link>
+              <button aria-label="Ocultar" onClick={dismissPrompt} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted"><X size={16} /></button>
+            </div>
+          )}
+          {favTeams.size > 0 && v.sel && (
+            <section className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted"><Heart size={14} className="fill-accent text-accent" /> Tus partidos</h2>
+                <Link to="/favoritos" className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-bold text-accent">Editar</Link>
+              </div>
+              {v.mine.length ? (
+                <div className="overflow-hidden rounded-2xl border border-accent/40 bg-surface">
+                  <div className="divide-y divide-line">
+                    {v.mine.map((m) => (m.status === 'LIVE' ? <div key={m.id} className="p-2"><MatchCard m={m} /></div> : <MatchRow key={m.id} m={m} flat />))}
+                  </div>
+                  {v.sel === 'none' && !mineOpen && v.mineTotal > v.mine.length && (
+                    <button onClick={() => setMineOpen(true)} className="w-full border-t border-line py-2.5 text-xs font-extrabold uppercase tracking-wide text-accent">Ver los {v.mineTotal - v.mine.length} restantes</button>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-line bg-surface px-4 py-4 text-sm font-semibold text-muted">No seguís partidos en este día.</div>
+              )}
+              <h2 className="pt-2 text-xs font-bold uppercase tracking-widest text-muted">Todos los partidos</h2>
+            </section>
+          )}
+          {v.groups.map((g) => {
+            const capped = v.sel === 'none' && v.tCur === 'all' && !openGroups.has(g.id) && g.list.length > 3
+            const rows = capped ? g.list.slice(0, 3) : g.list
+            return (
+            <section key={g.id} className="overflow-hidden rounded-2xl border border-line bg-surface">
+              <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
+                {g.id !== 'none'
+                  ? <GoTo to={'/liga/' + g.id} className="min-w-0 truncate text-sm font-extrabold text-accent">{favTours.has(g.id) && <Star size={13} className="mr-1 inline fill-accent align-[-1px]" />}{g.name} ›</GoTo>
+                  : <span className="min-w-0 truncate text-sm font-extrabold">{g.name}</span>}
+                <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted">
+                  {[MODALITY[g.modality], BRANCH[g.branch]].filter(Boolean).join(' · ')} · {g.list.length} {g.list.length === 1 ? 'partido' : 'partidos'}
+                </span>
+              </div>
+              <div className="divide-y divide-line">
+                {rows.map((m) => (m.status === 'LIVE' ? <div key={m.id} className="p-2"><MatchCard m={m} /></div> : <MatchRow key={m.id} m={m} flat />))}
+              </div>
+              {capped && (
+                <button onClick={() => setOpenGroups((p) => new Set(p).add(g.id))} className="w-full border-t border-line py-2.5 text-xs font-extrabold uppercase tracking-wide text-accent">Ver los {g.list.length - 3} restantes</button>
+              )}
+            </section>
+            )
+          })}
+          {v.groups.length === 0 && (cal !== null || calTry >= 3) && (
+            <p className="rounded-2xl border border-line bg-surface px-4 py-6 text-center text-sm font-bold text-muted">
+              {all.length === 0 ? 'No hay partidos.' : 'No hay partidos esta fecha.'}
+              {all.length > 0 && v.sel && DATE_RE.test(v.sel) && (() => {
+                const withMatches = Object.keys(v.calDays).sort()
+                const next = withMatches.find((d) => d > v.sel)
+                const prev = [...withMatches].reverse().find((d) => d < v.sel)
+                const go = next ?? prev
+                return go ? (
+                  <button onClick={() => setParams({ d: go, t: 'all' })} className="mx-auto mt-3 block rounded-full border border-accent bg-accent px-4 py-2 text-sm font-bold text-black">
+                    {next ? 'Ir a la próxima fecha con partidos' : 'Ir a la última fecha con partidos'} ({dayTab(go)})
+                  </button>
+                ) : null
+              })()}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  )
+}

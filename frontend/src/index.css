@@ -70,7 +70,7 @@ html:not(.dark) :is(h1, h2, h3, .text-muted) {
 }
 /* Claro: barras blancas legibles y menú desplegable blanco sólido */
 html:not(.dark) .menu-glass {
-  background: #ffffff;
+  background: var(--surface);
 }
 html:not(.dark) header.menu-glass {
   margin: 0.5rem 1rem 0;
@@ -93,12 +93,12 @@ html:not(.dark) header.menu-glass {
 /* Pestañas, filtros, checkboxes y textos sueltos sobre la imagen: recuadro sólido, nada transparente */
 button.rounded-full.border:not([class*="bg-"]):not(.bg-surface *):not(.menu-glass *):not(.menu-glass-drawer *),
 label:has(> input[type="checkbox"]):not(.bg-surface *),
-p.text-muted:not(.bg-surface *) {
+p.text-muted:not(.bg-surface):not(.bg-surface *) {
   background: var(--surface);
   text-shadow: none !important;
 }
 label:has(> input[type="checkbox"]):not(.bg-surface *),
-p.text-muted:not(.bg-surface *) {
+p.text-muted:not(.bg-surface):not(.bg-surface *) {
   width: fit-content;
   max-width: 100%;
   padding: 0.3rem 0.8rem;
@@ -130,7 +130,7 @@ html.dark .menu-glass-drawer {
   box-shadow: 6px 0 24px rgba(0, 0, 0, 0.6);
 }
 html:not(.dark) .menu-glass-drawer {
-  background: #ffffff;
+  background: var(--surface);
   box-shadow: 6px 0 24px rgba(15, 23, 42, 0.18);
 }
 
@@ -171,3 +171,30 @@ select:-webkit-autofill {
   background: color-mix(in srgb, var(--surface) 84%, var(--color-live));
   border-color: color-mix(in srgb, var(--color-live) 60%, transparent);
 }
+
+/* Las listas desplegables nativas heredaban texto claro sobre fondo blanco: se fuerzan colores legibles */
+select option, select optgroup { background-color: var(--surface); color: var(--fg); }
+select { color-scheme: light; }
+.dark select { color-scheme: dark; }
+
+/* Acero: fondo negro con escudo negro; sobre el negro los textos sueltos van planos, sin recuadros ni halos */
+html.dark[data-skin="acero"] body::before {
+  background-image: url('/fondo-acero.svg');
+}
+html.dark[data-skin="acero"] :is(h1, h2, h3, .text-muted) {
+  text-shadow: none;
+}
+html.dark[data-skin="acero"] .uppercase.tracking-widest.text-muted:not(.bg-surface *),
+html.dark[data-skin="acero"] label:has(> input[type="checkbox"]):not(.bg-surface *),
+html.dark[data-skin="acero"] p.text-muted:not(.bg-surface):not(.bg-surface *) {
+  background: none;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+  width: auto;
+}
+
+
+/* Lectura (noticias): fondo liso del tema, sin escudo ni imagen detrás del texto */
+html.plain-bg body::before { background-image: none !important; background-color: var(--bg); }
+html.plain-bg p.text-muted { background: none; border: 0; padding: 0; border-radius: 0; width: auto; text-shadow: none; }

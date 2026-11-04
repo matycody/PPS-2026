@@ -1,6 +1,7 @@
 ﻿import { useLeaveGuard } from '../hooks/useLeaveGuard'
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
+import ScoreTimeline from '../components/ScoreTimeline'
 import { ChevronLeft, Play, Pause, RotateCcw, Minus, Plus, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
@@ -8,15 +9,31 @@ import { normMatch, MODALITY, courtLabel } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import Versus from '../components/Versus'
 import { MatchRosterToggle } from '../components/MatchRoster'
+import MatchSheetPanel from '../components/MatchSheetPanel'
 import SoundToggle from '../components/SoundToggle'
 import { useMatchSound } from '../hooks/useMatchSound'
 import { useWakeLock } from '../hooks/useWakeLock'
+import { useConfirm } from '../components/ConfirmProvider'
+import SanctionsCard from '../components/SanctionsCard'
+import { useSanctions } from '../hooks/useSanctions'
 
 const ACTIONS = {
   START: 'Iniciado', PAUSE: 'Pausado', RESUME: 'Reanudado', RESET: 'Reiniciado',
   ADJUST: 'Tiempo ajustado', SET_TIME: 'Tiempo fijado', SET_MODALITY: 'Modalidad cambiada',
   SET_HALF: 'Tiempo cambiado', FINISH_HALF: 'Tiempo finalizado',
   TIMEOUT_START: 'Tiempo muerto pedido', TIMEOUT_END: 'Tiempo muerto terminado', TIMEOUT_CANCEL: 'Tiempo muerto deshecho',
+  SANCTION_ADD: 'Sanción aplicada', SANCTION_REMOVE: 'Sanción deshecha',
+}
+const SANCTION_NAME = { WARNING: 'Advertencia', YELLOW: 'Tarjeta amarilla', BLUE: 'Tarjeta azul', RED: 'Tarjeta roja' }
+
+// Texto legible de la última acción (las sanciones dicen qué tarjeta y a qué equipo)
+function actionText(last, nameA, nameB) {
+  if (last.action === 'SANCTION_ADD' || last.action === 'SANCTION_REMOVE') {
+    const team = last.side === 'A' ? nameA : last.side === 'B' ? nameB : null
+    const kind = SANCTION_NAME[last.kind] ?? 'Sanción'
+    return last.action === 'SANCTION_ADD' ? kind + (team ? ' a ' + team : '') : kind + ' deshecha' + (team ? ' (' + team + ')' : '')
+  }
+  return ACTIONS[last.action] ?? last.action
 }
 
 // El backend manda "1:48"; se muestra "01:48"
@@ -84,7 +101,7 @@ function Clock({ label, timer, time, paused, can, send, color }) {
           placeholder="mmss"
           inputMode="numeric"
           disabled={!can}
-          className="min-w-0 flex-1 rounded-2xl border border-line bg-bg px-4 py-3 text-center font-mono outline-none focus:border-live disabled:opacity-40"
+          className="min-w-0 flex-1 rounded-2xl border border-line bg-surface-2 px-4 py-3 text-center font-mono outline-none focus:border-live disabled:opacity-40"
         />
         <Btn disabled={!can || parseMMSS(val) == null} onClick={apply}>Fijar</Btn>
       </div>
@@ -101,7 +118,7 @@ function MiniClock({ label, time, paused, timer, color, can, send }) {
     setVal('')
   }
   return (
-    <div className="min-w-0 flex-1 rounded-2xl border border-line bg-bg p-2 text-center">
+    <div className="min-w-0 flex-1 rounded-2xl border border-line bg-surface-2 p-2 text-center">
       <div className="flex items-center justify-between gap-1">
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted">{label}</p>
         <span className={'rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase ' + (paused ? 'bg-danger/15 text-danger' : 'bg-live/15 text-live')}>
@@ -122,7 +139,7 @@ function MiniClock({ label, time, paused, timer, color, can, send }) {
       </div>
       <button disabled={!can} onClick={() => send('match:reset', { timer })} className="mt-1.5 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-line bg-surface-2 text-sm font-extrabold disabled:opacity-40"><RotateCcw size={14} /> Reiniciar</button>
       <div className="mt-1.5 flex gap-1.5">
-        <input value={val} onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} placeholder="mmss" inputMode="numeric" disabled={!can} className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-bg px-1 text-center font-mono text-sm outline-none focus:border-live disabled:opacity-40" />
+        <input value={val} onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} placeholder="mmss" inputMode="numeric" disabled={!can} className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-surface-2 px-1 text-center font-mono text-sm outline-none focus:border-live disabled:opacity-40" />
         <button disabled={!can || parseMMSS(val) == null} onClick={apply} className="h-11 shrink-0 rounded-xl border border-line bg-surface-2 px-3 text-sm font-extrabold disabled:opacity-40">Fijar</button>
       </div>
     </div>
@@ -192,7 +209,6 @@ function TimeoutCard({ tick, can, half, send, nameA, nameB }) {
 
 export default function ControlPage() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const [m, setM] = useState(null)
   const [tick, setTick] = useState(null)
   const [perms, setPerms] = useState(null)
@@ -201,17 +217,33 @@ export default function ControlPage() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
-  const [otherTables, setOtherTables] = useState([]) // otras personas ya operando como mesa
-  const [tableOk, setTableOk] = useState(false)
+  const [sheetTick, setSheetTick] = useState(0)
+  const sanctions = useSanctions(id)
+  const [suspended, setSuspended] = useState([])
+  useEffect(() => {
+    api('GET', '/matches/' + id + '/suspended').then((r) => setSuspended(r.items ?? [])).catch(() => {})
+  }, [id])
   const soundAllowed = !!(perms?.isTable || perms?.isReferee)
   useMatchSound(id, soundAllowed) // solo mesa y arbitro
   useWakeLock(!!tick && (!tick.isMatchPaused || !tick.isSetPaused || !!tick.isTimeoutRunning))
   // Quien opera el partido (árbitro, mesa u organizador) confirma antes de irse a otra pantalla
-  const operating = !!(perms && (perms.isTable || perms.isReferee || perms.canControlClock)) && !['FINISHED', 'CANCELLED'].includes(m?.status)
+  const operating = !!(perms && (perms.isTable || perms.isReferee || perms.canControlClock)) && !perms.tableLockedBy && !['FINISHED', 'CANCELLED'].includes(m?.status)
   const roleText = perms?.isReferee && perms?.isTable ? 'árbitro y mesa' : perms?.isReferee ? 'árbitro' : perms?.isTable ? 'mesa' : 'organizador'
   const { modal: leaveModal, ask: askLeave } = useLeaveGuard(operating, roleText)
 
   const send = (event, extra = {}) => socket.emit(event, { matchId: id, ...extra })
+  const ask = useConfirm()
+  // Cambiar de tiempo pide confirmación: un toque sin querer altera los tiempos muertos y el reloj
+  const changeHalf = async (n) => {
+    if (Number(tick?.matchHalf) === n) return
+    const ok = await ask({
+      title: n === 2 ? 'Pasar al 2do tiempo' : 'Volver al 1er tiempo',
+      message: n === 2 ? '¿Pasar al 2do tiempo? Usá "Finalizar tiempo" si el primero ya terminó.' : '¿Volver al 1er tiempo?',
+      confirmText: n === 2 ? 'Pasar al 2do tiempo' : 'Volver al 1er tiempo',
+      danger: true,
+    })
+    if (ok) send('match:setHalf', { half: n })
+  }
   const pushNotice = (t) => setNotices((n) => [...n, { k: Date.now() + Math.random(), t }])
 
   useEffect(() => {
@@ -226,7 +258,8 @@ export default function ControlPage() {
     const mine = (p) => p.matchId === id
     const onTick = (p) => mine(p) && setTick(p)
     const onPerms = (p) => mine(p) && setPerms(p)
-    const onOthers = (p) => mine(p) && setOtherTables(p.names ?? [])
+    // Quien operaba la mesa salió: si estoy esperando en solo lectura, intento tomar el control (la primera persona que lo logre lo conserva)
+    const onTableFree = (p) => mine(p) && socket.emit('match:controlJoin', { matchId: id })
     const onAction = (p) => mine(p) && setLast(p)
     const onError = (p) => setErr(p.message ?? 'Error')
     const onUpdated = (p) => (p.matchId ?? p.id) === id && setM((prev) => ({ ...prev, ...normMatch(p) }))
@@ -237,7 +270,7 @@ export default function ControlPage() {
     socket.on('connect', join)
     socket.on('match:tick', onTick)
     socket.on('match:permissions', onPerms)
-    socket.on('match:tableOthers', onOthers)
+    socket.on('match:tableFree', onTableFree)
     socket.on('match:action', onAction)
     socket.on('match:error', onError)
     socket.on('match:updated', onUpdated)
@@ -252,7 +285,7 @@ export default function ControlPage() {
       socket.off('connect', join)
       socket.off('match:tick', onTick)
       socket.off('match:permissions', onPerms)
-      socket.off('match:tableOthers', onOthers)
+      socket.off('match:tableFree', onTableFree)
       socket.off('match:action', onAction)
       socket.off('match:error', onError)
       socket.off('match:updated', onUpdated)
@@ -294,18 +327,12 @@ export default function ControlPage() {
   return (
     <div className="space-y-4">
       {leaveModal}
-      {perms?.isTable && !perms?.isReferee && otherTables.length > 0 && !tableOk && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-4">
-            <p className="font-semibold">Ya hay una mesa designada</p>
-            <p className="mt-1 text-sm text-muted">
-              {otherTables.join(', ')} ya {otherTables.length > 1 ? 'están' : 'está'} operando este partido como mesa. ¿Querés continuar como mesa igualmente?
-            </p>
-            <div className="mt-4 flex gap-2">
-              <Btn className="flex-1" onClick={() => navigate(-1)}>Salir</Btn>
-              <Btn tone="accent" className="flex-1" onClick={() => setTableOk(true)}>Continuar</Btn>
-            </div>
-          </div>
+      {perms?.tableLockedBy && (
+        <div className="rounded-2xl border border-warn/40 bg-warn/10 p-3 text-sm">
+          <p className="font-bold">Otra persona está operando la mesa</p>
+          <p className="mt-1">
+            {perms.tableLockedBy} tiene el control de este partido. Podés mirarlo, pero no controlarlo hasta que salga de la pantalla del partido. Apenas lo haga, vas a poder tomar el control.
+          </p>
         </div>
       )}
       <button onClick={() => askLeave({ back: true })} className="inline-flex items-center gap-1 text-sm font-semibold text-muted">
@@ -319,10 +346,24 @@ export default function ControlPage() {
 
       <MiniBoard a={a} b={b} score={m.score} tick={tick} can={can} send={send} live={live} />
       {soundAllowed && <SoundToggle />}
+      {tick?.recovered && (
+        <div className="rounded-2xl border box-warn px-4 py-3 text-sm font-bold text-warn">
+          Reloj recuperado tras un reinicio del servidor: revisá el tiempo y reanudalo a mano.
+        </div>
+      )}
       {err && (
         <button onClick={() => setErr('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border box-danger px-4 py-3 text-left text-sm font-bold text-danger">
           {err} <X size={16} className="shrink-0" />
         </button>
+      )}
+      {suspended.length > 0 && (
+        <div className="rounded-2xl border box-danger px-4 py-3 text-sm text-danger">
+          <p className="font-extrabold">Jugadores suspendidos en este partido</p>
+          <p className="mt-0.5 text-xs font-semibold">
+            {suspended.map((s) => (s.number != null ? '#' + s.number + ' ' : '') + s.name + ' (' + (s.side === 'A' ? a?.name : b?.name) + ')').join(' · ')}
+          </p>
+          <p className="mt-0.5 text-xs">No deberían jugar: avisale al árbitro y al delegado antes de empezar.</p>
+        </div>
       )}
       {notices.map((n) => (
         <button key={n.k} onClick={() => setNotices((l) => l.filter((x) => x.k !== n.k))} className="flex w-full items-center justify-between gap-3 rounded-2xl border box-warn px-4 py-3 text-left text-sm font-bold text-warn">
@@ -332,6 +373,7 @@ export default function ControlPage() {
 
       <div className="hidden rounded-3xl border border-line bg-surface p-5 sm:block">
         <Versus
+          branch={m?.branch}
           a={a}
           b={b}
           size="lg"
@@ -344,7 +386,7 @@ export default function ControlPage() {
         />
         {last && (
           <p className="mt-3 text-center text-xs text-muted">
-            Última acción: {ACTIONS[last.action] ?? last.action} por {last.by}
+            Última acción: {actionText(last, a?.name ?? 'Equipo A', b?.name ?? 'Equipo B')} · {last.by}
           </p>
         )}
       </div>
@@ -385,8 +427,8 @@ export default function ControlPage() {
       <div className="rounded-3xl border border-line bg-surface p-4">
         <p className="mb-3 text-xs font-bold uppercase tracking-widest text-muted">Tiempo del partido</p>
         <div className="grid grid-cols-2 gap-2">
-          <Btn disabled={!can} tone={half === 1 ? 'accent' : 'base'} onClick={() => send('match:setHalf', { half: 1 })}>1er tiempo</Btn>
-          <Btn disabled={!can} tone={half === 2 ? 'accent' : 'base'} onClick={() => send('match:setHalf', { half: 2 })}>2do tiempo</Btn>
+          <Btn disabled={!can} tone={half === 1 ? 'accent' : 'base'} onClick={() => changeHalf(1)}>1er tiempo</Btn>
+          <Btn disabled={!can} tone={half === 2 ? 'accent' : 'base'} onClick={() => changeHalf(2)}>2do tiempo</Btn>
           {(isCloth || matchAtZero) && (
             <Btn tone="danger" disabled={!can} onClick={() => send('match:finishHalf')} className="col-span-2 animate-pulse py-4 text-base ring-2 ring-danger/50">
               {half === 2 ? 'Fin del partido' : 'Finalizar tiempo'}
@@ -425,22 +467,7 @@ export default function ControlPage() {
           )}
 
           {(m.sets ?? []).length > 0 && (
-            <ul className="space-y-1">
-              {m.sets.map((s) => {
-                const isDraw = s.draw === true || s.winnerTeamId == null
-                const w = s.winnerTeamId === a?.id ? a : b
-                return (
-                  <li key={s.number} className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2 text-sm">
-                    <span>Set {s.number}: <b>{isDraw ? 'Empate' : (w?.name ?? '—')}</b></span>
-                    {perms.canEditResult && (
-                      <button disabled={busy} onClick={() => run(() => api('DELETE', '/matches/' + id + '/sets/' + s.number))} className="text-danger">
-                        <X size={16} />
-                      </button>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
+            <ScoreTimeline m={m} busy={busy} defaultOpen={false} onDelete={perms.canEditResult ? (s) => run(() => api('DELETE', '/matches/' + id + '/sets/' + s.number)) : null} />
           )}
 
           {perms.canFinish && !confirmFinish && (
@@ -464,7 +491,15 @@ export default function ControlPage() {
         <TimeoutCard tick={tick} can={can} half={half} send={send} nameA={a?.name ?? 'Equipo A'} nameB={b?.name ?? 'Equipo B'} />
       )}
 
-      <MatchRosterToggle teamA={a} teamB={b} branch={m.branch} />
+      {(live || m.status === 'READY') && (
+        <SanctionsCard suspended={suspended} m={m} tick={tick} items={sanctions} nameA={a?.name} nameB={b?.name} always control={{ can, send }} />
+      )}
+
+      <MatchRosterToggle
+        teamA={a} teamB={b} branch={m.branch} matchId={m.id} attendanceKey={sheetTick}
+        sheet={perms && (perms.isAdmin || (perms.isTable && !perms.tableLockedBy)) && m.status !== 'CANCELLED'
+          ? <MatchSheetPanel embedded match={m} teamA={a} teamB={b} onConfirmed={() => setSheetTick((x) => x + 1)} /> : null}
+      />
     </div>
   )
 }

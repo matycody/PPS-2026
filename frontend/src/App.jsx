@@ -3,9 +3,12 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import OfflinePage from './pages/OfflinePage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import RecuperarPage from './pages/RecuperarPage'
+import OnboardingPage from './pages/OnboardingPage'
 import Placeholder from './pages/Placeholder'
 import InicioPage from './pages/InicioPage'
 import MatchPage from './pages/MatchPage'
+import PrediccionesPage from './pages/PrediccionesPage'
 import AssignmentsPage from './pages/AssignmentsPage'
 import ControlPage from './pages/ControlPage'
 import PerfilPage from './pages/PerfilPage'
@@ -15,7 +18,9 @@ import PlayerPage from './pages/PlayerPage'
 import EquiposListPage from './pages/EquiposListPage'
 import MiEquipoPage from './pages/MiEquipoPage'
 import MisPartidosPage from './pages/MisPartidosPage'
+import MisEstadisticasPage from './pages/MisEstadisticasPage'
 import DashboardPage from './pages/admin/DashboardPage'
+import JornadaPage from './pages/admin/JornadaPage'
 import TorneosPage from './pages/admin/TorneosPage'
 import TorneoAdminPage from './pages/admin/TorneoAdminPage'
 import LigaPage from './pages/LigaPage'
@@ -23,12 +28,18 @@ import BuscarPage from './pages/BuscarPage'
 import TorneoPage from './pages/TorneoPage'
 import EstadisticasPage from './pages/EstadisticasPage'
 import EquiposPage from './pages/admin/EquiposPage'
+import SedesPage from './pages/admin/SedesPage'
+import SedesPublicPage from './pages/SedesPublicPage'
+import NoticiasPage, { NoticiaDetalle } from './pages/NoticiasPage'
+import SancionesPage from './pages/admin/SancionesPage'
+import SancionesPublicaPage from './pages/SancionesPublicaPage'
 import AdminTeamPage from './pages/admin/AdminTeamPage'
 import PartidosPage from './pages/admin/PartidosPage'
 import AdminMatchPage from './pages/admin/AdminMatchPage'
 import PersonasPage from './pages/admin/PersonasPage'
 import UsuariosPage from './pages/admin/UsuariosPage'
 import EdicionesPage from './pages/admin/EdicionesPage'
+import PlanillasPage from './pages/admin/PlanillasPage'
 import AppLayout from './components/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useAuthStore } from './stores/authStore'
@@ -58,7 +69,7 @@ function PerfilTemp() {
   )
 }
 
-const PROTECTED = Object.entries(ITEMS).filter(([k]) => !['home', 'perfil', 'favoritos', 'mi_equipo', 'mis_partidos_asignados', 'control_mesa', 'mis_partidos', 'dashboard_canchas', 'torneos', 'equipos', 'partidos', 'personas', 'usuarios', 'registro_ediciones'].includes(k))
+const PROTECTED = Object.entries(ITEMS).filter(([k]) => !['home', 'perfil', 'favoritos', 'mi_equipo', 'asignaciones', 'historial_asignaciones', 'mis_partidos', 'mis_estadisticas', 'dashboard_canchas', 'torneos', 'equipos', 'sedes', 'sanciones', 'partidos', 'personas', 'usuarios', 'registro_ediciones'].includes(k))
 
 function App() {
   const init = useAuthStore((s) => s.init)
@@ -76,6 +87,8 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/registro" element={<RegisterPage />} />
+          <Route path="/recuperar" element={<RecuperarPage />} />
+          <Route path="/bienvenida" element={<OnboardingPage />} />
 
           <Route element={<AppLayout />}>
             <Route path="/" element={<InicioPage />} />
@@ -86,29 +99,39 @@ function App() {
             <Route path="/liga" element={<LigaPage />} />
             <Route path="/buscar" element={<BuscarPage />} />
             <Route path="/liga/:id" element={<TorneoPage />} />
-            <Route path="/estadisticas" element={<EstadisticasPage />} />
             <Route path="/equipos" element={<EquiposListPage />} />
-            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos'].includes(g.to)).map((g) => (
+            <Route path="/noticias" element={<NoticiasPage />} />
+            <Route path="/noticias/:id" element={<NoticiaDetalle />} />
+            {GENERAL.filter((g) => !['/cronometro', '/liga', '/estadisticas', '/equipos', '/partidos', '/sedes', '/noticias', '/predicciones', '/sanciones'].includes(g.to)).map((g) => (
               <Route key={g.to} path={g.to} element={<Placeholder title={g.label} />} />
             ))}
+
+            <Route path="/partidos" element={<PartidosPage readOnly />} />
 
             <Route element={<ProtectedRoute />}>
               <Route path="/perfil" element={<PerfilPage />} />
               <Route path="/favoritos" element={<FavoritosPage />} />
+              <Route path="/predicciones" element={<PrediccionesPage />} />
+              <Route path="/prode" element={<Navigate to="/predicciones" replace />} />
               <Route path="/mi-equipo" element={<MiEquipoPage />} />
               <Route path="/mis-partidos" element={<MisPartidosPage />} />
+              <Route path="/mis-estadisticas" element={<MisEstadisticasPage />} />
+              <Route path="/sanciones" element={<SancionesPublicaPage />} />
+              <Route path="/estadisticas" element={<EstadisticasPage />} />
+              <Route path="/sedes" element={<SedesPublicPage />} />
               <Route path="/control/:id" element={<ControlPage />} />
             </Route>
 
-            <Route element={<ProtectedRoute need="mis_partidos_asignados" />}>
-              <Route path="/asignados" element={<AssignmentsPage fn="REFEREE" />} />
+            <Route element={<ProtectedRoute need="asignaciones" roles={['ADMIN', 'REFEREE', 'PLAYER']} />}>
+              <Route path="/asignaciones" element={<AssignmentsPage />} />
+              <Route path="/asignaciones/historial" element={<AssignmentsPage history />} />
             </Route>
-            <Route element={<ProtectedRoute need="control_mesa" />}>
-              <Route path="/mesa" element={<AssignmentsPage fn="TABLE" />} />
-            </Route>
+            <Route path="/asignados" element={<Navigate to="/asignaciones?tab=arbitro" replace />} />
+            <Route path="/mesa" element={<Navigate to="/asignaciones?tab=mesa" replace />} />
 
             <Route element={<ProtectedRoute need="dashboard_canchas" />}>
               <Route path="/admin/canchas" element={<DashboardPage />} />
+              <Route path="/admin/jornada" element={<JornadaPage />} />
             </Route>
             <Route element={<ProtectedRoute need="torneos" />}>
               <Route path="/admin/torneos" element={<TorneosPage />} />
@@ -117,6 +140,13 @@ function App() {
             <Route element={<ProtectedRoute need="equipos" />}>
               <Route path="/admin/equipos" element={<EquiposPage />} />
               <Route path="/admin/equipos/:id" element={<AdminTeamPage />} />
+            </Route>
+
+            <Route element={<ProtectedRoute need="sanciones" />}>
+              <Route path="/admin/sanciones" element={<SancionesPage />} />
+            </Route>
+            <Route element={<ProtectedRoute need="sedes" />}>
+              <Route path="/admin/sedes" element={<SedesPage />} />
             </Route>
 
             <Route element={<ProtectedRoute need="partidos" />}>
@@ -128,6 +158,9 @@ function App() {
             </Route>
             <Route element={<ProtectedRoute need="usuarios" />}>
               <Route path="/admin/usuarios" element={<UsuariosPage />} />
+            </Route>
+            <Route element={<ProtectedRoute need="planillas" />}>
+              <Route path="/admin/planillas" element={<PlanillasPage />} />
             </Route>
             <Route element={<ProtectedRoute need="registro_ediciones" />}>
               <Route path="/admin/ediciones" element={<EdicionesPage />} />

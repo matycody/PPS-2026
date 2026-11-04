@@ -1,17 +1,17 @@
-import { useState } from 'react'
-import { NavLink, Link, useNavigate } from 'react-router-dom'
-import { X, LogOut, LogIn, Search } from 'lucide-react'
+import { NavLink, Link, useLocation } from 'react-router-dom'
+import { X, LogOut, LogIn, Info } from 'lucide-react'
+import { tourKeyFor, startTour } from '../lib/tours'
 import { useAuthStore } from '../stores/authStore'
 import UserAvatar from './UserAvatar'
 import PersonName from './PersonName'
-import { ITEMS, SECTIONS, generalFor, roleLabel } from '../lib/navConfig'
+import { ITEMS, SECTIONS, generalFor, roleLabel, navEnd } from '../lib/navConfig'
 import { useMenuPrefs, sortKeys } from '../stores/menuPrefsStore'
 
 function Item({ to, label, Icon, soon, onClose }) {
   return (
     <NavLink
       to={to}
-      end={to === '/'}
+      end={navEnd(to)}
       onClick={onClose}
       className={({ isActive }) =>
         'flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold ' +
@@ -32,16 +32,8 @@ function Title({ children }) {
 export default function Drawer({ open, onClose }) {
   const { user, menu, signOut, profile } = useAuthStore()
   const order = useMenuPrefs((s) => s.byUser[user?.id]?.order)
-  const navigate = useNavigate()
-  const [q, setQ] = useState('')
-  const search = (e) => {
-    e.preventDefault()
-    const t = q.trim()
-    if (!t) return
-    setQ('')
-    onClose()
-    navigate('/buscar?q=' + encodeURIComponent(t))
-  }
+  const { pathname } = useLocation()
+  const tourKey = tourKeyFor(pathname)
 
   return (
     <div className={'fixed inset-0 z-40 ' + (open ? '' : 'pointer-events-none')}>
@@ -51,7 +43,7 @@ export default function Drawer({ open, onClose }) {
       />
       <aside
         className={
-          'absolute left-0 top-0 flex h-full w-80 max-w-[85%] flex-col overflow-y-auto menu-glass-drawer px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] transition-transform duration-200 ' +
+          'absolute left-0 top-0 flex h-full w-80 max-w-[88%] flex-col sm:w-96 overflow-y-auto menu-glass-drawer px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] transition-transform duration-200 ' +
           (open ? 'translate-x-0' : '-translate-x-full')
         }
       >
@@ -64,29 +56,22 @@ export default function Drawer({ open, onClose }) {
           </button>
         </div>
 
-        <div className="mt-5 flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
-          <UserAvatar />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold">{user ? <PersonName p={profile} fallback={user.email} /> : 'Visitante'}</p>
-            <p className="text-xs text-muted">{user ? 'Sesión iniciada' : 'Solo lectura'}</p>
+        <div className="mt-5 space-y-2.5 rounded-2xl border border-line bg-surface p-3">
+          <div className="flex items-center gap-3">
+            <UserAvatar />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold">{user ? <PersonName p={profile} fallback={user.email} /> : 'Visitante'}</p>
+              <p className="text-xs text-muted">{user ? 'Sesión iniciada' : 'Solo lectura'}</p>
+            </div>
           </div>
           {user && (
-            <span className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase" style={{ color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 16%, transparent)' }}>
-              {roleLabel(user, menu)}
-            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {roleLabel(user, menu).split(' / ').map((r) => (
+                <span key={r} className="rounded-full px-2.5 py-1 text-[11px] font-bold uppercase" style={{ color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 16%, transparent)' }}>{r}</span>
+              ))}
+            </div>
           )}
         </div>
-
-        <form onSubmit={search} className="relative mt-4">
-          <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar equipo, torneo, partido…"
-            enterKeyHint="search"
-            className="w-full rounded-xl border border-line bg-bg py-3 pl-10 pr-3 text-sm outline-none focus:border-accent"
-          />
-        </form>
 
         <nav className="mt-3">
           <Item {...ITEMS.home} label="Menú principal" onClose={onClose} />
@@ -103,11 +88,19 @@ export default function Drawer({ open, onClose }) {
           })}
 
           <Title>General</Title>
-          {sortKeys(generalFor(menu).map((g) => g.to), order?.General).map((to) => <Item key={to} {...generalFor(menu).find((g) => g.to === to)} onClose={onClose} />)}
+          {sortKeys(generalFor(menu, !!user).map((g) => g.to), order?.General).map((to) => <Item key={to} {...generalFor(menu, !!user).find((g) => g.to === to)} onClose={onClose} />)}
           {menu.includes('perfil') && <Item {...ITEMS.perfil} onClose={onClose} />}
         </nav>
 
         <div className="mt-auto border-t border-line pt-4">
+          {tourKey && (
+            <button
+              onClick={() => { onClose(); setTimeout(() => startTour(tourKey, user, menu), 250) }} // espera a que cierre el menú
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold text-fg"
+            >
+              <Info size={20} /> Ver tutorial de esta pantalla
+            </button>
+          )}
           {user ? (
             <button
               onClick={() => { onClose(); signOut() }}

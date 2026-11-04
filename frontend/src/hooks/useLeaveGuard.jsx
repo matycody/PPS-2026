@@ -12,7 +12,7 @@ const MARK = '__leaveGuard'
 const hasMark = () => !!window.history.state?.[MARK]
 const addMark = () => window.history.pushState({ ...(window.history.state ?? {}), [MARK]: 1 }, '', window.location.href)
 
-export function useLeaveGuard(active, role) {
+export function useLeaveGuard(active, role, copy) {
   const navigate = useNavigate()
   const [pending, setPending] = useState(null) // { to } | { back: true } | { run }
   const activeRef = useRef(active)
@@ -82,13 +82,13 @@ export function useLeaveGuard(active, role) {
   const modal = pending && (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="leave-title">
       <div className="w-full max-w-sm space-y-4 rounded-3xl border border-line bg-surface p-5 text-center shadow-2xl">
-        <p id="leave-title" className="text-lg font-extrabold">¿Salir del partido?</p>
+        <p id="leave-title" className="text-lg font-extrabold">{copy?.title ?? '¿Salir del partido?'}</p>
         <p className="text-sm text-muted">
-          ¿Estás seguro de que querés salir de un partido en el cual estás siendo {role}?
+          {copy?.message ?? `¿Estás seguro de que querés salir de un partido en el cual estás siendo ${role}?`}
         </p>
         <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => setPending(null)} className="rounded-2xl bg-accent py-3 font-extrabold text-black">Quedarme</button>
-          <button onClick={leave} className="rounded-2xl border border-danger py-3 font-extrabold text-danger">Salir</button>
+          <button onClick={() => setPending(null)} className="rounded-2xl bg-accent py-3 font-extrabold text-black">{copy?.stay ?? 'Quedarme'}</button>
+          <button onClick={leave} className="rounded-2xl border border-danger py-3 font-extrabold text-danger">{copy?.leave ?? 'Salir'}</button>
         </div>
       </div>
     </div>

@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search } from 'lucide-react'
+import { Clock, Search, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { fmtWhen, courtLabel, BRANCH, MODALITY, TSTATUS } from '../lib/format'
 import StatusPill from '../components/StatusPill'
 import TeamBadge from '../components/TeamBadge'
+import GoTo from '../components/GoTo'
 import { inputCls } from '../components/ui'
 import { useAuthStore } from '../stores/authStore'
+import { getRecent, addRecent, removeRecent, clearRecent } from '../lib/recentSearches'
 
 const ROLE = { ADMIN: 'Organizador', REFEREE: 'Árbitro', PLAYER: 'Jugador' }
 
@@ -49,7 +51,7 @@ function MatchRow({ m, admin }) {
         <p className="truncate text-xs text-muted">
           {[m.tournament?.name ?? 'Amistoso', MODALITY[m.modality], BRANCH[m.branch]].join(' · ')}
         </p>
-        <p className="text-xs text-muted">{m.scheduledAt ? fmtWhen(m.scheduledAt) : 'Sin fecha'} · {courtLabel(m.court)}</p>
+        <p className="text-xs text-muted">{m.scheduledAt ? fmtWhen(m.scheduledAt, m.timeSet) : 'Sin programación'} · {courtLabel(m.court)}</p>
       </div>
       <StatusPill status={m.status} />
     </Row>
@@ -64,6 +66,10 @@ export default function BuscarPage() {
   const [text, setText] = useState(q)
   const [res, setRes] = useState(null)
   const [err, setErr] = useState('')
+  const uid = useAuthStore((s) => s.user?.id)
+  const [recent, setRecent] = useState(() => getRecent(uid))
+  useEffect(() => { setRecent(getRecent(uid)) }, [uid])
+  const remember = () => { if (res && total > 0) setRecent(addRecent(uid, q)) } // solo se guarda lo que dio resultados
 
   useEffect(() => { setText(q) }, [q])
   useEffect(() => {
@@ -89,15 +95,35 @@ export default function BuscarPage() {
       <h1 className="text-xs font-bold uppercase tracking-widest text-muted">Buscar</h1>
       <div className="relative">
         <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
-        <input autoFocus className={inputCls + ' pl-11'} placeholder="Torneo, equipo, jugador o partido" value={text} onChange={(e) => setText(e.target.value)} />
+        <input autoFocus className={inputCls + ' pl-11'} placeholder="Torneo, equipo, jugador o partido" value={text} onChange={(e) => setText(e.target.value)}
+          enterKeyHint="search" onBlur={remember} onKeyDown={(e) => e.key === 'Enter' && remember()} />
       </div>
-      {q.trim().length < 2 && <p className="text-muted">Escribí al menos 2 letras. Ej.: "morán", "cloth femenino", "amistoso".</p>}
+      {q.trim().length < 2 && recent.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-muted">Búsquedas recientes</h2>
+            <button onClick={() => setRecent(clearRecent(uid))} className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-bold">Borrar todo</button>
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+            {recent.map((t) => (
+              <div key={t} className="flex items-center gap-1 border-b border-line last:border-0">
+                <button onClick={() => { setText(t); setParams({ q: t }, { replace: true }) }} className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left">
+                  <Clock size={16} className="shrink-0 text-muted" />
+                  <span className="truncate text-sm font-semibold">{t}</span>
+                </button>
+                <button onClick={() => setRecent(removeRecent(uid, t))} aria-label={'Quitar ' + t} className="grid h-11 w-11 shrink-0 place-items-center text-muted"><X size={16} /></button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+      {q.trim().length < 2 && recent.length === 0 && <p className="text-muted">Escribí al menos 2 letras. Ej.: "morán", "cloth femenino", "amistoso".</p>}
       {err && <p className="text-danger">{err}</p>}
       {q.trim().length >= 2 && !res && !err && <p className="text-muted">Buscando…</p>}
       {res && total === 0 && <p className="text-muted">No encontramos nada para "{q}".</p>}
 
       {res && (
-        <>
+        <div className="space-y-4" onClick={remember}>
           <Section title="Torneos" count={res.tournaments.length}>
             {res.tournaments.map((t) => (
               <Row key={t.id} to={(admin ? '/admin/torneos/' : '/liga/') + t.id}>
@@ -114,7 +140,8 @@ export default function BuscarPage() {
             {res.teams.map((t) => (
               <Row key={t.id} to={(admin ? '/admin/equipos/' : '/equipo/') + t.id}>
                 <TeamBadge team={t} size="sm" />
-                <span className="font-bold">{t.name}</span>
+                <span className="min-w-0 flex-1 truncate font-bold">{t.name}</span>
+                {admin && <GoTo to={'/equipo/' + t.id} className="shrink-0 rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-accent">Ver banner</GoTo>}
               </Row>
             ))}
           </Section>
@@ -139,7 +166,7 @@ export default function BuscarPage() {
 
           <Section title="Próximos partidos" count={res.next.length}>{res.next.map((m) => <MatchRow key={m.id} m={m} admin={admin} />)}</Section>
           <Section title="Historial de partidos" count={res.past.length}>{res.past.map((m) => <MatchRow key={m.id} m={m} admin={admin} />)}</Section>
-        </>
+        </div>
       )}
     </div>
   )

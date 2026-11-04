@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight, Trophy } from 'lucide-react'
 import { api } from '../../lib/api'
-import { BRANCH, MODALITY, FORMAT, TSTATUS, normMatch, phaseCmp } from '../../lib/format'
+import { BRANCH, MODALITY, formatName, TSTATUS, normMatch, phaseCmp } from '../../lib/format'
 import MatchCard from '../MatchCard'
+import { Skeleton } from '../ui'
 
 const fecha = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' }) : 'Sin día')
 
@@ -38,11 +39,11 @@ function Torneo({ t, onBack }) {
       <button onClick={onBack} className="flex items-center gap-1 text-sm font-bold text-accent"><ChevronLeft size={16} /> Torneos</button>
       <div>
         <p className="font-bold">{t.name}{t.edition ? ' · ' + t.edition : ''} · {t.year}</p>
-        <p className="text-sm text-muted">{FORMAT[t.format]} · {BRANCH[t.branch]} · {MODALITY[t.modality]}</p>
+        <p className="text-sm text-muted">{formatName(t)} · {BRANCH[t.branch]} · {MODALITY[t.modality]}</p>
         {t.champion && <p className="mt-1 flex items-center gap-1 text-xs text-muted"><Trophy size={12} /> Campeón: {t.champion.name}</p>}
       </div>
       {err && <p className="text-danger">{err}</p>}
-      {!days && !err && <p className="text-muted">Cargando…</p>}
+      {!days && !err && <Skeleton />}
       {days && groups.length === 0 && <p className="text-muted">Todavía no hay partidos terminados.</p>}
       {groups.map((g) => (
         <div key={g.key} className="space-y-3">
@@ -59,7 +60,7 @@ function Torneo({ t, onBack }) {
 const HIST_DAYS = 365 // cuánto hacia atrás se buscan partidos terminados por jornada
 const dayKey = (iso) => (iso ? new Date(iso).toLocaleDateString('en-CA') : 'none')
 const dayTitle = (k) =>
-  k === 'none' ? 'Sin fecha' : new Date(k + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  k === 'none' ? 'Sin programación' : new Date(k + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
 // Partidos terminados agrupados por jornada (día), de todos los torneos y modalidades juntos
 function PorJornada() {
@@ -83,7 +84,7 @@ function PorJornada() {
   return (
     <div className="space-y-3">
       {err && <p className="text-danger">{err}</p>}
-      {list === null && !err && <p className="text-muted">Cargando…</p>}
+      {list === null && !err && <Skeleton />}
       {list && keys.length === 0 && <p className="text-muted">Todavía no hay partidos terminados.</p>}
       {keys.map((k) => {
         const ms = days[k].sort((a, b) => String(a.scheduledAt ?? '').localeCompare(String(b.scheduledAt ?? '')) || phaseCmp(a, b) || (a.court || 999) - (b.court || 999))
@@ -122,7 +123,7 @@ function Hoy() {
   return (
     <div className="space-y-3">
       {err && <p className="text-danger">{err}</p>}
-      {list === null && !err && <p className="text-muted">Cargando…</p>}
+      {list === null && !err && <Skeleton />}
       {list && ms.length === 0 && <p className="text-muted">Hoy todavía no terminó ningún partido.</p>}
       {ms.length > 0 && <p className="text-xs font-bold uppercase tracking-widest text-muted">Hoy · {ms.length} {ms.length === 1 ? 'partido' : 'partidos'}</p>}
       {ms.map((m) => <MatchCard key={m.id} m={m} />)}
@@ -158,7 +159,7 @@ export default function Finalizados() {
       {view === 'jornada' && <PorJornada />}
       {view === 'torneo' && <>
       {err && <p className="text-danger">{err}</p>}
-      {list === null && !err && <p className="text-muted">Cargando…</p>}
+      {list === null && !err && <Skeleton />}
       {list && visible.length === 0 && <p className="text-muted">No hay torneos para mostrar.</p>}
       {years.map((y) => (
         <div key={y} className="space-y-2">
@@ -167,7 +168,7 @@ export default function Finalizados() {
             <button key={t.id} onClick={() => setSel(t)} className="flex w-full items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-left">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold">{t.name}{t.edition ? ' · ' + t.edition : ''}</p>
-                <p className="text-sm text-muted">{FORMAT[t.format]} · {BRANCH[t.branch]} · {MODALITY[t.modality]}</p>
+                <p className="text-sm text-muted">{formatName(t)} · {BRANCH[t.branch]} · {MODALITY[t.modality]}</p>
                 <span className={'rounded-full px-2 py-0.5 text-xs font-bold uppercase ' + TSTATUS[t.status].cls}>{TSTATUS[t.status].label}</span>
               </div>
               <ChevronRight size={18} className="text-muted" />

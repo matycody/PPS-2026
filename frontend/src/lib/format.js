@@ -17,10 +17,12 @@ export const phaseCmp = (a, b) =>
 
 export const normMatch = (m) => ({ ...m, id: m.id ?? m.matchId })
 
-export function fmtWhen(iso) {
-  if (!iso) return 'Sin fecha'
+// timeSet === false: se conoce el día pero la organización todavía no cargó el horario
+export function fmtWhen(iso, timeSet) {
+  if (!iso) return 'Sin programación'
   const d = new Date(iso)
   const day = d.toLocaleDateString('es-AR', { weekday: 'long' })
+  if (timeSet === false) return day.charAt(0).toUpperCase() + day.slice(1) + ' · ' + d.toLocaleDateString('es-AR', { day: 'numeric', month: 'numeric' }) + ' · horario a confirmar'
   const time = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
   return day.charAt(0).toUpperCase() + day.slice(1) + ' · ' + time
 }
@@ -33,6 +35,8 @@ export function toSeconds(t) {
 }
 
 export const FORMAT = { LEAGUE: 'Liga', LEAGUE_CUP: 'Liga + Copa', CUP: 'Copa' }
+// Nombre del formato: el que puso la organización o, si no puso, el estándar
+export const formatName = (t) => t?.formatLabel || FORMAT[t?.format]
 
 export const TSTATUS = {
   DRAFT: { label: 'Borrador', cls: 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400' },
@@ -42,8 +46,8 @@ export const TSTATUS = {
 
 export const CRITERIA = {
   HEAD_TO_HEAD: 'Resultado entre sí',
-  SET_DIFFERENCE: 'Diferencia de sets',
-  SETS_WON: 'Sets ganados',
+  SET_DIFFERENCE: 'Diferencia de puntos',
+  SETS_WON: 'Puntos a favor',
   WINS: 'Partidos ganados',
   DRAW_LOT: 'Sorteo',
 }
@@ -52,3 +56,12 @@ export const CRITERIA = {
 export const courtLabel = (c) => (c ? 'Cancha ' + c : 'Sin cancha')
 
 export const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { timeZone: 'UTC' }) : '—')
+
+// Sanciones a equipos (quita de puntos): motivo y texto corto para mostrar
+export const PENALTY_KIND = { STAFF: 'Faltan árbitros o mesa', NO_SHOW: 'No se presentó', LATE: 'Llegó tarde', NO_PLAYERS: 'Sin jugadores suficientes', AGGRESSION: 'Agresión', OTHER: 'Otro motivo' }
+export const penaltyWhy = (x) => (x.kind === 'STAFF' || x.missing?.length
+  ? 'sin ' + x.missing.map((m) => (m === 'TABLE' ? 'mesa' : 'árbitro de línea')).join(' ni ')
+  : (PENALTY_KIND[x.kind] ?? '') + (x.reason ? ' (' + x.reason + ')' : ''))
+
+// Alcance de una sanción sin partido: "FOAM:MIXED" -> "Foam Mixto"
+export const catLabel = (c) => { const [m, b] = String(c).split(':'); return [MODALITY[m], BRANCH[b]].filter(Boolean).join(' ') }

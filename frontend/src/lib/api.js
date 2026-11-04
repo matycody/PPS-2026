@@ -2,6 +2,19 @@
 
 const BASE = import.meta.env.VITE_BACKEND_URL
 
+// Si no hay red, el navegador tira un error técnico ("Load failed", "Failed to fetch"): lo cambiamos por un mensaje claro
+const MSG_OFFLINE = 'Sin conexión a internet. Revisá tu red y volvé a intentar.'
+const MSG_SERVER = 'No pudimos conectar con el servidor. Puede estar iniciándose: probá de nuevo en unos segundos.'
+async function netFetch(url, opts) {
+  try {
+    return await fetch(url, opts)
+  } catch (e) {
+    if (e?.name === 'AbortError') throw e
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false
+    throw Object.assign(new Error(offline ? MSG_OFFLINE : MSG_SERVER), { status: 0, offline })
+  }
+}
+
 // GET repetidos: los que están en vuelo se comparten y el resultado vive 3 s.
 // Cualquier escritura (POST/PATCH/PUT/DELETE) vacía el caché, así cada persona ve sus cambios al instante.
 const GET_TTL_MS = 3000
@@ -26,7 +39,7 @@ export function api(method, path, body) {
 async function apiFetch(method, path, body) {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  const res = await fetch(BASE + path, {
+  const res = await netFetch(BASE + path, {
     method,
     headers: {
       'ngrok-skip-browser-warning': 'true',
@@ -37,6 +50,10 @@ async function apiFetch(method, path, body) {
   })
   const json = await res.json().catch(() => null)
   if (!res.ok) {
+    // Sesión revocada o inexistente en Supabase: se limpia solo este dispositivo y se vuelve al login
+    if (res.status === 401 && json?.code === 'SESSION_GONE' && token) {
+      supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+    }
     throw Object.assign(new Error(json?.error || json?.errors?.join(', ') || 'Error'), {
       status: res.status,
       data: json,
@@ -48,7 +65,7 @@ async function apiFetch(method, path, body) {
 export async function apiUploadPhoto(file) {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  const res = await fetch(BASE + '/me/photo', {
+  const res = await netFetch(BASE + '/me/photo', {
     method: 'PUT',
     headers: {
       'ngrok-skip-browser-warning': 'true',
@@ -65,7 +82,7 @@ export async function apiUploadPhoto(file) {
 export async function apiUpload(path, file) {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  const res = await fetch(BASE + path, {
+  const res = await netFetch(BASE + path, {
     method: 'PUT',
     headers: {
       'ngrok-skip-browser-warning': 'true',
@@ -76,5 +93,23 @@ export async function apiUpload(path, file) {
   })
   const json = await res.json().catch(() => null)
   if (!res.ok) throw Object.assign(new Error(json?.error || 'Error al subir la imagen'), { status: res.status })
+  return json
+}
+
+// Foto de la planilla de juego: se guarda el original y se lee; la mesa confirma después
+export async function apiUploadSheet(matchId, file) {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  const res = await netFetch(BASE + '/matches/' + matchId + '/sheet/photo', {
+    method: 'POST',
+    headers: {
+      'ngrok-skip-browser-warning': 'true',
+      'Content-Type': file.type,
+      ...(token ? { Authorization: 'Bearer ' + token } : {}),
+    },
+    body: file,
+  })
+  const json = await res.json().catch(() => null)
+  if (!res.ok) throw Object.assign(new Error(json?.error || 'No se pudo subir la planilla'), { status: res.status })
   return json
 }

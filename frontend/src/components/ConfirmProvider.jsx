@@ -30,7 +30,9 @@ export function ConfirmProvider({ children }) {
   }, [])
 
   const hasInput = !!opts?.input
-  const cancel = useCallback(() => finish(hasInput ? null : false), [finish, hasInput])
+  // neutral: tercer botón para arrepentirse; devuelve null (y también al tocar afuera o Escape), distinto de false ("No")
+  const hasNeutral = !!opts?.neutral
+  const cancel = useCallback(() => finish(hasInput || hasNeutral ? null : false), [finish, hasInput, hasNeutral])
   const accept = () => {
     if (hasInput) { if (value.trim()) finish(value.trim()) } else finish(true)
   }
@@ -68,10 +70,11 @@ export function ConfirmProvider({ children }) {
               />
             )}
             <div className="mt-5 grid grid-cols-2 gap-2">
-              <Btn onClick={cancel}>{opts.cancelText ?? 'Cancelar'}</Btn>
+              <Btn onClick={hasNeutral ? () => finish(false) : cancel}>{opts.cancelText ?? 'Cancelar'}</Btn>
               <Btn tone={opts.danger ? 'danger' : 'accent'} disabled={hasInput && !value.trim()} onClick={accept}>
                 {opts.confirmText ?? 'Aceptar'}
               </Btn>
+              {hasNeutral && <Btn className="col-span-2" onClick={cancel}>{opts.neutral}</Btn>}
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 ﻿export const inputCls =
-  'w-full rounded-xl border border-line bg-bg px-4 py-3 outline-none focus:border-accent disabled:opacity-40'
+  'w-full rounded-xl border border-line bg-surface-2 px-4 py-3 outline-none focus:border-accent disabled:opacity-40'
 
 export function Btn({ children, onClick, disabled, tone = 'base', className = '', type = 'button' }) {
   const tones = {
@@ -16,6 +16,17 @@ export function Btn({ children, onClick, disabled, tone = 'base', className = ''
     >
       {children}
     </button>
+  )
+}
+
+// Carga: tarjetas grises animadas en lugar de "Cargando…"
+export function Skeleton({ rows = 3, className = '' }) {
+  return (
+    <div className={'space-y-2 ' + className} role="status" aria-label="Cargando">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="h-14 animate-pulse rounded-2xl border border-line bg-surface-2/70" style={{ opacity: 1 - i * 0.18 }} />
+      ))}
+    </div>
   )
 }
 

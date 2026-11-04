@@ -1,4 +1,5 @@
-﻿import TeamBadge from './TeamBadge'
+﻿import FavHeart from './FavHeart'
+import TeamBadge from './TeamBadge'
 import GoTo from './GoTo'
 import Forma from './torneo/Forma'
 
@@ -16,12 +17,12 @@ function SlotSide({ slot }) {
   )
 }
 
-export default function Versus({ a, b, center, size = 'lg', noLink = false, slotA = null, slotB = null, formA = null, formB = null, rankA = null, rankB = null }) {
+export default function Versus({ a, b, center, size = 'lg', noLink = false, slotA = null, slotB = null, formA = null, formB = null, rankA = null, rankB = null, fav = false, branch = null }) {
   const side = (t, slot, form, rank) => {
     if (slot) return <SlotSide slot={slot} /> // el backend manda el lugar solo si todavía no está definido
     const body = (
       <>
-        <TeamBadge team={t} size={size} />
+        <TeamBadge team={t} size={size} branch={branch} />
         <span className="w-full break-words text-sm font-bold leading-tight">{t?.name ?? 'Por definir'}</span>
         {t && rank && <span className="text-[11px] font-bold leading-none text-muted">{rank}.º</span>}
         {t && form?.length > 0 && <Forma form={form} size="sm" />}
@@ -30,7 +31,10 @@ export default function Versus({ a, b, center, size = 'lg', noLink = false, slot
     const cls = 'flex min-w-0 flex-col items-center gap-2 text-center'
     // Tocar el escudo o el nombre abre el banner del equipo
     // noLink: en la pantalla de control (mesa/árbitro) no hay navegación accidental
-    return t?.id && !noLink ? <GoTo to={'/equipo/' + t.id} className={cls}>{body}</GoTo> : <div className={cls}>{body}</div>
+    const link = t?.id && !noLink ? <GoTo to={'/equipo/' + t.id} className={cls}>{body}</GoTo> : <div className={cls}>{body}</div>
+    // fav: botón para seguir al equipo (corazón) debajo de su ficha
+    if (!fav || !t?.id) return link
+    return <div className="flex min-w-0 flex-col items-center gap-2">{link}<FavHeart type="TEAM" id={t.id} name={t.name} /></div>
   }
   return (
     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">

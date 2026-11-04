@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Camera, LogOut, Trash2 } from 'lucide-react'
+import { Camera, Info, LogOut, Trash2 } from 'lucide-react'
+import { resetTours } from '../stores/tourStore'
+import { startTour } from '../lib/tours'
 import { api, apiUploadPhoto } from '../lib/api'
-import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import { BRANCH } from '../lib/format'
 import { roleLabel } from '../lib/navConfig'
 import PersonName from '../components/PersonName'
 import PlayerRequestBanner from '../components/PlayerRequestBanner'
 import MenuPrefsCard from '../components/MenuPrefsCard'
+import CuentaCard from '../components/CuentaCard'
+import SuspensionNotice from '../components/SuspensionNotice'
 
 function Card({ title, children }) {
   return (
@@ -23,11 +26,14 @@ export default function PerfilPage() {
   const { user, menu, signOut, refreshProfile } = useAuthStore()
   const navigate = useNavigate()
   const fileRef = useRef(null)
+  const [sus, setSus] = useState(null)
+  useEffect(() => {
+    if (user?.profileId) api('GET', '/players/' + user.profileId).then((r) => setSus(r.suspension ?? null)).catch(() => {})
+  }, [user?.profileId])
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
-  const [email, setEmail] = useState('')
   const [nick, setNick] = useState('')
   const [num, setNum] = useState('')
   const [birth, setBirth] = useState('')
@@ -55,8 +61,8 @@ export default function PerfilPage() {
     const f = e.target.files?.[0]
     e.target.value = ''
     if (!f) return
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) return setErr('Usá una imagen JPG, PNG o WebP')
-    if (f.size > 5 * 1024 * 1024) return setErr('La imagen supera los 5 MB')
+    if (!f.type.startsWith('image/')) return setErr('El archivo no es una imagen')
+    if (f.size > 15 * 1024 * 1024) return setErr('La imagen supera los 15 MB')
     run(async () => { await apiUploadPhoto(f); await load(); await refreshProfile() }, 'Foto actualizada')
   }
 
@@ -78,13 +84,14 @@ export default function PerfilPage() {
   }
 
   const initials = (user?.email ?? '?').slice(0, 2).toUpperCase()
-  const field = 'w-full rounded-xl border border-line bg-bg px-4 py-3 outline-none focus:border-accent'
+  const field = 'w-full rounded-xl border border-line bg-surface-2 px-4 py-3 outline-none focus:border-accent'
 
   return (
     <div className="space-y-4">
       {err && <p className="rounded-2xl border box-danger px-4 py-3 text-sm font-bold text-danger">{err}</p>}
       {msg && <p className="rounded-2xl border box-live px-4 py-3 text-sm font-bold text-live">{msg}</p>}
       <PlayerRequestBanner cta />
+      <SuspensionNotice s={sus} self />
 
       <div className="flex items-center gap-4 rounded-3xl border border-line bg-surface p-5">
         <div className="relative shrink-0">
@@ -101,7 +108,7 @@ export default function PerfilPage() {
           >
             <Camera size={15} />
           </button>
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onFile} className="hidden" />
+          <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" />
         </div>
         <div className="min-w-0">
           <p className="truncate text-lg font-extrabold">
@@ -115,6 +122,8 @@ export default function PerfilPage() {
           )}
         </div>
       </div>
+
+      <CuentaCard run={run} busy={busy} setErr={setErr} />
 
       {p && (
         <Card title="Apodo y número (opcional)">
@@ -199,22 +208,12 @@ export default function PerfilPage() {
 
       <MenuPrefsCard />
 
-      <Card title="Cambiar mail">
-        <div className="flex gap-2">
-          <input className={field} type="email" placeholder="Mail nuevo" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <button
-            disabled={busy || !email.trim()}
-            onClick={() => run(async () => {
-              const { error } = await supabase.auth.updateUser({ email: email.trim() })
-              if (error) throw error
-              setEmail('')
-            }, 'Te enviamos un mail de confirmación al mail nuevo. Hasta confirmarlo sigue vigente el actual.')}
-            className="shrink-0 rounded-xl bg-accent px-4 font-bold text-black disabled:opacity-40"
-          >
-            Guardar
-          </button>
-        </div>
-      </Card>
+      <button
+        onClick={() => { resetTours(user?.id); startTour('inicio', user, menu); navigate('/') }}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-surface py-3 font-bold"
+      >
+        <Info size={18} /> Ver los tutoriales de nuevo
+      </button>
 
       <button onClick={() => signOut().then(() => navigate('/'))} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-surface py-3 font-bold">
         <LogOut size={18} /> Cerrar sesión

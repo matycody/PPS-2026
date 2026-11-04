@@ -3,6 +3,7 @@ import { Play, Pause, RotateCcw, Minus, Plus, X, WifiOff, Volume2, VolumeX } fro
 import { MODALITY } from '../lib/format'
 import { play, unlockAudio, isMuted, setMuted, setSoundAllowed } from '../lib/sound'
 import { useWakeLock } from '../hooks/useWakeLock'
+import { useConfirm } from '../components/ConfirmProvider'
 
 const DEFAULTS = { match: 20 * 60, set: 3 * 60 }
 
@@ -141,7 +142,7 @@ function ClockCard({ label, clock, defaultSec, color, locked }) {
           onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 4))}
           placeholder="mmss"
           inputMode="numeric"
-          className="min-w-0 flex-1 rounded-2xl border border-line bg-bg px-4 py-3 text-center font-mono outline-none focus:border-live"
+          className="min-w-0 flex-1 rounded-2xl border border-line bg-surface-2 px-4 py-3 text-center font-mono outline-none focus:border-live"
         />
         <Btn disabled={parseDigits(val) == null} onClick={apply}>Set</Btn>
       </div>
@@ -152,6 +153,17 @@ function ClockCard({ label, clock, defaultSec, color, locked }) {
 export default function OfflinePage() {
   const [modality, setModality] = usePersisted('cron:modality', 'FOAM')
   const [half, setHalf] = usePersisted('cron:half', 1)
+  const ask = useConfirm()
+  const changeHalf = async (n) => {
+    if (half === n) return
+    const ok = await ask({
+      title: n === 2 ? 'Pasar al 2do tiempo' : 'Volver al 1er tiempo',
+      message: n === 2 ? '¿Pasar al 2do tiempo? Usá "Finalizar tiempo" si el primero ya terminó.' : '¿Volver al 1er tiempo?',
+      confirmText: n === 2 ? 'Pasar al 2do tiempo' : 'Volver al 1er tiempo',
+      danger: true,
+    })
+    if (ok) setHalf(n)
+  }
   const [notices, setNotices] = useState([])
   const isCloth = modality === 'CLOTH'
   const [muted, setMutedState] = useState(isMuted())
@@ -322,8 +334,8 @@ export default function OfflinePage() {
         </div>
         <p className="text-xs font-bold uppercase tracking-widest text-muted">Tiempo</p>
         <div className="grid grid-cols-2 gap-2">
-          <Btn tone={half === 1 ? 'accent' : 'base'} onClick={() => setHalf(1)}>1er tiempo</Btn>
-          <Btn tone={half === 2 ? 'accent' : 'base'} onClick={() => setHalf(2)}>2do tiempo</Btn>
+          <Btn tone={half === 1 ? 'accent' : 'base'} onClick={() => changeHalf(1)}>1er tiempo</Btn>
+          <Btn tone={half === 2 ? 'accent' : 'base'} onClick={() => changeHalf(2)}>2do tiempo</Btn>
         </div>
       </div>
     </div>

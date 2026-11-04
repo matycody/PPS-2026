@@ -1,42 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { Eye, Trophy, X } from 'lucide-react'
+import { useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
-import { normMatch, MODALITY, BRANCH, courtLabel } from '../lib/format'
-import StatusPill from '../components/StatusPill'
-import MatchNotice from '../components/MatchNotice'
-import Versus from '../components/Versus'
-import MatchRoster from '../components/MatchRoster'
+import { useSanctions } from '../hooks/useSanctions'
+import { normMatch } from '../lib/format'
 import { useWakeLock } from '../hooks/useWakeLock'
-
-const showTime = (t) => (t ? t.replace(/^(\d):/, '0$1:') : '--:--')
-
-function ClockCard({ label, time, paused, color }) {
-  return (
-    <div className="rounded-3xl border border-line bg-surface p-5">
-      <p className="text-xs font-bold uppercase tracking-widest text-muted">{label}</p>
-      <p className={'my-4 text-center font-mono text-[clamp(1.75rem,9vw,3rem)] font-extrabold tabular-nums ' + color}>{showTime(time)}</p>
-      <p className={'rounded-full py-2 text-center text-xs font-bold uppercase ' + (paused ? 'bg-danger/15 text-danger' : 'bg-live/15 text-live')}>
-        {paused ? 'Pausado' : 'En marcha'}
-      </p>
-    </div>
-  )
-}
-
-function TimeoutBanner({ tick, nameA, nameB }) {
-  const team = tick?.timeoutTeam
-  if (!team) return null
-  const expired = !tick.isTimeoutRunning
-  return (
-    <div className="rounded-3xl border box-warn p-5 text-center">
-      <p className="text-xs font-bold uppercase tracking-widest text-warn">Tiempo muerto - {team === 'A' ? nameA : nameB}</p>
-      <p className={'my-3 font-mono text-[clamp(2rem,10vw,3.5rem)] font-extrabold tabular-nums ' + (expired ? 'text-danger' : 'text-warn')}>
-        {showTime(tick.timeoutTime)}
-      </p>
-    </div>
-  )
-}
+import { usePipClock } from '../hooks/usePipClock'
+import MatchSpectator from '../components/match/MatchSpectator'
 
 export default function MatchPage() {
   const { id } = useParams()
@@ -44,6 +14,8 @@ export default function MatchPage() {
   const [tick, setTick] = useState(null)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
+  const sanctions = useSanctions(id)
+  const pip = usePipClock(m)
   useWakeLock(!!tick && (!tick.isMatchPaused || !tick.isSetPaused || !!tick.isTimeoutRunning))
 
   useEffect(() => {
@@ -81,80 +53,8 @@ export default function MatchPage() {
   if (error) return <p className="mt-10 text-center text-danger">{error}</p>
   if (!m) return <p className="mt-10 text-center text-muted">Cargando…</p>
 
-  const second = Number(tick?.matchHalf) === 2
+  // Finalizado: solo si la mesa/árbitro lo finalizó o cerró
+  const over = m.status === 'FINISHED' || !!tick?.matchEnded
 
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col items-center gap-2 text-center">
-        <StatusPill status={m.status} />
-        <p className="text-sm text-muted">{courtLabel(m.court)} · {BRANCH[m.branch] ?? m.branch}</p>
-        {m.tournament?.id && (
-          <Link to={'/liga/' + m.tournament.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-bold text-accent">
-            <Trophy size={14} /> {m.tournament.name} <span aria-hidden>›</span>
-          </Link>
-        )}
-      </div>
-      <MatchNotice m={m} />
-
-
-
-      {notice && (
-        <button onClick={() => setNotice('')} className="flex w-full items-center justify-between gap-3 rounded-2xl border box-warn px-4 py-3 text-left text-sm font-bold text-warn">
-          {notice} <X size={16} className="shrink-0" />
-        </button>
-      )}
-
-      <div className="rounded-3xl border border-line bg-surface p-5">
-        <p className="mb-4 text-center text-xs font-bold uppercase tracking-widest text-muted">Marcador</p>
-        {m.phase?.label && (
-          <p className="-mt-2 mb-3 text-center text-xs font-bold uppercase tracking-widest text-accent">
-            {m.phase.kind === 'LEAGUE' && m.phase.zone ? m.phase.zone + ' · ' : ''}{m.phase.label}
-          </p>
-        )}
-        <Versus
-          a={m.teamA}
-          b={m.teamB}
-          slotA={m.phase?.slotA}
-          slotB={m.phase?.slotB}
-          formA={m.form?.A}
-          formB={m.form?.B}
-          rankA={m.form?.rankA}
-          rankB={m.form?.rankB}
-          size="xl"
-          center={
-            <span className="font-mono text-4xl font-extrabold tabular-nums text-live">
-              {m.score?.teamA ?? 0} <span className="text-lg text-muted">-</span> {m.score?.teamB ?? 0}
-            </span>
-          }
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <ClockCard label="Partido" time={tick?.matchTime} paused={tick?.isMatchPaused ?? true} color="text-live" />
-        <ClockCard label="Set" time={tick?.setTime} paused={tick?.isSetPaused ?? true} color="text-live" />
-      </div>
-
-      <TimeoutBanner tick={tick} nameA={m.teamA?.name ?? 'Equipo A'} nameB={m.teamB?.name ?? 'Equipo B'} />
-
-
-      <div className="rounded-3xl border border-line bg-surface p-5 text-center">
-        <p className="text-xs font-bold uppercase tracking-widest text-muted">Estado del partido</p>
-        <div className="mt-3 flex flex-wrap justify-center gap-2">
-          <span className="rounded-full bg-live/15 px-4 py-2 text-sm font-bold text-live">{MODALITY[m.modality] ?? m.modality}</span>
-          {tick && (
-            <span className="rounded-full bg-live/15 px-4 py-2 text-sm font-bold uppercase text-live">
-              {second ? '2do tiempo' : '1er tiempo'}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <p className="flex items-center justify-center gap-2 border-t border-line pt-4 text-xs font-semibold uppercase tracking-wider text-muted">
-        <Eye size={14} /> Vista en vivo · solo lectura
-      </p>
-
-      <MatchRoster teamA={m.teamA} teamB={m.teamB} branch={m.branch} />
-    </div>
-  )
+  return <MatchSpectator m={m} tick={tick} over={over} notice={notice} onCloseNotice={() => setNotice('')} sanctions={sanctions} pip={pip} />
 }
-

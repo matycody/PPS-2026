@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import { useAuthStore } from '../stores/authStore'
 import { api } from '../lib/api'
 import { socket } from '../sockets/socket'
 import { normMatch, fmtWhen, courtLabel, BRANCH, MODALITY } from '../lib/format'
@@ -16,7 +17,7 @@ const dayTitle = (day, withYear) =>
   day === 'live'
     ? 'En vivo'
     : day === 'none'
-    ? 'Sin fecha'
+    ? 'Sin programación'
     : new Date(day + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', ...(withYear ? { year: 'numeric' } : {}) })
 
 const plain = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -34,9 +35,9 @@ function Card({ m }) {
         <StatusPill status={m.status} />
         <span className="text-sm text-muted">{courtLabel(m.court)}</span>
       </div>
-      <div className="mt-4"><Versus a={m.teamA} b={m.teamB} /></div>
+      <div className="mt-4"><Versus branch={m.branch} a={m.teamA} b={m.teamB} /></div>
       <p className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-muted">{matchInfo(m)}</p>
-      <p className="mt-1 text-center text-sm text-muted">{fmtWhen(m.scheduledAt)}</p>
+      <p className="mt-1 text-center text-sm text-muted">{fmtWhen(m.scheduledAt, m.timeSet)}</p>
       {!isPast(m.status) && (
         <div className={'mt-4 rounded-2xl py-3 text-center font-extrabold ' + (live ? 'bg-accent text-black' : 'bg-surface-2')}>
           Ir al control del partido
@@ -48,36 +49,10 @@ function Card({ m }) {
 
 const chip = (on) => 'rounded-full border px-3 py-1.5 text-xs font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
 
-export default function AssignmentsPage({ fn }) {
-  const [list, setList] = useState(null)
-  const [error, setError] = useState('')
-  const [tab, setTab] = useState('next') // 'next' | 'history'
+function AssignmentList({ items, fn, history }) {
   const [torneo, setTorneo] = useState('all')
   const [q, setQ] = useState('')
   const [date, setDate] = useState('')
-
-  useEffect(() => {
-    api('GET', '/me/assignments').then(setList).catch((e) => setError(e.message))
-
-    const sub = () => socket.emit('matches:subscribe')
-    const onUpdated = (p) => {
-      const u = normMatch(p)
-      setList((prev) => prev && prev.map((a) => (a.match.id === u.id ? { ...a, match: { ...a.match, ...u } } : a)))
-    }
-    socket.connect()
-    if (socket.connected) sub()
-    socket.on('connect', sub)
-    socket.on('match:updated', onUpdated)
-    return () => {
-      socket.off('connect', sub)
-      socket.off('match:updated', onUpdated)
-      socket.emit('matches:unsubscribe')
-    }
-  }, [])
-
-  const items = (list ?? []).filter((a) => a.function === fn).map((a) => a.match)
-  const title = fn === 'TABLE' ? 'Control de mesa' : 'Mis partidos asignados'
-  const history = tab === 'history'
   const whenOf = (m) => (history ? (m.finishedAt ?? m.scheduledAt) : m.scheduledAt)
 
   // Próximos: en vivo primero, Habilitados antes que Programados, y por hora. Historial: del más reciente al más viejo.
@@ -124,21 +99,10 @@ export default function AssignmentsPage({ fn }) {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xs font-bold uppercase tracking-widest text-muted">{title}</h1>
-      {error && <p className="text-danger">{error}</p>}
-      {list === null && !error && <p className="text-muted">Cargando…</p>}
-      {list && items.length === 0 && <p className="text-muted">No tenés partidos asignados.</p>}
+      {items.length === 0 && <p className="text-muted">{fn === 'TABLE' ? 'No tenés partidos asignados como mesa.' : 'No tenés partidos asignados.'}</p>}
 
-      {list && items.length > 0 && (
+      {items.length > 0 && (
         <>
-          <div className="flex gap-2">
-            {[['next', 'Próximos'], ['history', 'Historial']].map(([id, label]) => (
-              <button key={id} onClick={() => { setTab(id); setTorneo('all'); setQ(''); setDate('') }} className={'rounded-full border px-4 py-2 text-sm font-bold ' + (tab === id ? 'border-accent bg-accent text-black' : 'border-line bg-surface')}>
-                {label}
-              </button>
-            ))}
-          </div>
-
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <input className={inputCls} placeholder="Buscar equipo, modalidad o rama" value={q} onChange={(e) => setQ(e.target.value)} />
             <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} aria-label="Filtrar por día" />
@@ -166,6 +130,91 @@ export default function AssignmentsPage({ fn }) {
               ))}
             </section>
           ))}
+        </>
+      )}
+    </div>
+  )
+}
+
+const live = (l) => l.some((m) => m.status === 'LIVE')
+const upcoming = (l) => l.filter((m) => !isPast(m.status))
+const past = (l) => l.filter((m) => isPast(m.status))
+
+export default function AssignmentsPage({ history = false }) {
+  const user = useAuthStore((s) => s.user)
+  const [params, setParams] = useSearchParams()
+  const [list, setList] = useState(null)
+  const [error, setError] = useState('')
+  const [sel, setSel] = useState(params.get('tab') === 'mesa' ? 'mesa' : params.get('tab') === 'arbitro' ? 'arbitro' : null)
+
+  useEffect(() => {
+    api('GET', '/me/assignments').then(setList).catch((e) => setError(e.message))
+    const sub = () => socket.emit('matches:subscribe')
+    const onUpdated = (p) => {
+      const u = normMatch(p)
+      setList((prev) => prev && prev.map((a) => (a.match.id === u.id ? { ...a, match: { ...a.match, ...u } } : a)))
+    }
+    socket.connect()
+    if (socket.connected) sub()
+    socket.on('connect', sub)
+    socket.on('match:updated', onUpdated)
+    return () => {
+      socket.off('connect', sub)
+      socket.off('match:updated', onUpdated)
+      socket.emit('matches:unsubscribe')
+    }
+  }, [])
+
+  const refItems = (list ?? []).filter((a) => a.function === 'REFEREE').map((a) => a.match)
+  const tableItems = (list ?? []).filter((a) => a.function === 'TABLE').map((a) => a.match)
+  const isRef = !!user?.roles?.includes('REFEREE') || refItems.length > 0
+
+  // Pestaña inicial: la que tiene un partido en vivo; si no, la del próximo partido; si no, según el rol
+  const next = (l) => Math.min(...upcoming(l).map((m) => time(m.scheduledAt)))
+  let def = isRef ? 'arbitro' : 'mesa'
+  if (history) { if (!past(refItems).length && past(tableItems).length) def = 'mesa' } else {
+  if (live(refItems) !== live(tableItems)) def = live(refItems) ? 'arbitro' : 'mesa'
+  else if (upcoming(refItems).length && upcoming(tableItems).length) def = next(tableItems) < next(refItems) ? 'mesa' : 'arbitro'
+  else if (upcoming(refItems).length !== upcoming(tableItems).length) def = upcoming(refItems).length ? 'arbitro' : 'mesa'
+  }
+  const cur = sel ?? def
+  const pick = (id) => { setSel(id); setParams({ tab: id }, { replace: true }) }
+
+  const tabs = [
+    ['arbitro', 'Dirección de árbitro', refItems],
+    ['mesa', 'Control de mesa', tableItems],
+  ]
+
+  return (
+    <div className="space-y-4">
+      <h1 className="text-xs font-bold uppercase tracking-widest text-muted">{history ? 'Historial de asignaciones' : 'Mis asignaciones'}</h1>
+      {error && <p className="text-danger">{error}</p>}
+      {list === null && !error && <p className="text-muted">Cargando…</p>}
+      {list && (
+        <>
+          <div className="grid grid-cols-2 gap-1 rounded-2xl border border-line bg-surface p-1">
+            {tabs.map(([id, label, l]) => (
+              <button key={id} onClick={() => pick(id)} className={'relative rounded-xl px-2 py-2.5 text-sm font-bold ' + (cur === id ? 'bg-accent text-black' : 'text-muted')}>
+                {label}
+                <span className="ml-1.5 text-xs font-semibold opacity-80">({(history ? past(l) : upcoming(l)).length})</span>
+                {!history && live(l) && <span className="absolute right-2 top-2 h-2 w-2 animate-pulse rounded-full bg-danger" aria-label="En vivo" />}
+              </button>
+            ))}
+          </div>
+
+          {cur === 'arbitro' && !isRef ? (
+            <div className="space-y-3 rounded-3xl border border-line bg-surface p-5">
+              <p className="font-extrabold">No sos árbitro</p>
+              <p className="text-sm text-muted">Tu cuenta no tiene el rol de árbitro, por eso no tenés partidos para dirigir.</p>
+              {tableItems.length > 0 && (
+                <button onClick={() => pick('mesa')} className="w-full rounded-2xl bg-accent py-3 font-extrabold text-black">
+                  Ir a Control de mesa ({(history ? past(tableItems) : upcoming(tableItems)).length})
+                </button>
+              )}
+            </div>
+          ) : (
+            <AssignmentList key={cur + history} history={history} fn={cur === 'mesa' ? 'TABLE' : 'REFEREE'} items={cur === 'mesa' ? tableItems : refItems} />
+          )}
         </>
       )}
     </div>

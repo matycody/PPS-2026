@@ -21,7 +21,7 @@ const dayShort = (day) => {
   return (diff === 0 ? 'Hoy · ' : diff === 1 ? 'Mañana · ' : '') + d
 }
 const phaseText = (m) => (m.phase ? (m.phase.kind === 'LEAGUE' && m.phase.zone ? m.phase.zone + ' · ' : '') + m.phase.label : 'Sin fase')
-const hourText = (m) => (m.scheduledAt ? new Date(m.scheduledAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'Sin hora')
+const hourText = (m) => (m.scheduledAt && m.timeSet !== false ? new Date(m.scheduledAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'Sin hora')
 
 function dayLabel(day) {
   const d = new Date(day + 'T12:00:00')
@@ -137,11 +137,22 @@ export default function OrgMatches({ byId, filter }) {
         else sections.push({ k, list: [m] })
       })
     }
+    // Los partidos en vivo se muestran siempre arriba (sea cual sea el día elegido), así que no se repiten en la lista
+    if (!sched) {
+      listed = listed.filter((m) => m.status !== 'LIVE')
+      if (sections) sections = sections.map((g) => ({ ...g, list: g.list.filter((m) => m.status !== 'LIVE') })).filter((g) => g.list.length)
+    }
     const toggle = (id) => setPicked(cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id])
     const summary = cur.length === 0 ? 'Todos' : cur.length === 1 ? tournaments.find((t) => t.id === cur[0])?.name : cur.length + ' torneos'
     const chip = (on) => 'rounded-full border px-3 py-1.5 text-xs font-bold ' + (on ? 'border-accent bg-accent text-black' : 'border-line bg-surface')
     return (
       <div className="space-y-3">
+        {!sched && live.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-live">En vivo ahora · {live.length}</h2>
+            {live.map((m) => <MatchCard key={m.id} m={m} featured />)}
+          </div>
+        )}
         <div className="space-y-2">
           <div className="flex gap-2">
             <button
@@ -150,7 +161,7 @@ export default function OrgMatches({ byId, filter }) {
               className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-line bg-surface px-4 py-2.5 text-left text-xs font-bold uppercase tracking-widest text-muted"
             >
               <span className="min-w-0 truncate">
-                {phaseCur !== 'all' ? phaseCur + ' · ' + listed.length + (listed.length === 1 ? ' partido' : ' partidos') : curDay || listed.length ? (curDay ? dayShort(curDay) : 'Sin fecha') + ' · ' + listed.length + (listed.length === 1 ? ' partido' : ' partidos') : sched ? 'Sin partidos programados' : 'Sin partidos'}
+                {phaseCur !== 'all' ? phaseCur + ' · ' + listed.length + (listed.length === 1 ? ' partido' : ' partidos') : curDay || listed.length ? (curDay ? dayShort(curDay) : 'Sin programación') + ' · ' + listed.length + (listed.length === 1 ? ' partido' : ' partidos') : sched ? 'Sin partidos programados' : 'Sin partidos'}
               </span>
               <ChevronDown size={18} className={'shrink-0 transition-transform ' + (dayOpen ? 'rotate-180' : '')} />
             </button>

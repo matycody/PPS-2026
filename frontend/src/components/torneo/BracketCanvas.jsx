@@ -45,7 +45,7 @@ export default function BracketCanvas({ rounds, colW = 240, gap = 32, footer, af
   })))
 
   return (
-    <div className="flex items-start gap-4 overflow-x-auto pb-2">
+    <div className="flex items-start gap-4 overflow-x-auto rounded-2xl bg-surface-2 p-3">
       <div className="shrink-0" style={{ width }}>
         <div className="mb-2 flex">
           {rounds.map((r, ci) => (
@@ -53,7 +53,7 @@ export default function BracketCanvas({ rounds, colW = 240, gap = 32, footer, af
           ))}
         </div>
         <div className="relative" style={{ height }}>
-          <svg className="absolute inset-0 stroke-white" width={width} height={height} fill="none" strokeWidth="2" aria-hidden="true">{links}</svg>
+          <svg className="absolute inset-0 stroke-accent" width={width} height={height} fill="none" strokeWidth="2" aria-hidden="true">{links}</svg>
           {rounds.map((r, ci) => r.items.map((it) => (
             <div key={it.key} className="absolute" style={{ top: top.get(it.key), left: ci * pitch, width: colW, height: it.h }}>{it.node}</div>
           )))}

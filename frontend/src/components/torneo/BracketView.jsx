@@ -1,19 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Maximize2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { fmtWhen, courtLabel } from '../../lib/format'
 import TeamBadge from '../TeamBadge'
 import GoTo from '../GoTo'
 import StatusPill from '../StatusPill'
 import BracketCanvas from './BracketCanvas'
+import BracketFullscreen from './BracketFullscreen'
+import { Skeleton } from '../ui'
 
-function Side({ team, from, sets, won, placeholder }) {
+function Side({ team, from, sets, won, placeholder, branch }) {
   // Hasta que termina la zona se muestra el lugar ("2° Zona A") y no el equipo
   const pending = !!from && !from.done
   const shown = pending ? null : team
   const who = (
     <>
-      {shown ? <TeamBadge team={shown} size="sm" /> : <span className="h-8 w-8 shrink-0 rounded-full border border-dashed border-line" />}
+      {shown ? <TeamBadge team={shown} size="sm" branch={branch} /> : <span className="h-8 w-8 shrink-0 rounded-full border border-dashed border-line" />}
       <span className={'min-w-0 flex-1 truncate ' + (shown ? '' : pending ? 'text-sm font-bold' : 'text-sm italic text-muted')}>{shown ? shown.name : pending ? from.label : placeholder}</span>
     </>
   )
@@ -31,9 +34,10 @@ function sourceLabel(f) {
 }
 
 // base: prefijo del enlace al partido (público o de admin)
-export default function BracketView({ tournamentId, stageId, base = '/partido/', reloadKey }) {
+export default function BracketView({ tournamentId, stageId, base = '/partido/', reloadKey, branch = null, roundTitle = null }) {
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
+  const [full, setFull] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -46,31 +50,44 @@ export default function BracketView({ tournamentId, stageId, base = '/partido/',
   // Cada partido se centra entre los que lo alimentan; los que arrancan con equipos se apilan
   const rounds = useMemo(() => (data?.rounds ?? []).map((r) => ({
     key: r.round,
-    title: r.name,
+    title: roundTitle ?? r.name, // en la promoción el cruce no es una final: se identifica con "Promoción <torneo>"
     items: [...r.matches].sort((a, b) => a.slot - b.slot).map((m) => ({
       key: m.id,
-      h: m.kind === 'THIRD_PLACE' ? 160 : 138,
+      h: m.kind === 'THIRD_PLACE' || m.provisional || m.paused ? 160 : 138, // con franja arriba (tercer puesto o probable cruce)
       feeders: [m.feeds.A?.matchId, m.feeds.B?.matchId].filter(Boolean),
       node: (
         <Link to={base + m.id} className="flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface">
-          {m.kind === 'THIRD_PLACE' && (
-            <p className="bg-surface-2 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-muted">Tercer puesto</p>
+          {(m.kind === 'THIRD_PLACE' || m.provisional || m.paused) && (
+            <p className={'truncate bg-surface-2 px-3 py-1 text-[10px] font-bold uppercase tracking-widest ' + (m.provisional || m.paused ? 'text-warn' : 'text-muted')}>
+              {[m.paused ? 'Pausado' : null, m.kind === 'THIRD_PLACE' ? 'Tercer puesto' : null, m.provisional ? 'Probable cruce' : null].filter(Boolean).join(' · ')}
+            </p>
           )}
-          <Side team={m.teamA} from={m.fromA} sets={m.setsA} won={m.winnerTeamId && m.winnerTeamId === m.teamA?.id} placeholder={sourceLabel(m.feeds.A)} />
+          <Side branch={branch} team={m.teamA} from={m.fromA} sets={m.pointsA ?? m.setsA} won={m.winnerTeamId && m.winnerTeamId === m.teamA?.id} placeholder={sourceLabel(m.feeds.A)} />
           <div className="border-t border-line" />
-          <Side team={m.teamB} from={m.fromB} sets={m.setsB} won={m.winnerTeamId && m.winnerTeamId === m.teamB?.id} placeholder={sourceLabel(m.feeds.B)} />
+          <Side branch={branch} team={m.teamB} from={m.fromB} sets={m.pointsB ?? m.setsB} won={m.winnerTeamId && m.winnerTeamId === m.teamB?.id} placeholder={sourceLabel(m.feeds.B)} />
           <div className="flex items-center justify-between gap-2 border-t border-line bg-surface-2 px-3 py-1.5 text-[11px] text-muted">
-            <span className="truncate">{m.scheduledAt ? fmtWhen(m.scheduledAt) : 'Sin fecha'} · {courtLabel(m.court)}</span>
+            <span className="truncate">{m.scheduledAt ? fmtWhen(m.scheduledAt, m.timeSet) : 'Sin programación'} · {m.venue ? m.venue.name + ' · ' : ''}{courtLabel(m.court)}</span>
             <StatusPill status={m.status} />
           </div>
         </Link>
       ),
     })),
-  })), [data, base])
+  })), [data, base, branch])
 
   if (err) return <p className="text-danger">{err}</p>
-  if (!data) return <p className="text-muted">Cargando…</p>
+  if (!data) return <Skeleton />
   if (!data.rounds.length) return <p className="text-muted">Todavía no se armó la llave.</p>
 
-  return <BracketCanvas rounds={rounds} colW={240} gap={32} />
+  const canvas = <BracketCanvas rounds={rounds} colW={240} gap={32} />
+  return (
+    <div>
+      <div className="mb-2 flex justify-end">
+        <button type="button" onClick={() => setFull(true)} className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-line bg-surface px-3 text-sm font-bold">
+          <Maximize2 size={16} /> Ver completo
+        </button>
+      </div>
+      {canvas}
+      {full && <BracketFullscreen onClose={() => setFull(false)}>{canvas}</BracketFullscreen>}
+    </div>
+  )
 }
