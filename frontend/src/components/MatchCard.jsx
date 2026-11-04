@@ -41,8 +41,8 @@ function LiveMatchCard({ m, featured = false, to, badge }) {
       to={to ?? '/partido/' + m.id}
       className={'block rounded-3xl border bg-surface p-5 ' + statusBorder(m.status, featured ? 'border-live/40' : 'border-line')}
     >
-      <div className={'flex items-center justify-between ' + (pip.canPin ? 'pr-8' : '')}>
-        <StatusPill status={m.status} />
+      <div className={'flex items-center justify-between gap-3 ' + (pip.canPin ? 'pr-8' : '')}>
+        <span className="-ml-2 shrink-0"><StatusPill status={m.status} /></span>
         <span className="min-w-0 truncate text-sm text-muted">{m.venue ? m.venue.name + ' · ' : ''}{courtLabel(m.court)}</span>
       </div>
       {m.phase?.label && (
