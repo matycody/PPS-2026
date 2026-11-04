@@ -10,6 +10,7 @@ import ServerClock from './ServerClock'
 import { useTeamLogos } from '../stores/teamLogosStore'
 import { installDragScroll } from '../lib/dragScroll'
 import TourOverlay from './TourOverlay'
+import OfflineBanner from './OfflineBanner'
 import { tourSeen, useTourStore } from '../stores/tourStore'
 import { tourKeyFor, startTour } from '../lib/tours'
 
@@ -92,6 +93,7 @@ export default function AppLayout() {
       <BottomNav />
       <Drawer open={open} onClose={() => setOpen(false)} />
       <TourOverlay />
+      <OfflineBanner />
     </div>
   )
 }
