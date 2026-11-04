@@ -7,7 +7,7 @@ info:
 servers:
 - url: http://localhost:3001
   description: Local
-- url: https://pps-2026-2.onrender.com
+- url: https://dodgeball-ba.onrender.com
   description: Producción (Render)
 components:
   securitySchemes:

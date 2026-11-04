@@ -4,7 +4,7 @@ Cronómetro y gestión de partidos de Dodgeball Buenos Aires: cronómetro de par
 
 Esta guía asume una PC **en blanco**: sin Git, sin Node y sin el proyecto. Siguiéndola de arriba abajo queda todo funcionando en local.
 
-**Producción (ya deployado):** https://pps-2026.vercel.app/ (frontend en Vercel, backend en Render, base en Neon, auth en Supabase).
+**Producción (ya deployado):** https://dodgeball-ba.vercel.app/ (frontend en Vercel, backend en Render, base en Neon, auth en Supabase).
 
 ## Cómo está armado
 
@@ -72,8 +72,8 @@ Sin esto podés instalar todo, pero el backend no queda funcional.
 ## 3️⃣ Clonar el repositorio
 
 ```bash
-git clone https://github.com/matycody/PPS-2026.git
-cd PPS-2026
+git clone https://github.com/matycody/dodgeball-ba.git
+cd dodgeball-ba
 git branch
 ```
 El último comando tiene que mostrar que estás en `main`.
@@ -130,7 +130,7 @@ Scripts del backend: `npm run dev` / `npm start` (servidor), `npm run seed` (cre
 Abrí una **segunda terminal** (sin cerrar la del backend):
 
 ```bash
-cd PPS-2026/frontend
+cd dodgeball-ba/frontend
 npm install
 ```
 
@@ -162,7 +162,7 @@ Scripts del frontend: `npm run dev` (desarrollo), `npm run build` (compilar), `n
 
 **b) Test automático completo (recomendado).** Con el backend corriendo, en una tercera terminal:
 ```bash
-cd PPS-2026/backend
+cd dodgeball-ba/backend
 npm run smoke
 ```
 Corre más de 130 chequeos contra el backend real (autenticación, roles, permisos, equipos, partidos, sockets, auditoría). Crea y borra usuarios de prueba con prefijo `SMOKE`; no toca datos reales. Si todos terminan en OK, Node, Prisma, Neon y Supabase están bien conectados.
@@ -191,13 +191,13 @@ Corre más de 130 chequeos contra el backend real (autenticación, roles, permis
 El service worker **solo existe en el build**: en `npm run dev` está desactivado. Para probarla en local:
 
 ```bash
-cd PPS-2026/frontend
+cd dodgeball-ba/frontend
 npm run build
 npm run preview
 ```
 Abrí la URL que muestra `preview` (normalmente http://localhost:4173) en Chrome: en la barra de direcciones aparece el ícono de **instalar**.
 
-- Instalarla en el **celular** exige HTTPS: usá https://pps-2026.vercel.app/ (menú del navegador → "Instalar app" / "Agregar a pantalla de inicio").
+- Instalarla en el **celular** exige HTTPS: usá https://dodgeball-ba.vercel.app/ (menú del navegador → "Instalar app" / "Agregar a pantalla de inicio").
 - No requiere variables de entorno ni paquetes extra (`vite-plugin-pwa` ya viene en `package.json`).
 - La app guarda en el dispositivo: tema, color, sonido silenciado y el estado del cronómetro offline. Para resetear, borrar los datos del sitio desde el navegador.
 

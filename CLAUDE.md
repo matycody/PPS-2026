@@ -1,4 +1,4 @@
-# PPS-2026 — Cronómetro y gestión de partidos de Dodgeball
+# Dodgeball BA (repo dodgeball-ba; TP de la PPS 2026) — Cronómetro y gestión de partidos de Dodgeball
 
 Contexto del proyecto para Claude Code. Este proyecto es el TP de Práctica Profesional Supervisada (PPS), curso de ingeniería de software basado en Scrum, con cliente real (Dodgeball Buenos Aires).
 
