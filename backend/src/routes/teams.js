@@ -1,6 +1,8 @@
 const express = require('express');
 const prisma = require('../db');
+const { VENUE_SELECT } = require('../lib/venue');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { activeSuspensions } = require('../services/sanctions');
 
 const router = express.Router();
 const admin = [authenticate, requireRole('ADMIN')];
@@ -31,6 +33,9 @@ function handleDbError(err, res) {
   console.error('[teams]', err);
   return res.status(500).json({ error: 'Error interno' });
 }
+
+// Escudos propios por rama: { MALE: url, FEMALE: url } (solo las que tienen)
+const branchLogos = (branches) => Object.fromEntries(branches.filter((b) => b.logo).map((b) => [b.branch, b.logo]));
 
 // Crear equipo
 router.post('/', ...admin, async (req, res) => {
@@ -69,6 +74,7 @@ router.get('/', async (req, res) => {
         id: t.id,
         name: t.name,
         logo: t.logo,
+        branchLogos: branchLogos(t.branches),
         branches: t.branches.map((b) => b.branch),
         modalities: t.modalities.map((m) => m.modality),
       }))
@@ -94,10 +100,13 @@ router.get('/:id', async (req, res) => {
     });
     if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
 
+    const sus = await activeSuspensions(team.players.map((p) => p.profile.id)).catch(() => new Map());
+
     res.json({
       id: team.id,
       name: team.name,
       logo: team.logo,
+      branchLogos: branchLogos(team.branches),
       nickname: team.nickname,
       city: team.city,
       foundedYear: team.foundedYear,
@@ -110,6 +119,7 @@ router.get('/:id', async (req, res) => {
         number: p.profile.showNumber ? p.profile.number : null,
         branch: p.branch,
         coach: p.isCoach,
+        suspension: sus.get(p.profile.id) || null,
       })),
     });
   } catch (err) {
@@ -141,7 +151,7 @@ router.get('/:id/posiciones', async (req, res) => {
     const { phasesFor } = require('../services/matchPhase');
 
     const tts = await prisma.tournamentTeam.findMany({
-      where: { teamId, tournament: { status: { not: 'DRAFT' }, pausedAt: null } },
+      where: { teamId, tournament: { status: { not: 'DRAFT' }, pausedAt: null, deletedAt: null } },
       include: { tournament: { select: { id: true, name: true, year: true, edition: true, branch: true, modality: true, format: true, status: true } } },
     });
 
@@ -158,7 +168,18 @@ router.get('/:id/posiciones', async (req, res) => {
       if (zone) {
         const data = await computeStandings(t.id, zone.id);
         const z = data && data.stages[0];
-        rows = z ? z.rows.map((r) => ({ position: r.position, tied: r.tied, team: r.team, played: r.played, won: r.won, drawn: r.drawn, lost: r.lost, points: r.points, setDiff: r.setDiff, form: r.form })) : [];
+        // Zona de cada fila (ascenso/descenso/playoff): la congelada si el torneo cerró; si no, según los cupos de la etapa
+        const frozen = t.status === 'FINISHED'
+          ? new Map((await prisma.stageStanding.findMany({ where: { stageId: zone.id }, select: { teamId: true, zone: true } })).map((x) => [x.teamId, x.zone]))
+          : null;
+        const total = z ? z.rows.length : 0;
+        const zoneOf = (pos) => {
+          if (pos <= (zone.promotions ?? 0)) return 'PROMOTION';
+          if (pos > total - (zone.relegations ?? 0) && (zone.relegations ?? 0) > 0) return 'RELEGATION';
+          if ((zone.playoffPositions ?? []).includes(pos)) return 'PLAYOFF';
+          return null;
+        };
+        rows = z ? z.rows.map((r) => ({ position: r.position, tied: r.tied, team: r.team, played: r.played, won: r.won, drawn: r.drawn, lost: r.lost, points: r.points, setDiff: r.setDiff, pointDiff: r.pointDiff, form: r.form, zone: frozen && frozen.has(r.team.id) ? frozen.get(r.team.id) : zoneOf(r.position) })) : [];
         const own = await prisma.match.findMany({ where: { stageId: zone.id, hiddenAt: null }, select: { status: true } });
         zoneDone = own.length > 0 && own.every((x) => x.status === 'FINISHED' || x.status === 'CANCELLED');
       }
@@ -172,7 +193,8 @@ router.get('/:id/posiciones', async (req, res) => {
           where: { stageId: { in: koIds }, hiddenAt: null },
           include: { sets: true },
         });
-        const spots = [...new Set(ko.flatMap((m) => [m.teamAFrom, m.teamBFrom]).filter((f) => f && f.stageId === zone.id).map((f) => f.position))].sort((x, y) => x - y);
+        const realKo = new Set(stages.filter((x) => x.type === 'KNOCKOUT' && !x.isPromotion).map((x) => x.id)); // la promoción no es un playoff de clasificación
+        const spots = [...new Set(ko.filter((m) => realKo.has(m.stageId)).flatMap((m) => [m.teamAFrom, m.teamBFrom]).filter((f) => f && f.stageId === zone.id).map((f) => f.position))].sort((x, y) => x - y);
         if (spots.length && mine) {
           qualification = { position: mine.position, zoneName: zone.name, done: zoneDone, inSpot: spots.includes(mine.position), maxSpot: spots[spots.length - 1] };
         }
@@ -199,14 +221,14 @@ router.get('/:id/posiciones', async (req, res) => {
         if (chain.length) {
           const full = await prisma.match.findMany({
             where: { id: { in: chain.map((m) => m.id) } },
-            include: { tournament: { select: { id: true, name: true } }, teamA: { select: POS_TEAM }, teamB: { select: POS_TEAM }, sets: { orderBy: { number: 'asc' } } },
+            include: { tournament: { select: { id: true, name: true } }, venue: { select: VENUE_SELECT }, teamA: { select: POS_TEAM }, teamB: { select: POS_TEAM }, sets: { orderBy: { number: 'asc' } } },
           });
           const phases = await phasesFor(full.map((m) => m.id)).catch(() => new Map());
           const order = new Map(chain.map((m, i) => [m.id, i]));
           playoffs = full
             .sort((x, y) => order.get(x.id) - order.get(y.id))
             .map((m) => ({
-              id: m.id, tournament: m.tournament, court: m.court, branch: m.branch, modality: m.modality, status: m.status,
+              id: m.id, tournament: m.tournament, court: m.court, venue: m.venue ?? null, branch: m.branch, modality: m.modality, status: m.status,
               scheduledAt: m.scheduledAt, finishedAt: m.finishedAt, statusReason: m.statusReason ?? null,
               originalScheduledAt: m.originalScheduledAt ?? null,
               teamA: m.teamA, teamB: m.teamB,
@@ -215,7 +237,7 @@ router.get('/:id/posiciones', async (req, res) => {
             }));
         }
       }
-      return { tournament: t, zone: zone ? { id: zone.id, name: zone.name } : null, zoneDone, rows, qualification, playoffs };
+      return { tournament: t, zone: zone ? { id: zone.id, name: zone.name, promotions: zone.promotions ?? 0, relegations: zone.relegations ?? 0, playoffPositions: zone.playoffPositions ?? [] } : null, zoneDone, rows, qualification, playoffs };
     }));
 
     items.sort((a, b) => (b.tournament.status === 'ACTIVE') - (a.tournament.status === 'ACTIVE') || b.tournament.year - a.tournament.year);

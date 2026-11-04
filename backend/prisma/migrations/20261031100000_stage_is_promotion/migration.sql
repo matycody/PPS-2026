@@ -1,0 +1,1 @@
+ALTER TABLE "Stage" ADD COLUMN "isPromotion" BOOLEAN NOT NULL DEFAULT false;

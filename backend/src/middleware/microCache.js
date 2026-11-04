@@ -2,6 +2,7 @@
 // - Miles de pedidos iguales dentro de la ventana se resuelven con una sola consulta a la base.
 // - Anti-estampida: si varios piden lo mismo mientras se calcula, esperan ese resultado en vez de repetir la consulta.
 // Cualquier escritura (POST/PATCH/PUT/DELETE) vacía el caché: los cambios se ven al instante.
+const { clearMemo } = require('../lib/memo');
 const TTL_MS = Number(process.env.MICROCACHE_TTL_MS) || 5000;
 const MAX_ENTRIES = 500;
 const MAX_WAITERS = 500;
@@ -18,9 +19,13 @@ function reply(res, hit, state) {
 function microCache(req, res, next) {
   if (req.method !== 'GET') {
     if (store.size) store.clear();
+    clearMemo();
+    res.on('finish', () => { store.clear(); clearMemo(); }); // y otra vez al terminar, por si un GET guardó datos viejos mientras se escribía
     return next();
   }
-  if (req.headers.authorization) return next(); // con sesión: la respuesta puede depender del rol
+  // Con sesión la respuesta puede depender del rol; el listado de partidos es igual para todos (salvo los ocultos del admin)
+  const sameForAll = req.path === '/matches' && req.query.hidden !== 'true';
+  if (req.headers.authorization && !sameForAll) return next();
   if (!PUBLIC_PREFIXES.some((p) => req.path === p || req.path.startsWith(p + '/'))) return next();
 
   const key = req.originalUrl;

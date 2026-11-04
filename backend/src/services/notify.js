@@ -1,6 +1,8 @@
 const prisma = require('../db');
+const { VENUE_SELECT } = require('../lib/venue');
 const { SERVER_EVENTS } = require('../timers/timerEvents');
 const { getPermissions } = require('./matchAccess');
+const { setsWithScore } = require('./scoreTimeline');
 const authCache = require('./authCache');
 const { getMatch } = require('../timers/matchManager');
 
@@ -44,6 +46,7 @@ async function notifyMatch(io, matchId) {
       where: { id: matchId },
       include: {
         tournament: { select: { id: true, name: true } },
+        venue: { select: VENUE_SELECT },
         teamA: { select: { id: true, name: true, logo: true } },
         teamB: { select: { id: true, name: true, logo: true } },
         sets: { orderBy: { number: 'asc' } },
@@ -59,6 +62,8 @@ async function notifyMatch(io, matchId) {
         if (engine.timeoutTeam !== null) engine.endTimeout();
         engine.pause('both');
       }
+      // El partido ya no está en juego: se descarta el reloj guardado (si no, se recuperaría al reiniciar)
+      require('../timers/clockStore').remove(matchId);
     }
 
     let a = 0;
@@ -80,17 +85,19 @@ async function notifyMatch(io, matchId) {
       matchId: m.id,
       tournament: m.tournament,
       court: m.court,
+      venue: m.venue ?? null,
       branch: m.branch,
       modality: m.modality,
       status: m.status,
       scheduledAt: m.scheduledAt,
+      timeSet: m.scheduledAt ? !!m.timeSet : false,
       readyAt: m.readyAt,
       finishedAt: m.finishedAt,
       statusReason: m.statusReason ?? null,
       originalScheduledAt: m.originalScheduledAt ?? null,
       teamA: m.teamA,
       teamB: m.teamB,
-      sets: m.sets.map((s) => ({ number: s.number, winnerTeamId: s.winnerTeamId, draw: s.winnerTeamId === null })),
+      sets: setsWithScore(m),
       score: { teamA: a, teamB: b },
     });
   } catch (err) {

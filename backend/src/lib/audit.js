@@ -1,11 +1,17 @@
 const prisma = require('../db');
 
 // Se registran los cambios (no las lecturas) de estas secciones
-const PREFIXES = ['/users', '/profiles', '/player-requests', '/teams', '/tournaments', '/matches', '/me'];
+const PREFIXES = ['/users', '/profiles', '/player-requests', '/teams', '/tournaments', '/matches', '/me', '/venues', '/news'];
 const SECRET = /pass|token|secret/i;
 const ID = /\/(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|c[a-z0-9]{20,})(?=\/|$)/gi;
 
 const LABELS = {
+  'POST /news': 'Publicó una noticia',
+  'PATCH /news/:id': 'Editó una noticia',
+  'DELETE /news/:id': 'Eliminó una noticia',
+  'POST /venues': 'Creó una sede',
+  'PATCH /venues/:id': 'Editó una sede',
+  'DELETE /venues/:id': 'Eliminó una sede',
   'POST /users/:id/promote': 'Hizo admin a un usuario',
   'POST /users/:id/demote': 'Quitó admin a un usuario',
   'DELETE /users/:id': 'Desactivó un usuario',
@@ -56,7 +62,45 @@ const LABELS = {
   'POST /matches/:id/sets': 'Cargó un set',
   'PATCH /matches/:id/sets/:n': 'Corrigió un set',
   'DELETE /matches/:id/sets/:n': 'Eliminó un set',
+  'POST /tournaments/:id/pause': 'Pausó un torneo',
+  'POST /tournaments/:id/resume': 'Reanudó un torneo',
+  'POST /tournaments/:id/reset': 'Reinició un torneo (borró resultados y relojes)',
+  'POST /tournaments/:id/restore': 'Restauró un torneo eliminado',
+  'DELETE /tournaments/:id/purge': 'Eliminó definitivamente un torneo',
+  'PATCH /tournaments/:id/stages/:id/bracket/rounds/:id': 'Cambió el día de una ronda de playoffs',
+  'POST /tournaments/:id/stages/:id/bracket/rounds/:id/assign-courts': 'Asignó las canchas de una ronda de playoffs',
+  'POST /matches/bulk-schedule': 'Armó una jornada (días, horarios y canchas)',
+  'POST /matches/:id/suspend': 'Suspendió un partido',
+  'POST /matches/:id/reschedule': 'Reprogramó un partido',
+  'PATCH /matches/:id/reason': 'Cambió el motivo de un partido',
+  'PUT /sanctions/:id/suspension': 'Definió una suspensión',
+  'DELETE /sanctions/:id/suspension': 'Quitó una suspensión',
+  'PATCH /me/username': 'Cambió su nombre de usuario',
+  'PUT /teams/:id/branch/:branch': 'Cambió el escudo de una rama de un equipo',
+  'DELETE /teams/:id/branch/:branch': 'Quitó el escudo de una rama de un equipo',
+  'PUT /teams/:id': 'Cambió el escudo de un equipo',
+  'DELETE /teams/:id/photo': 'Quitó la foto de un equipo',
+  'PUT /profiles/:id': 'Cambió la foto de una persona',
+  'DELETE /profiles/:id/photo': 'Quitó la foto de una persona',
+  'POST /matches/:id/sheet/reject': 'Anuló la planilla de juego (vuelven a estar todos disponibles)',
+  'POST /matches/:id/sheet/:id/confirm': 'Confirmó la planilla de juego (quiénes juegan el partido)',
+  'POST /venues/resolve': 'Buscó una sede',
 };
+
+// Texto entendible para quien no programa. Los movimientos viejos guardaron "MÉTODO /ruta": se traducen al mostrarlos.
+const RAW = /^(GET|POST|PUT|PATCH|DELETE) \//;
+function humanLabel(method, path, label) {
+  if (label && !RAW.test(label)) return label;
+  const key = label && RAW.test(label) ? label : method + ' ' + path;
+  if (LABELS[key]) return LABELS[key];
+  const verb = { POST: 'Hizo un cambio', PUT: 'Actualizó datos', PATCH: 'Editó datos', DELETE: 'Eliminó datos' }[key.split(' ')[0]] || 'Hizo un cambio';
+  const area = [
+    [/\/tournaments/, 'de un torneo'], [/\/matches/, 'de un partido'], [/\/teams/, 'de un equipo'], [/\/users/, 'de un usuario'],
+    [/\/profiles/, 'de una persona'], [/\/venues/, 'de una sede'], [/\/sanctions/, 'de una sanción'], [/\/me/, 'de su cuenta'],
+  ].find(([re]) => re.test(key));
+  return area ? verb + ' ' + area[1] : verb;
+}
+
 
 function clean(body) {
   if (!body || typeof body !== 'object' || !Object.keys(body).length) return undefined;
@@ -83,7 +127,7 @@ async function record(req, res, url) {
       actorEmail: req.user.email,
       method: req.method,
       path,
-      label: LABELS[key] || key,
+      label: humanLabel(req.method, path, LABELS[key]),
       targetId: ids.length ? ids.join(',') : null,
       status: res.statusCode,
       data: clean(req.body),
@@ -94,7 +138,7 @@ async function record(req, res, url) {
 function auditWrites(req, res, next) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
   const url = req.originalUrl.split('?')[0];
-  if (!PREFIXES.some((p) => url === p || url.startsWith(p + '/')) || url.includes('/photo')) return next();
+  if (!PREFIXES.some((p) => url === p || url.startsWith(p + '/')) || url.includes('/photo') || url === '/venues/resolve') return next();
   res.on('finish', () => {
     if (res.statusCode >= 400 || !req.user) return;
     record(req, res, url).catch((e) => console.error('[audit]', e.message));
@@ -102,4 +146,4 @@ function auditWrites(req, res, next) {
   next();
 }
 
-module.exports = { auditWrites };
+module.exports = { auditWrites, humanLabel };

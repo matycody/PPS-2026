@@ -56,6 +56,7 @@ model User {
   id         String   @id @default(uuid())
   supabaseId String?  @unique // null solo para admins del seed hasta su primer login
   email      String   @unique // fuente de verdad del mail
+  username   String?  @unique @db.VarChar(20) // para iniciar sesión; solo lo ve la organización (en minúsculas)
   roles      Role[] // vacÃ­o = usuario registrado
   profileId  String?  @unique
   photo      String?
@@ -67,6 +68,7 @@ model User {
   assignments    MatchAssignment[]
   clockActions   ClockAction[]
   playerRequests PlayerRequest[]
+  predictions    Prediction[]
 }
 
 // Perfil inscripto por la organizaciÃ³n (jugador y/o Ã¡rbitro)
@@ -94,6 +96,8 @@ model Profile {
   user        User?
   teams       PlayerTeam[]
   assignments MatchAssignment[]
+  sanctions   MatchSanction[]
+  suspensions PlayerSuspension[]
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Equipos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -102,6 +106,8 @@ model Team {
   id   String  @id @default(uuid())
   name String
   logo String?
+  news News[]
+  penalties TeamPenalty[]
 
   nickname    String? @db.VarChar(40) // apodo del equipo (banner público)
   city        String? @db.VarChar(60)
@@ -124,6 +130,7 @@ model Team {
 model TeamBranch {
   teamId String
   branch Branch
+  logo   String? // escudo propio de esta rama (si no tiene, se usa Team.logo)
 
   team Team @relation(fields: [teamId], references: [id])
 
@@ -172,12 +179,15 @@ model Tournament {
   year       Int
   edition    String?
   format     TournamentFormat @default(LEAGUE)
+  formatLabel String? // nombre del formato a gusto de la organización (opcional); si es null se muestra el del formato
   status     TournamentStatus @default(DRAFT)
   pointsWin  Int              @default(3)
   pointsDraw Int              @default(1)
   pointsLoss Int              @default(0)
   championId String?
+  logo       String? // imagen del torneo (bucket público); sin imagen se muestra la inicial
   pausedAt   DateTime? // pausado: oculto para todos menos la organización; null = visible
+  deletedAt  DateTime? // en "Eliminados": no lo ve nadie (ni la organización) hasta restaurarlo o borrarlo definitivamente
 
   champion    Team?            @relation("TournamentChampion", fields: [championId], references: [id])
   matches     Match[]
@@ -197,6 +207,7 @@ model Match {
   modality     Modality
   status       MatchStatus @default(SCHEDULED)
   scheduledAt  DateTime? // informativa
+  timeSet      Boolean   @default(false) // false = solo se conoce el día; el horario se carga después (no se muestra)
   teamAId      String?
   teamBId      String?
   readyAt      DateTime?
@@ -214,6 +225,10 @@ model Match {
   assignments  MatchAssignment[]
   sets         MatchSet[]
   clockActions ClockAction[]
+  clock        MatchClock?
+  sanctions    MatchSanction[]
+  predictions  Prediction[]
+  closingOdds  Json? // cuotas con las que cerró el prode (al habilitarse el partido)
 
   stageId    String?
   matchdayId String?
@@ -223,6 +238,9 @@ model Match {
   matchday   Matchday? @relation(fields: [matchdayId], references: [id])
 
   // Llaves: a que partido pasa el ganador / el perdedor
+  venueId    String?
+  venue      Venue?    @relation(fields: [venueId], references: [id])
+
   nextMatchId  String?
   nextSide     MatchSide?
   loserMatchId String?
@@ -235,6 +253,7 @@ model Match {
   @@index([tournamentId])
   @@index([stageId])
   @@index([matchdayId])
+  @@index([venueId])
   @@index([status])
   @@index([scheduledAt])
   @@index([teamAId])
@@ -271,6 +290,10 @@ model MatchSet {
   matchId      String
   number       Int
   winnerTeamId String?
+  // Cuándo se decidió el set (queda registrado para siempre): tiempo (1 o 2) y segundos jugados de ese tiempo
+  half         Int?
+  matchSecond  Int?
+  createdAt    DateTime @default(now())
 
   match      Match @relation(fields: [matchId], references: [id])
   winnerTeam Team? @relation("SetWinner", fields: [winnerTeamId], references: [id])
@@ -294,6 +317,29 @@ model ClockAction {
   @@index([matchId])
 }
 
+// Estado del reloj de un partido Habilitado/En vivo: se guarda para recuperarlo si el servidor se reinicia.
+// Los tiempos son segundos restantes al momento de savedAt. Al recuperarse siempre queda en pausa.
+model MatchClock {
+  matchId            String   @id
+  matchTimeLeft      Int
+  setTimeLeft        Int
+  timeoutTimeLeft    Int
+  isMatchPaused      Boolean
+  isSetPaused        Boolean
+  isTimeoutRunning   Boolean
+  matchHalf          Int      @default(1)
+  clothAutoResetUsed Boolean  @default(false)
+  matchEnded         Boolean  @default(false)
+  sanctions          Json     @default("[]") // amarillas y azules con tiempo afuera en curso
+  timeoutTeam        String? // "A" | "B" mientras hay un tiempo muerto en curso
+  timeoutHalf        Int?
+  timeoutsUsed       Json // { A: { 1, 2 }, B: { 1, 2 } }
+  resumeAfterTimeout Json // { match, set }
+  savedAt            DateTime @default(now())
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+}
+
 model MatchResultLog {
   id          String   @id @default(uuid())
   matchId     String // sin relación: sobrevive a la eliminación definitiva del partido
@@ -311,7 +357,7 @@ model MatchResultLog {
 
 model Favorite {
   userId     String
-  targetType String // TEAM | PLAYER
+  targetType String // TEAM | PLAYER | TOURNAMENT
   targetId   String
 
   user User @relation(fields: [userId], references: [id])
@@ -391,6 +437,7 @@ enum StageType {
   KNOCKOUT
 }
 
+// Los nombres quedan por compatibilidad: SET_DIFFERENCE se calcula como diferencia de PUNTOS y SETS_WON como puntos a favor
 enum TiebreakerCriterion {
   HEAD_TO_HEAD
   SET_DIFFERENCE
@@ -419,12 +466,15 @@ model Stage {
   tier         Int?
   promotions   Int       @default(0)
   relegations  Int       @default(0)
+  isPromotion  Boolean   @default(false) // etapa generada sola para el playoff de ascenso/permanencia
+  playoffPositions Int[] @default([]) // posiciones (a elección de la organización) que juegan el playoff de ascenso/permanencia
 
   tournament Tournament      @relation(fields: [tournamentId], references: [id])
   teams      StageTeam[]
   matchdays  Matchday[]
   matches    Match[]
   standings  StageStanding[]
+  penalties  TeamPenalty[]
 
   @@index([tournamentId])
 }
@@ -473,8 +523,8 @@ model StageStanding {
   won         Int
   drawn       Int
   lost        Int
-  setsFor     Int
-  setsAgainst Int
+  setsFor     Int // al congelar la tabla guarda los puntos de juego a favor (PJ)
+  setsAgainst Int // y en contra (PC)
   stage       Stage   @relation(fields: [stageId], references: [id])
   team        Team    @relation(fields: [teamId], references: [id])
   tied        Boolean @default(false)
@@ -487,4 +537,183 @@ model StageStanding {
 enum MatchSide {
   A
   B
+}
+
+
+// Sedes (polideportivos) donde se juegan los partidos; las carga la organización
+model Venue {
+  id        String    @id @default(uuid())
+  name      String    @db.VarChar(80)
+  address   String    @db.VarChar(160)
+  latitude  Float?
+  longitude Float?
+  mapUrl    String?   @db.VarChar(300) // enlace pegado desde Google/Apple Maps (opcional)
+  courts    Int? // canchas disponibles habitualmente (sugerencia al armar la jornada)
+  notes     String?   @db.VarChar(300)
+  deletedAt DateTime? // baja lógica: los partidos que la usaron la conservan
+  createdAt DateTime  @default(now())
+
+  matches Match[]
+
+  @@index([deletedAt])
+}
+
+
+enum SanctionKind {
+  WARNING // advertencia (solo Foam): la 2.ª del mismo jugador lo elimina
+  YELLOW // 5 minutos afuera (Foam y Cloth)
+  BLUE // solo Cloth: 3 minutos o 2 sets afuera, lo que ocurra primero
+  RED // expulsión del jugador: queda para el departamento de sanciones
+}
+
+// Sanciones de un partido (quedan registradas para siempre; deshacer = revokedAt)
+model MatchSanction {
+  id          String       @id @default(uuid())
+  matchId     String
+  side        MatchSide // equipo sancionado
+  profileId   String? // jugador (opcional: se puede sancionar sin identificarlo)
+  kind        SanctionKind
+  eliminates  Boolean      @default(false) // advertencia que eliminó al jugador (2.ª en Foam)
+  reason      String?      @db.VarChar(200)
+  half        Int? // tiempo (1 o 2)
+  setNumber   Int? // set en juego al sancionar
+  matchSecond Int? // segundos jugados de ese tiempo
+  createdById String?
+  createdAt   DateTime     @default(now())
+  endedAt     DateTime? // la amarilla o azul terminó sola
+  revokedAt   DateTime? // la mesa la deshizo
+
+  match   Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  profile Profile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  suspension PlayerSuspension?
+
+  @@index([matchId])
+  @@index([profileId])
+}
+
+// Decision del departamento de sanciones sobre una roja (fechas=0 y sameDay=false: evaluada sin suspension)
+model PlayerSuspension {
+  id          String   @id @default(uuid())
+  sanctionId  String?  @unique // null = sanción de torneo sin partido (ej. tirar la pelota a otro partido a propósito)
+  tournamentId String? // torneo de una sanción sin partido
+  modality    Modality? // modalidad de referencia de una sanción sin partido
+  categories  String[]  @default([]) // sanción sin partido: modalidad:rama donde rige (ej. FOAM:MIXED, CLOTH:MALE); vacío = usa modality/scope
+  reason      String?  @db.VarChar(200) // motivo de una sanción sin partido
+  sourceAt    DateTime? // desde cuándo cuenta una sanción sin partido
+  profileId   String
+  fechas      Int      @default(0) // fechas completas posteriores a la roja
+  sameDay     Boolean  @default(false) // tambien queda afuera lo que resta de la misma jornada
+  scope       String   @default("MODALITY") // MODALITY = solo la modalidad de la roja | ALL = todas las modalidades y equipos
+  note        String?  @db.VarChar(300)
+  decidedById String?
+  createdAt   DateTime @default(now())
+  revokedAt   DateTime?
+
+  sanction MatchSanction? @relation(fields: [sanctionId], references: [id], onDelete: Cascade)
+  profile  Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([tournamentId])
+}
+
+
+// Noticias de la liga: las publica la organización (después se define quién más puede redactar)
+model News {
+  id          String    @id @default(uuid())
+  title       String    @db.VarChar(140)
+  summary     String?   @db.VarChar(280) // bajada corta que se ve en el listado
+  body        String    @db.Text
+  imageUrl    String?   @db.VarChar(500) // portada opcional
+  teamId      String? // si es de un equipo, aparece en "Mi equipo"
+  authorId    String
+  authorName  String    @db.VarChar(80) // se guarda el nombre para mostrarlo aunque la cuenta cambie
+  publishedAt DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime? // baja lógica
+
+  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@index([publishedAt])
+  @@index([teamId])
+}
+
+
+// Planilla de juego fotografiada por la mesa. Queda guardada siempre (auditoría): no se borra ni se pisa.
+model MatchSheet {
+  id            String    @id @default(uuid())
+  matchId       String
+  kind          String    @default("PRE") @db.VarChar(8) // PRE = antes del partido
+  imagePath     String // en el bucket privado match-sheets
+  sha256        String    @db.VarChar(64) // huella de la foto original
+  mime          String    @db.VarChar(30)
+  bytes         Int
+  uploadedById  String
+  uploadedAt    DateTime  @default(now())
+  provider      String?   @db.VarChar(20) // quién la leyó (gemini)
+  aiModel       String?   @db.VarChar(60)
+  extracted     Json? // lo que leyó la herramienta, sin tocar
+  aiError       String?   @db.VarChar(300)
+  confirmed     Json? // lo que confirmó la mesa
+  status        String    @default("PENDING") @db.VarChar(12) // PENDING | CONFIRMED | SUPERSEDED | REJECTED
+  confirmedById String?
+  confirmedAt   DateTime?
+
+  @@index([matchId, uploadedAt])
+}
+
+// Quién juega el partido según la planilla confirmada (los demás se ven en gris)
+model MatchAttendance {
+  id        String  @id @default(uuid())
+  matchId   String
+  profileId String
+  teamId    String
+  present   Boolean
+  sheetId   String
+
+  @@unique([matchId, profileId])
+  @@index([matchId])
+}
+
+// ─────────────── Prode (predicciones con puntos, sin dinero) ───────────────
+// Una predicción por usuario y partido. "points" es lo que vale acertar y se congela al predecir.
+// Si acertó o no se calcula siempre con el resultado actual del partido (si se corrige un resultado, el ranking se corrige solo).
+model Prediction {
+  id        String   @id @default(uuid())
+  userId    String
+  matchId   String
+  pick      String   // A | DRAW | B
+  points    Int      @default(10) // al cerrar queda el total (base × bonus); antes es solo un valor provisorio
+  pickedAt  DateTime @default(now()) // desde cuándo vale esta elección (arranca el reloj del bonus; se reinicia solo si cambia el pick)
+  closedAt  DateTime? // cuándo se congelaron base y bonus (el partido pasó a Habilitado)
+  cuota     Float? // cuota que tenía la elección al cerrar
+  bonus     Float? // multiplicador por anticipación al cerrar
+  voidedAt  DateTime? // predicción anulada (la persona fue designada mesa o árbitro del partido): no suma ni cuenta
+  voidReason String? // TABLE | REFEREE
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id])
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, matchId])
+  @@index([matchId])
+}
+
+// Quita de puntos a un equipo en la tabla de una zona (ej. no presentó árbitros de línea o mesa: 1 punto por cada persona faltante)
+model TeamPenalty {
+  id          String   @id @default(uuid())
+  stageId     String
+  teamId      String
+  points      Int // puntos que se restan (>0)
+  kind        String   @default("STAFF") // STAFF (faltan árbitros/mesa) | NO_SHOW | LATE | NO_PLAYERS | AGGRESSION | OTHER
+  missing     String[] @default([]) // LINE | TABLE por cada persona que faltó (solo kind STAFF)
+  reason      String?  @db.VarChar(200)
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  stage Stage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  team  Team  @relation(fields: [teamId], references: [id])
+
+  @@index([stageId])
+  @@index([teamId])
 }

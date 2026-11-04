@@ -4,12 +4,12 @@ const supabaseAdmin = require('../lib/supabaseAdmin');
 
 const PHOTOS_BUCKET = 'photos'; // privado: URL firmadas solo para cuentas con sesión
 const LOGOS_BUCKET = 'team-logos'; // público: escudos y logos
+const SHEETS_BUCKET = 'match-sheets'; // privado: planillas de juego (auditoría, solo la organización)
 const SIGNED_TTL = 60 * 60; // 1 hora
-const ALLOWED = ['jpeg', 'png', 'webp'];
 
 const rawImage = express.raw({
-  type: ['image/jpeg', 'image/png', 'image/webp'],
-  limit: '5mb',
+  type: 'image/*', // cualquier formato de imagen: sharp valida que sea real y la pasa a WebP
+  limit: '15mb',
 });
 
 // El cuerpo de la request ES la imagen (con su Content-Type)
@@ -18,11 +18,11 @@ function imageBody(req, res, next) {
     if (err) {
       return res
         .status(err.status === 413 ? 413 : 400)
-        .json({ error: 'Imagen inválida o mayor a 5 MB' });
+        .json({ error: 'Imagen inválida o mayor a 15 MB' });
     }
     if (!Buffer.isBuffer(req.body) || !req.body.length) {
       return res.status(400).json({
-        error: 'Enviá la imagen (JPG, PNG o WebP, máx. 5 MB) como cuerpo, con su Content-Type',
+        error: 'Enviá la imagen (máx. 15 MB) como cuerpo, con su Content-Type',
       });
     }
     next();
@@ -32,7 +32,7 @@ function imageBody(req, res, next) {
 let ready = false;
 async function ensureBuckets() {
   if (ready) return;
-  for (const [name, isPublic] of [[PHOTOS_BUCKET, false], [LOGOS_BUCKET, true]]) {
+  for (const [name, isPublic] of [[PHOTOS_BUCKET, false], [LOGOS_BUCKET, true], [SHEETS_BUCKET, false]]) {
     const { error } = await supabaseAdmin.storage.createBucket(name, { public: isPublic });
     const exists = error && (String(error.statusCode) === '409' || /already exists|duplicate/i.test(error.message));
     if (error && !exists) throw error;
@@ -40,7 +40,7 @@ async function ensureBuckets() {
   ready = true;
 }
 
-// Valida que sea una imagen real (JPG/PNG/WebP), la orienta, redimensiona y pasa a WebP
+// Valida que sea una imagen real (cualquier formato que sharp lea), la orienta, redimensiona y pasa a WebP
 async function processImage(buffer, kind) {
   let meta;
   try {
@@ -48,12 +48,13 @@ async function processImage(buffer, kind) {
   } catch (err) {
     throw new Error('INVALID_IMAGE');
   }
-  if (!ALLOWED.includes(meta.format)) throw new Error('INVALID_IMAGE');
+  if (!meta.format || !meta.width) throw new Error('INVALID_IMAGE');
 
   const img = sharp(buffer).rotate();
   if (kind === 'photo') img.resize(512, 512, { fit: 'cover' });
+  else if (kind === 'cover') img.resize(1280, 1280, { fit: 'inside', withoutEnlargement: true });
   else img.resize(512, 512, { fit: 'inside', withoutEnlargement: true });
-  return img.webp({ quality: 80 }).toBuffer();
+  return img.webp({ quality: kind === 'cover' ? 82 : 80 }).toBuffer();
 }
 
 async function uploadPhoto(path, buffer) {
@@ -72,6 +73,18 @@ async function uploadLogo(path, buffer) {
   if (error) throw error;
   const { data } = supabaseAdmin.storage.from(LOGOS_BUCKET).getPublicUrl(path);
   return data.publicUrl + '?v=' + Date.now();
+}
+
+// Planilla original, sin tocarla (queda para auditoría)
+async function uploadSheet(path, buffer, mime) {
+  await ensureBuckets();
+  const { error } = await supabaseAdmin.storage.from(SHEETS_BUCKET).upload(path, buffer, { contentType: mime, upsert: false });
+  if (error) throw error;
+}
+
+async function signedSheetUrl(path) {
+  const { data, error } = await supabaseAdmin.storage.from(SHEETS_BUCKET).createSignedUrl(path, SIGNED_TTL);
+  return error ? null : data.signedUrl;
 }
 
 async function removeFile(bucket, path) {
@@ -101,6 +114,8 @@ module.exports = {
   processImage,
   uploadPhoto,
   uploadLogo,
+  uploadSheet,
+  signedSheetUrl,
   removeFile,
   signedUrl,
   signedUrls,

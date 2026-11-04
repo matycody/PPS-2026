@@ -3,6 +3,7 @@ const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { computeStandings } = require('../services/standings');
 const { decide } = require('../services/bracket');
+const { knockoutChampion } = require('../services/champion');
 
 const router = express.Router();
 const admin = [authenticate, requireRole('ADMIN')];
@@ -47,20 +48,6 @@ router.post('/:id/activate', ...admin, async (req, res) => {
   }
 });
 
-function knockoutChampion(stages, matchesByStage) {
-  const ko = stages.filter((s) => s.type === 'KNOCKOUT');
-  if (!ko.length) return null;
-  const top = Math.max(...ko.map((s) => s.phase));
-  const last = ko.filter((s) => s.phase === top);
-  if (last.length !== 1) return null;
-  const ms = matchesByStage.get(last[0].id) || [];
-  if (!ms.length) return null;
-  const maxRound = Math.max(...ms.map((m) => m.round || 0));
-  const final = ms.find((m) => m.round === maxRound && m.slot === 1);
-  const res = final && final.status === 'FINISHED' ? decide(final) : null;
-  return res ? res.winnerTeamId : null;
-}
-
 // Cierra el torneo: congela las tablas de las zonas y registra el campeón.
 // Body: championId (opcional, para definirlo a mano), force (cerrar con partidos sin terminar)
 router.post('/:id/close', ...admin, async (req, res) => {
@@ -76,7 +63,7 @@ router.post('/:id/close', ...admin, async (req, res) => {
     const matches = await prisma.match.findMany({
       where: { tournamentId: t.id, hiddenAt: null },
       select: {
-        id: true, stageId: true, round: true, slot: true, status: true, teamAId: true, teamBId: true,
+        id: true, stageId: true, round: true, slot: true, status: true, teamAId: true, teamBId: true, loserMatchId: true,
         sets: { select: { winnerTeamId: true } },
       },
     });
@@ -118,8 +105,8 @@ router.post('/:id/close', ...admin, async (req, res) => {
           won: r.won,
           drawn: r.drawn,
           lost: r.lost,
-          setsFor: r.setsFor,
-          setsAgainst: r.setsAgainst,
+          setsFor: r.pointsFor, // se congelan los puntos de juego (PJ / PC)
+          setsAgainst: r.pointsAgainst,
           tied: !!r.tied,
           zone: r.zone || null,
         });
@@ -127,7 +114,7 @@ router.post('/:id/close', ...admin, async (req, res) => {
     }
 
     // Torneo solo de liga sin campeón definido a mano: líder único de la zona de mayor nivel
-    if (!championId && (t.format === 'LEAGUE' || !t.stages.some((s) => s.type === 'KNOCKOUT'))) {
+    if (!championId && (t.format === 'LEAGUE' || !t.stages.some((s) => s.type === 'KNOCKOUT' && !s.isPromotion))) {
       const leagues = t.stages.filter((s) => s.type === 'LEAGUE');
       const topPhase = Math.max(...leagues.map((s) => s.phase));
       const topTier = Math.min(...leagues.filter((s) => s.phase === topPhase).map((s) => s.tier ?? 1));
@@ -170,7 +157,7 @@ router.get('/:id/final-standings', async (req, res) => {
       where: { tournamentId: t.id, standings: { some: {} } },
       orderBy: [{ phase: 'asc' }, { tier: 'asc' }, { name: 'asc' }],
       select: {
-        id: true, name: true, phase: true, tier: true, promotions: true, relegations: true,
+        id: true, name: true, phase: true, tier: true, promotions: true, relegations: true, playoffPositions: true,
         standings: { orderBy: [{ position: 'asc' }], include: { team: { select: TEAM_SELECT } } },
       },
     });

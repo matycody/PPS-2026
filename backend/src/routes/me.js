@@ -2,6 +2,7 @@ const express = require('express');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const storage = require('../services/storage');
+const { teamCareer } = require('../services/teamCareer');
 
 const router = express.Router();
 
@@ -13,12 +14,12 @@ const NUMBER_MAX = 999;
 // Ítems de menú por rol (el front solo los renderiza)
 const MENU = {
   BASE: ['home', 'favoritos', 'perfil'],
-  PLAYER: ['mis_partidos', 'mi_equipo', 'mis_estadisticas'],
-  REFEREE: ['mis_partidos_asignados'],
-  TABLE: ['control_mesa'], // solo si tiene una mesa asignada en un partido activo
+  PLAYER: ['mis_partidos', 'mi_equipo', 'mis_estadisticas', 'asignaciones'], // todo jugador ve Control de mesa (vacío si no tiene partidos asignados); los permisos reales siguen siendo por asignación
+  REFEREE: ['asignaciones'], // pantalla única: Dirección de árbitro + Control de mesa
+  TABLE: ['asignaciones'], // quien no es jugador lo recibe solo si tiene una mesa asignada en un partido activo
   ADMIN: [
-    'dashboard_canchas', 'torneos', 'partidos', 'equipos',
-    'personas', 'importar_excel', 'usuarios', 'registro_ediciones',
+    'dashboard_canchas', 'torneos', 'partidos', 'equipos', 'sedes', 'sanciones',
+    'asignaciones', 'personas', 'importar_excel', 'usuarios', 'planillas', 'registro_ediciones',
   ],
 };
 
@@ -26,6 +27,7 @@ function buildMenu(roles, hasTable) {
   const items = new Set(MENU.BASE);
   for (const role of roles) (MENU[role] || []).forEach((i) => items.add(i));
   if (hasTable) MENU.TABLE.forEach((i) => items.add(i));
+  if (items.has('asignaciones')) items.add('historial_asignaciones'); // entrada aparte en el menú
   return [...items];
 }
 
@@ -80,7 +82,7 @@ async function loadProfile(profileId) {
 
 router.get('/', authenticate, async (req, res) => {
   try {
-    const { id, email, roles, profileId } = req.user;
+    const { id, email, roles, profileId, username } = req.user;
 
     const tableOr = [{ function: 'TABLE', userId: id }];
     if (profileId) {
@@ -92,7 +94,7 @@ router.get('/', authenticate, async (req, res) => {
       where: { OR: tableOr, match: { status: { in: ACTIVE }, hiddenAt: null } },
     });
 
-    res.json({ user: { id, email, roles, profileId }, menu: buildMenu(roles, tableCount > 0) });
+    res.json({ user: { id, email, username, roles, profileId }, menu: buildMenu(roles, tableCount > 0) });
   } catch (err) {
     console.error('[me]', err);
     res.status(500).json({ error: 'Error interno' });
@@ -100,6 +102,28 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // Mis partidos asignados (árbitro y/o mesa, por cuenta, por perfil o por equipo): pasados y futuros, sin los ocultos
+// Nombre de usuario para iniciar sesión (solo lo ve la organización). null lo quita.
+const USERNAME_RE = /^[a-z0-9._]{3,20}$/;
+router.patch('/username', authenticate, async (req, res) => {
+  try {
+    const raw = req.body?.username;
+    const username = raw === null ? null : typeof raw === 'string' ? raw.trim().toLowerCase() : undefined;
+    if (username === undefined || (username !== null && !USERNAME_RE.test(username))) {
+      return res.status(400).json({ error: 'Usuario inválido: 3 a 20 caracteres, solo letras, números, punto y guion bajo' });
+    }
+    try {
+      await prisma.user.update({ where: { id: req.user.id }, data: { username } });
+    } catch (err) {
+      if (err.code === 'P2002') return res.status(409).json({ error: 'Ese usuario ya está en uso' });
+      throw err;
+    }
+    res.json({ username });
+  } catch (err) {
+    console.error('[me]', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 router.get('/assignments', authenticate, async (req, res) => {
   try {
     const or = [{ function: 'TABLE', userId: req.user.id }];
@@ -145,6 +169,7 @@ router.get('/assignments', authenticate, async (req, res) => {
           modality: r.match.modality,
           status: r.match.status,
           scheduledAt: r.match.scheduledAt,
+          timeSet: r.match.scheduledAt ? !!r.match.timeSet : false,
           finishedAt: r.match.finishedAt,
           teamA: r.match.teamA,
           teamB: r.match.teamB,
@@ -158,6 +183,85 @@ router.get('/assignments', authenticate, async (req, res) => {
 });
 
 // Mi ficha: datos propios, equipos actuales por rama y foto
+// Estadísticas propias del jugador, a partir de los partidos de sus equipos actuales (por rama) y de sus sanciones
+function score(m) {
+  const win = m.modality === 'CLOTH' ? 2 : 1;
+  let a = 0;
+  let b = 0;
+  for (const st of m.sets) {
+    if (!st.winnerTeamId) { if (m.modality === 'CLOTH') { a += 1; b += 1; } }
+    else if (st.winnerTeamId === m.teamAId) a += win;
+    else if (st.winnerTeamId === m.teamBId) b += win;
+  }
+  return { a, b };
+}
+
+router.get('/stats', authenticate, async (req, res) => {
+  try {
+    const { profileId } = req.user;
+    if (!profileId) return res.json({ teams: [], total: null, form: [], recent: [], next: null, medals: { gold: 0, silver: 0, bronze: 0 }, career: [], sanctions: null });
+    const pts = await prisma.playerTeam.findMany({
+      where: { profileId, to: null },
+      include: { team: { select: { id: true, name: true, logo: true } } },
+    });
+    const TEAM = { id: true, name: true, logo: true };
+    const rows = [];
+    const upcoming = [];
+    const career = [];
+    for (const pt of pts) {
+      const where = { branch: pt.branch, hiddenAt: null, OR: [{ teamAId: pt.teamId }, { teamBId: pt.teamId }] };
+      const [done, next, car] = await Promise.all([
+        prisma.match.findMany({
+          where: { ...where, status: 'FINISHED' },
+          select: { id: true, modality: true, teamAId: true, teamBId: true, finishedAt: true, scheduledAt: true, tournament: { select: { name: true, year: true } }, teamA: { select: TEAM }, teamB: { select: TEAM }, sets: { select: { winnerTeamId: true } } },
+        }),
+        prisma.match.findFirst({
+          where: { ...where, status: { in: ['SCHEDULED', 'READY', 'LIVE'] } },
+          orderBy: [{ scheduledAt: { sort: 'asc', nulls: 'last' } }],
+          select: { id: true, status: true, scheduledAt: true, tournament: { select: { name: true } }, teamA: { select: TEAM }, teamB: { select: TEAM } },
+        }),
+        teamCareer(pt.teamId, { branch: pt.branch }).catch(() => []),
+      ]);
+      for (const m of done) {
+        const sc = score(m);
+        const mineIsA = m.teamAId === pt.teamId;
+        const mine = mineIsA ? sc.a : sc.b;
+        const other = mineIsA ? sc.b : sc.a;
+        rows.push({ id: m.id, teamId: pt.teamId, branch: pt.branch, tournament: m.tournament?.name ?? null, year: m.tournament?.year ?? null, rival: mineIsA ? m.teamB : m.teamA, mine, other, res: mine > other ? 'G' : mine < other ? 'P' : 'E', date: m.finishedAt ?? m.scheduledAt });
+      }
+      if (next) upcoming.push({ id: next.id, status: next.status, scheduledAt: next.scheduledAt, tournament: next.tournament?.name ?? null, teamId: pt.teamId, rival: next.teamA?.id === pt.teamId ? next.teamB : next.teamA });
+      car.forEach((c) => career.push({ ...c, teamId: pt.teamId, teamName: pt.team.name, branch: pt.branch }));
+    }
+    rows.sort((x, y) => new Date(y.date ?? 0) - new Date(x.date ?? 0));
+    upcoming.sort((x, y) => (x.scheduledAt ? new Date(x.scheduledAt).getTime() : Infinity) - (y.scheduledAt ? new Date(y.scheduledAt).getTime() : Infinity));
+    const count = (r) => rows.filter((x) => x.res === r).length;
+    const total = { played: rows.length, won: count('G'), drawn: count('E'), lost: count('P') };
+    total.pct = total.played ? Math.round((total.won / total.played) * 100) : 0;
+    const kinds = (k) => career.filter((c) => c.result?.kind === k).length;
+
+    const sanc = await prisma.matchSanction.findMany({
+      where: { profileId, revokedAt: null },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, matchId: true, kind: true, reason: true, createdAt: true, match: { select: { tournament: { select: { name: true } }, teamA: { select: { name: true } }, teamB: { select: { name: true } } } } },
+    });
+    const sc = (k) => sanc.filter((x) => x.kind === k).length;
+
+    res.json({
+      teams: pts.map((p) => ({ ...p.team, branch: p.branch })),
+      total,
+      form: rows.slice(0, 5).map((x) => x.res),
+      recent: rows.slice(0, 5),
+      next: upcoming[0] ?? null,
+      medals: { gold: kinds('CHAMPION'), silver: kinds('RUNNER_UP'), bronze: kinds('THIRD') },
+      career: career.filter((c) => c.result).sort((x, y) => (y.year ?? 0) - (x.year ?? 0)).slice(0, 12),
+      sanctions: { total: sanc.length, warning: sc('WARNING'), yellow: sc('YELLOW'), blue: sc('BLUE'), red: sc('RED'), recent: sanc.slice(0, 5).map((x) => ({ id: x.id, matchId: x.matchId, kind: x.kind, reason: x.reason, date: x.createdAt, tournament: x.match?.tournament?.name ?? null, vs: [x.match?.teamA?.name, x.match?.teamB?.name].filter(Boolean).join(' vs ') })) },
+    });
+  } catch (err) {
+    console.error('[me/stats]', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 router.get('/profile', authenticate, async (req, res) => {
   try {
     const { id, email, roles, profileId } = req.user;

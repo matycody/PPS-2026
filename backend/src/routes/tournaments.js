@@ -1,6 +1,19 @@
 const express = require('express');
 const prisma = require('../db');
+const { podiums } = require('../services/podium');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { FEED_ROOM, notifyMatch } = require('../services/notify');
+const { removeMatch } = require('../timers/matchManager');
+
+// Avisa a quienes tienen la app abierta que un torneo se pausó o reanudó (para que recarguen sus listas)
+function emitTournamentUpdate(req, tournamentId, pausedAt) {
+  try {
+    const io = req.app.get('io');
+    if (io) io.to(FEED_ROOM).emit('tournament:updated', { tournamentId, pausedAt: pausedAt ?? null });
+  } catch (err) {
+    console.error('[tournament:updated]', err);
+  }
+}
 
 const router = express.Router();
 const admin = [authenticate, requireRole('ADMIN')];
@@ -8,6 +21,15 @@ const admin = [authenticate, requireRole('ADMIN')];
 const BRANCHES = ['MIXED', 'MALE', 'FEMALE'];
 const MODALITIES = ['FOAM', 'CLOTH'];
 const FORMATS = ['LEAGUE', 'LEAGUE_CUP', 'CUP'];
+// Borra partidos y todo lo que cuelga de ellos (solo con el torneo pausado)
+async function wipeMatches(tx, where) {
+  const w = { match: where };
+  await tx.clockAction.deleteMany({ where: w });
+  await tx.matchSet.deleteMany({ where: w });
+  await tx.matchAssignment.deleteMany({ where: w });
+  await tx.match.deleteMany({ where });
+}
+
 const STATUSES = ['DRAFT', 'ACTIVE', 'FINISHED'];
 const CRITERIA = ['HEAD_TO_HEAD', 'SET_DIFFERENCE', 'SETS_WON', 'WINS', 'DRAW_LOT'];
 // Valores por defecto: el organizador los puede cambiar, agregar y reordenar por torneo
@@ -35,6 +57,13 @@ function parseEdition(v) {
   if (v === undefined || v === null || v === '') return null;
   const s = String(v).trim();
   return s && s.length <= 30 ? s : undefined; // undefined = inválida
+}
+
+// Nombre del formato a gusto de la organización: vacío = usa el del formato; undefined = inválido (máx. 40)
+function parseFormatLabel(v) {
+  if (v === undefined || v === null || v === '') return null;
+  const s = String(v).trim();
+  return s && s.length <= 40 ? s : undefined;
 }
 
 // Lista ordenada de criterios sin repetir; null = inválida
@@ -68,6 +97,7 @@ router.post('/', ...admin, async (req, res) => {
     const endsAt = parseDate(b.endsAt);
     const year = parseYear(b.year);
     const edition = parseEdition(b.edition);
+    const formatLabel = parseFormatLabel(b.formatLabel);
     const format = b.format === undefined ? 'LEAGUE' : b.format;
     const tiebreakers = b.tiebreakers === undefined ? DEFAULT_TIEBREAKERS : parseTiebreakers(b.tiebreakers);
     const points = {};
@@ -81,6 +111,7 @@ router.post('/', ...admin, async (req, res) => {
     if (!MODALITIES.includes(b.modality)) errors.push('Modalidad inválida (FOAM, CLOTH)');
     if (year === null) errors.push('Año inválido');
     if (edition === undefined) errors.push('Edición inválida (máx. 30 caracteres)');
+    if (formatLabel === undefined) errors.push('Nombre del formato inválido (máx. 40 caracteres)');
     if (!FORMATS.includes(format)) errors.push('Formato inválido (LEAGUE, LEAGUE_CUP, CUP)');
     if (startsAt === undefined || endsAt === undefined) errors.push('Fecha inválida');
     else if (startsAt && endsAt && startsAt > endsAt) {
@@ -98,6 +129,7 @@ router.post('/', ...admin, async (req, res) => {
         year,
         edition,
         format,
+        formatLabel,
         startsAt,
         endsAt,
         ...points,
@@ -137,6 +169,7 @@ router.get('/', async (req, res) => {
     const q = req.query;
     const where = {};
     if (req.hidePaused) where.pausedAt = null; // los pausados solo los ve la organización
+    where.deletedAt = req.onlyDeleted ? { not: null } : null; // los eliminados solo se listan en la papelera
 
     for (const [key, list] of [['status', STATUSES], ['branch', BRANCHES], ['modality', MODALITIES], ['format', FORMATS]]) {
       if (q[key] === undefined) continue;
@@ -165,18 +198,33 @@ router.get('/', async (req, res) => {
     const take = Math.min(Math.max(parseInt(q.limit, 10) || 50, 1), 200);
     const skip = Math.max(parseInt(q.offset, 10) || 0, 0);
 
-    res.json(
-      await prisma.tournament.findMany({
-        where,
-        orderBy: [{ year: 'desc' }, { startsAt: { sort: 'desc', nulls: 'last' } }, { name: 'asc' }],
-        take,
-        skip,
-        include: {
-          champion: { select: { id: true, name: true } },
-          _count: { select: { teams: true } },
-        },
-      }),
-    );
+    const list = await prisma.tournament.findMany({
+      where,
+      orderBy: [{ year: 'desc' }, { startsAt: { sort: 'desc', nulls: 'last' } }, { name: 'asc' }],
+      take,
+      skip,
+      include: {
+        champion: { select: { id: true, name: true, logo: true } },
+        _count: { select: { teams: true } },
+      },
+    });
+    // Avance de cada torneo: partidos jugados, totales y en vivo (una sola consulta agrupada)
+    const rows = list.length
+      ? await prisma.match.groupBy({
+          by: ['tournamentId', 'status'],
+          where: { tournamentId: { in: list.map((t) => t.id) }, hiddenAt: null },
+          _count: { _all: true },
+        })
+      : [];
+    const prog = new Map();
+    for (const r of rows) {
+      const e = prog.get(r.tournamentId) ?? { played: 0, total: 0, live: 0 };
+      if (r.status !== 'CANCELLED') e.total += r._count._all;
+      if (r.status === 'FINISHED') e.played += r._count._all;
+      if (r.status === 'LIVE') e.live += r._count._all;
+      prog.set(r.tournamentId, e);
+    }
+    res.json(list.map((t) => ({ ...t, progress: prog.get(t.id) ?? { played: 0, total: 0, live: 0 } })));
   } catch (err) {
     handleDbError(err, res);
   }
@@ -197,7 +245,8 @@ router.get('/:id', async (req, res) => {
       },
     });
     if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
-    res.json(t);
+    const podium = t.status === 'FINISHED' ? (await podiums([{ id: t.id, championId: t.championId }])).get(t.id) ?? null : null;
+    res.json({ ...t, podium });
   } catch (err) {
     handleDbError(err, res);
   }
@@ -218,6 +267,7 @@ router.post('/:id/pause', ...admin, async (req, res) => {
         data: { hiddenAt: now, hiddenByPause: true },
       }),
     ]);
+    emitTournamentUpdate(req, t.id, updated.pausedAt);
     res.json({ ...updated, hiddenMatches: hidden.count });
   } catch (err) {
     handleDbError(err, res);
@@ -237,6 +287,7 @@ router.post('/:id/resume', ...admin, async (req, res) => {
         data: { hiddenAt: null, hiddenByPause: false },
       }),
     ]);
+    emitTournamentUpdate(req, t.id, null);
     res.json({ ...updated, restoredMatches: restored.count });
   } catch (err) {
     handleDbError(err, res);
@@ -271,6 +322,11 @@ router.patch('/:id', ...admin, async (req, res) => {
       if (e === undefined) errors.push('Edición inválida (máx. 30 caracteres)');
       else data.edition = e;
     }
+    if (b.formatLabel !== undefined) {
+      const f = parseFormatLabel(b.formatLabel);
+      if (f === undefined) errors.push('Nombre del formato inválido (máx. 40 caracteres)');
+      else data.formatLabel = f;
+    }
     for (const key of ['pointsWin', 'pointsDraw', 'pointsLoss']) {
       if (b[key] === undefined) continue;
       const p = parsePoints(b[key]);
@@ -280,8 +336,8 @@ router.patch('/:id', ...admin, async (req, res) => {
 
     // El formato define la estructura: solo en borrador (lo demás se edita siempre, salvo torneo finalizado)
     const structural = ['format'].filter((k) => b[k] !== undefined);
-    if (structural.length && t.status !== 'DRAFT') {
-      return res.status(409).json({ error: 'El formato solo se edita en borrador' });
+    if (structural.length && t.status !== 'DRAFT' && !t.pausedAt) {
+      return res.status(409).json({ error: 'El formato solo se edita en borrador o con el torneo pausado' });
     }
     if (b.branch !== undefined) {
       if (BRANCHES.includes(b.branch)) data.branch = b.branch;
@@ -357,8 +413,8 @@ router.put('/:id/teams', ...admin, async (req, res) => {
   try {
     const t = await prisma.tournament.findUnique({ where: { id: req.params.id } });
     if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
-    if (t.status !== 'DRAFT') {
-      return res.status(409).json({ error: 'Los equipos solo se editan en borrador' });
+    if (t.status === 'FINISHED' || (t.status !== 'DRAFT' && !t.pausedAt)) {
+      return res.status(409).json({ error: 'Los equipos solo se editan en borrador o con el torneo pausado' });
     }
 
     const raw = req.body?.teamIds;
@@ -386,6 +442,12 @@ router.put('/:id/teams', ...admin, async (req, res) => {
       });
     }
 
+    if (t.pausedAt) {
+      await prisma.$transaction(async (tx) => {
+        await wipeMatches(tx, { tournamentId: t.id, OR: [{ teamAId: { notIn: teamIds } }, { teamBId: { notIn: teamIds } }] });
+        await tx.stageStanding.deleteMany({ where: { stage: { tournamentId: t.id }, teamId: { notIn: teamIds } } });
+      });
+    }
     await prisma.$transaction([
       prisma.stageTeam.deleteMany({ where: { stage: { tournamentId: t.id }, teamId: { notIn: teamIds } } }),
       prisma.tournamentTeam.deleteMany({ where: { tournamentId: t.id, teamId: { notIn: teamIds } } }),
@@ -402,6 +464,57 @@ router.put('/:id/teams', ...admin, async (req, res) => {
 
 // Define la estructura del torneo (zonas o llaves) y los equipos de cada una.
 // Reemplaza la estructura anterior. Solo en borrador y antes de generar partidos.
+// Corrige nombre, fase, categoría y cupos de una zona o llave sin tocar fixture, partidos ni llaves (sirve con el torneo cerrado).
+// Si el torneo está cerrado, vuelve a marcar la zona (ascenso/descenso/playoff) de la tabla congelada.
+router.patch('/:id/stages/:stageId', ...admin, async (req, res) => {
+  try {
+    const stage = await prisma.stage.findFirst({ where: { id: req.params.stageId, tournamentId: req.params.id }, select: { id: true, type: true, playoffPositions: true, promotions: true, relegations: true } });
+    if (!stage) return res.status(404).json({ error: 'Etapa no encontrada' });
+    const b = req.body || {};
+    const data = {};
+    if (b.name !== undefined) {
+      const name = String(b.name).trim();
+      if (!name || name.length > 40) return res.status(400).json({ error: 'El nombre es obligatorio (máx. 40 caracteres)' });
+      const dup = await prisma.stage.findFirst({ where: { tournamentId: req.params.id, id: { not: stage.id }, name: { equals: name, mode: 'insensitive' } }, select: { id: true } });
+      if (dup) return res.status(409).json({ error: 'Ya hay una etapa con ese nombre' });
+      data.name = name;
+    }
+    if (b.phase !== undefined) {
+      if (!Number.isInteger(b.phase) || b.phase < 1) return res.status(400).json({ error: 'La fase debe ser un entero desde 1' });
+      data.phase = b.phase;
+    }
+    if (stage.type === 'LEAGUE') {
+      if (b.tier !== undefined) {
+        if (b.tier !== null && (!Number.isInteger(b.tier) || b.tier < 1 || b.tier > 26)) return res.status(400).json({ error: 'Categoría inválida' });
+        data.tier = b.tier;
+      }
+      for (const k of ['promotions', 'relegations']) {
+        if (b[k] === undefined) continue;
+        if (!Number.isInteger(b[k]) || b[k] < 0) return res.status(400).json({ error: k + ' debe ser un entero desde 0' });
+        data[k] = b[k];
+      }
+    }
+    const promotions = data.promotions ?? stage.promotions ?? 0;
+    const relegations = data.relegations ?? stage.relegations ?? 0;
+    const standings = stage.type === 'LEAGUE' ? await prisma.stageStanding.findMany({ where: { stageId: stage.id }, select: { teamId: true, position: true } }) : [];
+    const total = standings.length;
+    if (total && promotions + relegations > total) return res.status(400).json({ error: 'Ascensos + descensos superan la cantidad de equipos' });
+    const zoneOf = (pos) => {
+      if (pos <= promotions) return 'PROMOTION';
+      if (relegations > 0 && pos > total - relegations) return 'RELEGATION';
+      if ((stage.playoffPositions ?? []).includes(pos)) return 'PLAYOFF';
+      return null;
+    };
+    await prisma.$transaction([
+      prisma.stage.update({ where: { id: stage.id }, data }),
+      ...standings.map((x) => prisma.stageStanding.update({ where: { stageId_teamId: { stageId: stage.id, teamId: x.teamId } }, data: { zone: zoneOf(x.position) } })),
+    ]);
+    res.json({ ok: true, ...data, relabeled: standings.length });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
 router.put('/:id/stages', ...admin, async (req, res) => {
   try {
     const STAGE_TYPES = ['LEAGUE', 'KNOCKOUT'];
@@ -410,11 +523,12 @@ router.put('/:id/stages', ...admin, async (req, res) => {
       include: { teams: { select: { teamId: true } } },
     });
     if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
-    if (t.status !== 'DRAFT') {
-      return res.status(409).json({ error: 'La estructura solo se edita en borrador' });
+    if (t.status === 'FINISHED' || (t.status !== 'DRAFT' && !t.pausedAt)) {
+      return res.status(409).json({ error: 'La estructura solo se edita en borrador o con el torneo pausado' });
     }
-    if (await prisma.match.count({ where: { tournamentId: t.id } })) {
-      return res.status(409).json({ error: 'El torneo ya tiene partidos: no se puede rehacer la estructura' });
+    const hasMatches = (await prisma.match.count({ where: { tournamentId: t.id, stage: { isPromotion: false } } })) > 0;
+    if (hasMatches && !t.pausedAt) {
+      return res.status(409).json({ error: 'El torneo ya tiene partidos: pausalo para rehacer la estructura' });
     }
 
     const raw = req.body?.stages;
@@ -444,6 +558,11 @@ router.put('/:id/stages', ...admin, async (req, res) => {
       if (tier !== null && !posInt(tier)) errors.push(`${label}: nivel inválido (entero desde 1)`);
       const promotions = s?.promotions ?? 0;
       const relegations = s?.relegations ?? 0;
+      const rawPlayoff = s?.playoffPositions ?? [];
+      const playoffPositions = Array.isArray(rawPlayoff) ? [...new Set(rawPlayoff)].sort((a, b) => a - b) : null;
+      if (!playoffPositions || playoffPositions.some((x) => !Number.isInteger(x) || x < 1)) {
+        errors.push(`${label}: las posiciones de playoff deben ser enteros desde 1`);
+      }
       if (!Number.isInteger(promotions) || promotions < 0 || !Number.isInteger(relegations) || relegations < 0) {
         errors.push(`${label}: ascensos y descensos deben ser enteros desde 0`);
       }
@@ -482,6 +601,12 @@ router.put('/:id/stages', ...admin, async (req, res) => {
         if (promotions + relegations > teams.length) {
           errors.push(`${label}: ascensos + descensos superan la cantidad de equipos`);
         }
+        for (const pos of playoffPositions ?? []) {
+          if (pos > teams.length) errors.push(`${label}: el puesto ${pos} de playoff no existe (la zona tiene ${teams.length} equipos)`);
+          else if (pos <= promotions || pos > teams.length - relegations) {
+            errors.push(`${label}: el puesto ${pos} ya es ascenso o descenso directo`);
+          }
+        }
         const used = leagueTeamsByPhase.get(s.phase) ?? new Set();
         if (teams.some((x) => used.has(x.teamId))) {
           errors.push(`${label}: un equipo no puede estar en dos zonas de la misma fase`);
@@ -490,15 +615,51 @@ router.put('/:id/stages', ...admin, async (req, res) => {
         leagueTeamsByPhase.set(s.phase, used);
       }
 
-      stages.push({ name, type: s?.type, phase: s?.phase, tier, promotions, relegations, teams });
+      stages.push({ name, type: s?.type, phase: s?.phase, tier, promotions, relegations, playoffPositions: playoffPositions ?? [], teams });
     });
     if (errors.length) return res.status(400).json({ error: errors.join('. ') });
 
+    // Cambios no estructurales (ascensos, descensos, nivel) sobre zonas/llaves ya existentes:
+    // se actualizan en el lugar, sin tocar partidos, fechas, llaves ni posiciones.
+    const existing = await prisma.stage.findMany({
+      where: { tournamentId: t.id, isPromotion: false }, // la etapa de promoción se arma sola (syncPromotion)
+      include: { teams: { select: { teamId: true, seed: true, entryRound: true } } },
+    });
+    const key = (x) => `${x.name.toLowerCase()}|${x.type}|${x.phase}`;
+    const teamsSig = (arr) =>
+      arr.map((x) => `${x.teamId}:${x.seed ?? ''}:${x.entryRound ?? ''}`).sort().join(',');
+    const byKey = new Map(existing.map((e) => [key(e), e]));
+    const sameStructure =
+      existing.length === stages.length &&
+      stages.every((s) => {
+        const e = byKey.get(key(s));
+        return e && (s.type === 'KNOCKOUT' || teamsSig(e.teams) === teamsSig(s.teams)); // los equipos de las llaves los maneja el armado de la llave
+      });
+
+    if (sameStructure) {
+      await prisma.$transaction(
+        stages.map((s) =>
+          prisma.stage.update({
+            where: { id: byKey.get(key(s)).id },
+            data: { tier: s.tier, promotions: s.promotions, relegations: s.relegations, playoffPositions: s.playoffPositions },
+          }),
+        ),
+      );
+    } else {
+      if (hasMatches && req.body?.confirmWipe !== true) {
+        return res.status(409).json({
+          code: 'WIPE_REQUIRED',
+          error:
+            'Cambiar zonas, llaves o equipos borra el fixture y los playoffs ya armados. Confirmá para continuar.',
+        });
+      }
     await prisma.$transaction(
       async (tx) => {
+        await wipeMatches(tx, { tournamentId: t.id }); // pausado: el fixture se rehace (y el cruce de promoción, que se rearma solo)
+        await tx.stageStanding.deleteMany({ where: { stage: { tournamentId: t.id } } });
         await tx.stageTeam.deleteMany({ where: { stage: { tournamentId: t.id } } });
         await tx.matchday.deleteMany({ where: { stage: { tournamentId: t.id } } });
-        await tx.stage.deleteMany({ where: { tournamentId: t.id } });
+        await tx.stage.deleteMany({ where: { tournamentId: t.id } }); // incluye la de promoción: se rearma sola
         for (const s of stages) {
           await tx.stage.create({
             data: {
@@ -509,6 +670,7 @@ router.put('/:id/stages', ...admin, async (req, res) => {
               tier: s.tier,
               promotions: s.promotions,
               relegations: s.relegations,
+              playoffPositions: s.playoffPositions,
               teams: { create: s.teams },
             },
           });
@@ -516,26 +678,139 @@ router.put('/:id/stages', ...admin, async (req, res) => {
       },
       { timeout: 30000 },
     );
+    }
+
+    // Cruce de ascenso/permanencia: se arma (o quita) solo según los puestos elegidos
+    const promo = await require('./bracket').syncPromotion(t.id, req.app.get('io'));
 
     const saved = await prisma.stage.findMany({
-      where: { tournamentId: t.id },
+      where: { tournamentId: t.id, isPromotion: false },
       orderBy: [{ phase: 'asc' }, { tier: 'asc' }, { name: 'asc' }],
       include: { teams: { include: { team: { select: TEAM_SELECT } } } },
     });
     const placed = new Set(saved.flatMap((s) => s.teams.map((x) => x.teamId)));
-    res.json({ stages: saved, unassigned: [...enrolled].filter((id) => !placed.has(id)) });
+    res.json({ stages: saved, unassigned: [...enrolled].filter((id) => !placed.has(id)), ...(promo.error ? { promotionWarning: promo.error } : {}) });
   } catch (err) {
     handleDbError(err, res);
   }
 });
 
 // Solo si no tiene partidos ni finalizó (no se borra historial)
+// Reiniciar torneo (solo para pruebas y demos): deja el fixture como recién creado.
+// Conserva equipos, zonas, fechas y llaves; borra resultados, relojes, canchas y designaciones.
+// Body: { clearSchedule: boolean } -> true también borra los horarios (si no, se restauran los originales de los reprogramados).
+router.post('/:id/reset', ...admin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const t = await prisma.tournament.findUnique({ where: { id }, select: { id: true, status: true, pausedAt: true } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+    const clearSchedule = req.body && req.body.clearSchedule === true;
+
+    const matches = await prisma.match.findMany({
+      where: { tournamentId: id },
+      select: { id: true, status: true, originalScheduledAt: true, nextMatchId: true, nextSide: true, loserMatchId: true, loserSide: true, teamAFrom: true, teamBFrom: true },
+    });
+    const ids = matches.map((m) => m.id);
+
+    // Lugares de las llaves que se completan solos (ganador, perdedor o posición de zona): vuelven a quedar vacíos
+    const fed = new Map(); // matchId -> { A: bool, B: bool }
+    const mark = (matchId, side) => {
+      if (!matchId || !side) return;
+      if (!fed.has(matchId)) fed.set(matchId, { A: false, B: false });
+      fed.get(matchId)[side] = true;
+    };
+    matches.forEach((m) => {
+      mark(m.nextMatchId, m.nextSide);
+      mark(m.loserMatchId, m.loserSide);
+      if (m.teamAFrom) mark(m.id, 'A');
+      if (m.teamBFrom) mark(m.id, 'B');
+    });
+
+    const ops = [
+      prisma.clockAction.deleteMany({ where: { matchId: { in: ids } } }),
+      prisma.matchClock.deleteMany({ where: { matchId: { in: ids } } }),
+      prisma.matchSet.deleteMany({ where: { matchId: { in: ids } } }),
+      prisma.matchAssignment.deleteMany({ where: { matchId: { in: ids } } }),
+      prisma.stageStanding.deleteMany({ where: { stage: { tournamentId: id } } }),
+      prisma.match.updateMany({
+        where: { id: { in: ids } },
+        data: { status: 'SCHEDULED', court: null, readyAt: null, readyBy: null, finishedAt: null, statusReason: null, originalScheduledAt: null, ...(clearSchedule ? { scheduledAt: null } : {}) },
+      }),
+    ];
+    if (!clearSchedule) {
+      matches.filter((m) => m.originalScheduledAt).forEach((m) => {
+        ops.push(prisma.match.update({ where: { id: m.id }, data: { scheduledAt: m.originalScheduledAt } }));
+      });
+    }
+    fed.forEach((sides, matchId) => {
+      const data = {};
+      if (sides.A) data.teamAId = null;
+      if (sides.B) data.teamBId = null;
+      ops.push(prisma.match.update({ where: { id: matchId }, data }));
+    });
+    ops.push(prisma.tournament.update({ where: { id }, data: { championId: null, ...(t.status === 'FINISHED' ? { status: 'ACTIVE' } : {}) } }));
+
+    await prisma.$transaction(ops);
+
+    // Relojes en memoria de los partidos que estaban en juego o habilitados
+    matches.filter((m) => ['LIVE', 'READY'].includes(m.status)).forEach((m) => removeMatch(m.id));
+    const io = req.app.get('io');
+    for (const mid of ids) {
+      try { await notifyMatch(io, mid); } catch (e) { console.error('[reset] notify', e.message); }
+    }
+    if (io) io.to(FEED_ROOM).emit('tournament:updated', { tournamentId: id, pausedAt: t.pausedAt ?? null });
+    res.json({ ok: true, matches: ids.length, clearedSchedule: clearSchedule });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Eliminar = mandar a "Eliminados": desaparece para todos (también para la organización) y se puede restaurar.
+// Sus partidos se ocultan igual que al pausar.
 router.delete('/:id', ...admin, async (req, res) => {
   try {
     const id = req.params.id;
-    const t = await prisma.tournament.findUnique({ where: { id } });
+    const t = await prisma.tournament.findUnique({ where: { id }, select: { id: true, deletedAt: true, pausedAt: true } });
     if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
-    // Se puede eliminar en cualquier estado: borra también partidos y todo lo que cuelga de ellos
+    if (t.deletedAt) return res.status(409).json({ error: 'El torneo ya está eliminado' });
+    const now = new Date();
+    await prisma.$transaction([
+      prisma.tournament.update({ where: { id }, data: { deletedAt: now } }),
+      prisma.match.updateMany({ where: { tournamentId: id, hiddenAt: null }, data: { hiddenAt: now, hiddenByPause: true } }),
+    ]);
+    emitTournamentUpdate(req, id, t.pausedAt);
+    res.json({ ok: true });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Restaurar un torneo eliminado: vuelve a verse tal cual estaba (si estaba pausado, sigue pausado)
+router.post('/:id/restore', ...admin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const t = await prisma.tournament.findUnique({ where: { id }, select: { id: true, deletedAt: true, pausedAt: true } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+    if (!t.deletedAt) return res.status(409).json({ error: 'El torneo no está eliminado' });
+    const ops = [prisma.tournament.update({ where: { id }, data: { deletedAt: null } })];
+    if (!t.pausedAt) {
+      ops.push(prisma.match.updateMany({ where: { tournamentId: id, hiddenByPause: true }, data: { hiddenAt: null, hiddenByPause: false } }));
+    }
+    await prisma.$transaction(ops);
+    emitTournamentUpdate(req, id, t.pausedAt);
+    res.json({ ok: true });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Borrado definitivo (solo desde "Eliminados"): borra también partidos y todo lo que cuelga de ellos
+router.delete('/:id/purge', ...admin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const t = await prisma.tournament.findUnique({ where: { id }, select: { id: true, deletedAt: true } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+    if (!t.deletedAt) return res.status(409).json({ error: 'Primero hay que eliminar el torneo para borrarlo definitivamente' });
     await prisma.$transaction([
       prisma.clockAction.deleteMany({ where: { match: { tournamentId: id } } }),
       prisma.matchSet.deleteMany({ where: { match: { tournamentId: id } } }),
@@ -552,6 +827,55 @@ router.delete('/:id', ...admin, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     handleDbError(err, res);
+  }
+});
+
+// Quita de puntos a un equipo en la tabla de una zona. Por cada persona que no presentó (árbitro de línea o mesa) se resta 1 punto;
+// también se puede cargar una cantidad libre. La tabla del torneo (rama + categoría de la zona) la descuenta sola.
+const MISSING = ['LINE', 'TABLE'];
+const PENALTY_KINDS = ['STAFF', 'NO_SHOW', 'LATE', 'NO_PLAYERS', 'AGGRESSION', 'OTHER'];
+router.post('/:id/stages/:stageId/penalties', ...admin, async (req, res) => {
+  try {
+    const stage = await prisma.stage.findFirst({
+      where: { id: req.params.stageId, tournamentId: req.params.id, type: 'LEAGUE' },
+      select: { id: true, tournament: { select: { status: true } } },
+    });
+    if (!stage) return res.status(404).json({ error: 'Zona de liga no encontrada' });
+    if (stage.tournament.status === 'FINISHED') return res.status(409).json({ error: 'El torneo está cerrado: reabrilo para cargar una quita de puntos' });
+    const b = req.body || {};
+    const teamId = String(b.teamId || '');
+    const inZone = await prisma.stageTeam.findUnique({ where: { stageId_teamId: { stageId: stage.id, teamId } }, select: { teamId: true } });
+    if (!inZone) return res.status(400).json({ error: 'El equipo no juega en esa zona' });
+    const kind = b.kind === undefined ? (Array.isArray(b.missing) && b.missing.length ? 'STAFF' : 'OTHER') : String(b.kind);
+    if (!PENALTY_KINDS.includes(kind)) return res.status(400).json({ error: 'Motivo inválido' });
+    const missing = kind === 'STAFF' && Array.isArray(b.missing) ? b.missing.map(String) : [];
+    if (missing.some((m) => !MISSING.includes(m))) return res.status(400).json({ error: 'Faltante inválido (LINE o TABLE)' });
+    if (missing.length > 3) return res.status(400).json({ error: 'Máximo 3 personas (2 de línea y 1 de mesa)' });
+    if (kind === 'STAFF' && !missing.length) return res.status(400).json({ error: 'Indicá qué persona faltó (línea o mesa)' });
+    const points = missing.length ? missing.length : Number(b.points);
+    if (!Number.isInteger(points) || points < 1 || points > 20) return res.status(400).json({ error: 'Los puntos a quitar son un entero entre 1 y 20' });
+    const reason = b.reason == null || String(b.reason).trim() === '' ? null : String(b.reason).trim().slice(0, 200);
+    const row = await prisma.teamPenalty.create({ data: { stageId: stage.id, teamId, points, kind, missing, reason, createdById: req.user?.id ?? null } });
+    res.status(201).json(row);
+  } catch (err) {
+    console.error('[tournaments penalties]', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+router.delete('/:id/stages/:stageId/penalties/:penaltyId', ...admin, async (req, res) => {
+  try {
+    const pn = await prisma.teamPenalty.findFirst({
+      where: { id: req.params.penaltyId, stageId: req.params.stageId, stage: { tournamentId: req.params.id } },
+      select: { id: true, stage: { select: { tournament: { select: { status: true } } } } },
+    });
+    if (!pn) return res.status(404).json({ error: 'Quita de puntos no encontrada' });
+    if (pn.stage.tournament.status === 'FINISHED') return res.status(409).json({ error: 'El torneo está cerrado: reabrilo para modificarla' });
+    await prisma.teamPenalty.delete({ where: { id: pn.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[tournaments penalties]', err);
+    res.status(500).json({ error: 'Error interno' });
   }
 });
 

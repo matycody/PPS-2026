@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const express = require('express');
+const { VENUE_SELECT } = require('../lib/venue');
 const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 
@@ -8,6 +9,7 @@ const admin = [authenticate, requireRole('ADMIN')];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const { parseSchedule, scheduleDate } = require('../lib/scheduleDates');
+const { listExtraMatches } = require('../services/extraMatch');
 const OPEN = ['SCHEDULED', 'READY'];
 const TEAM_SELECT = { id: true, name: true, logo: true };
 
@@ -191,6 +193,18 @@ router.delete('/:id/stages/:stageId/fixture', ...admin, async (req, res) => {
     if (stage.tournament.status === 'FINISHED') return res.status(409).json({ error: 'El torneo finalizó' });
 
     const matches = await prisma.match.findMany({ where: { stageId: stage.id }, select: { id: true, status: true } });
+    if (stage.tournament.pausedAt) {
+      // torneo pausado: se puede rehacer el fixture aunque tenga resultados (el torneo no es visible)
+      const w = { match: { stageId: stage.id } };
+      await prisma.$transaction([
+        prisma.clockAction.deleteMany({ where: w }),
+        prisma.matchSet.deleteMany({ where: w }),
+        prisma.matchAssignment.deleteMany({ where: w }),
+        prisma.match.deleteMany({ where: { stageId: stage.id } }),
+        prisma.matchday.deleteMany({ where: { stageId: stage.id } }),
+      ]);
+      return res.json({ ok: true, deletedMatches: matches.length });
+    }
     if (matches.some((m) => m.status !== 'SCHEDULED')) {
       return res.status(409).json({ error: 'Hay partidos habilitados, jugados o cancelados: no se puede eliminar el fixture' });
     }
@@ -217,6 +231,8 @@ router.delete('/:id/stages/:stageId/fixture', ...admin, async (req, res) => {
 // Calendario del torneo (público): jornadas con sus partidos. Filtro opcional: stageId
 router.get('/:id/matchdays', async (req, res) => {
   try {
+    // En un torneo pausado la organización sigue viendo los partidos que ocultó la pausa (marcados paused: true)
+    const showPaused = Boolean(req.user && req.user.roles.includes('ADMIN'));
     const where = { stage: { tournamentId: req.params.id } };
     if (req.query.stageId) where.stageId = String(req.query.stageId);
     res.json(
@@ -226,16 +242,19 @@ router.get('/:id/matchdays', async (req, res) => {
         include: {
           stage: { select: { id: true, name: true } },
           matches: {
-            where: { hiddenAt: null },
+            where: showPaused ? { OR: [{ hiddenAt: null }, { hiddenByPause: true }] } : { hiddenAt: null },
             orderBy: [{ slot: 'asc' }],
             select: {
               id: true,
+              hiddenByPause: true,
               slot: true,
               court: true,
+              venue: { select: VENUE_SELECT },
               status: true,
               statusReason: true,
               originalScheduledAt: true,
               scheduledAt: true,
+              timeSet: true,
               modality: true,
               teamAId: true,
               teamBId: true,
@@ -247,9 +266,21 @@ router.get('/:id/matchdays', async (req, res) => {
         },
       }).then((list) => list.map((md) => ({
         ...md,
-        matches: md.matches.map(({ sets, modality, teamAId, teamBId, ...m }) => ({ ...m, score: setScore({ sets, modality, teamAId, teamBId }) })),
+        matches: md.matches.map(({ sets, modality, teamAId, teamBId, hiddenByPause, ...m }) => ({ ...m, ...(hiddenByPause ? { paused: true } : {}), score: setScore({ sets, modality, teamAId, teamBId }) })),
       }))),
     );
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Partidos agregados al torneo fuera del fixture (público): tienen torneo pero no zona ni llave
+router.get('/:id/extra-matches', async (req, res) => {
+  try {
+    const t = await prisma.tournament.findUnique({ where: { id: req.params.id }, select: { id: true } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+    const list = await listExtraMatches(req.params.id, TEAM_SELECT, Boolean(req.user && req.user.roles.includes('ADMIN')));
+    res.json(list.map(({ sets, modality, teamAId, teamBId, hiddenByPause, ...m }) => ({ ...m, ...(hiddenByPause ? { paused: true } : {}), score: setScore({ sets, modality, teamAId, teamBId }) })));
   } catch (err) {
     handleDbError(err, res);
   }

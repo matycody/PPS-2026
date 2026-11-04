@@ -5,7 +5,11 @@ const { formsFor } = require('../services/teamForm');
 const { authenticate, optionalAuth, requireRole } = require('../middleware/auth');
 const { getPermissions } = require('../services/matchAccess');
 const { notifyMatch } = require('../services/notify');
+const { ExtraMatchError, assertTournamentOpen, planStanding, placeInFixture } = require('../services/extraMatch');
 const { getMatch } = require('../timers/matchManager');
+const { setsWithScore } = require('../services/scoreTimeline');
+const { freezePredictions, reopenPredictions, voidPredictionsOfTable } = require('../services/prode');
+const { invalidateOdds } = require('../services/odds');
 const { editorLabel, setResultLabel, buildLogData, logEntry, describeClockAction } = require('../services/resultLog');
 
 const router = express.Router();
@@ -27,9 +31,12 @@ function parseReason(v) {
   return s || null;
 }
 
+const { VENUE_SELECT } = require('../lib/venue');
+const { listSanctions, suspendedForMatch } = require('../services/sanctions');
 const teamSelect = { id: true, name: true, logo: true };
 const baseInclude = {
   tournament: { select: { id: true, name: true } },
+  venue: { select: VENUE_SELECT },
   teamA: { select: teamSelect },
   teamB: { select: teamSelect },
   sets: { orderBy: { number: 'asc' } },
@@ -44,6 +51,15 @@ const adminInclude = {
     },
   },
 };
+
+// Sede opcional: undefined = no vino, null = sin sede. Devuelve { venueId } o { error }
+async function resolveVenue(v) {
+  if (v === undefined) return {};
+  if (v === null || v === '') return { venueId: null };
+  const venue = await prisma.venue.findUnique({ where: { id: String(v) }, select: { id: true, name: true, deletedAt: true } });
+  if (!venue || venue.deletedAt) return { error: 'La sede no existe' };
+  return { venueId: venue.id, venueName: venue.name };
+}
 
 function parseDate(v) {
   if (v === undefined || v === null || v === '') return null;
@@ -80,17 +96,19 @@ function serialize(match, isAdmin) {
     id: match.id,
     tournament: match.tournament,
     court: match.court,
+    venue: match.venue ?? null,
     branch: match.branch,
     modality: match.modality,
     status: match.status,
     scheduledAt: match.scheduledAt,
+    timeSet: match.scheduledAt ? !!match.timeSet : false,
     readyAt: match.readyAt,
     finishedAt: match.finishedAt,
     statusReason: match.statusReason ?? null,
     originalScheduledAt: match.originalScheduledAt ?? null,
     teamA: match.teamA,
     teamB: match.teamB,
-    sets: match.sets.map((s) => ({ number: s.number, winnerTeamId: s.winnerTeamId, draw: s.winnerTeamId === null })),
+    sets: setsWithScore(match),
     score: score(match),
   };
   if (isAdmin) {
@@ -142,6 +160,7 @@ function loadForLabel(matchId) {
 }
 
 function handleError(err, res) {
+  if (err instanceof ExtraMatchError) return res.status(err.status).json({ error: err.message });
   if (err.code === 'P2002') return res.status(409).json({ error: 'Registro duplicado (reintentá)' });
   if (err.code === 'P2025') return res.status(404).json({ error: 'No encontrado' });
   console.error('[matches]', err);
@@ -212,15 +231,25 @@ router.post('/', ...admin, async (req, res) => {
     if (errors.length) return res.status(400).json({ errors });
 
     if (tournamentId) {
-      const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
-      if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
+      // Un torneo en curso admite partidos nuevos (la organización decide); no uno finalizado ni pausado
+      await assertTournamentOpen(tournamentId);
     }
 
     const teamError = await validateTeams(teamAId, teamBId, branch, modality);
     if (teamError) return res.status(409).json({ error: teamError });
+    const ven = await resolveVenue(req.body.venueId);
+    if (ven.error) return res.status(400).json({ error: ven.error });
 
-    const match = await prisma.match.create({
-      data: { tournamentId, court, branch, modality, scheduledAt, teamAId, teamBId },
+    // countsInStandings: el partido suma a la tabla de una zona (y aparece en su fixture). Sin eso queda en "Fuera del fixture"
+    const plan = req.body.countsInStandings === true
+      ? await planStanding({ tournamentId, stageId: req.body.stageId, matchdayId: req.body.matchdayId, teamAId, teamBId })
+      : null;
+
+    const match = await prisma.$transaction(async (tx) => {
+      const place = plan ? await placeInFixture(tx, plan, scheduledAt) : {};
+      return tx.match.create({
+        data: { tournamentId, court, branch, modality, scheduledAt, timeSet: scheduledAt ? req.body.timeSet !== false : false, teamAId, teamBId, venueId: ven.venueId ?? null, ...place },
+      });
     });
     await notifyMatch(req.app.get('io'), match.id);
     res.status(201).json(serialize(await fetchMatch(match.id, true), true));
@@ -278,6 +307,60 @@ router.get('/', optionalAuth, async (req, res) => {
   }
 });
 
+// Sanciones del partido (público): advertencias, tarjetas y expulsiones
+router.get('/:id/sanctions', optionalAuth, async (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && req.user.roles.includes('ADMIN'));
+    const match = await prisma.match.findUnique({ where: { id: req.params.id }, select: { id: true, hiddenAt: true } });
+    if (!match || (match.hiddenAt && !isAdmin)) return res.status(404).json({ error: 'Partido no encontrado' });
+    res.json({ items: await listSanctions(match.id) });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+// Jugadores suspendidos para este partido (por decision del departamento de sanciones)
+router.get('/:id/suspended', optionalAuth, async (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && req.user.roles.includes('ADMIN'));
+    const match = await prisma.match.findUnique({ where: { id: req.params.id }, select: { id: true, hiddenAt: true } });
+    if (!match || (match.hiddenAt && !isAdmin)) return res.status(404).json({ error: 'Partido no encontrado' });
+    res.json({ items: await suspendedForMatch(match.id) });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+// Público: quiénes arbitran y quiénes están en la mesa (solo nombre o apodo y, si la mesa es de un equipo, el equipo)
+router.get('/:id/staff', optionalAuth, async (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && req.user.roles.includes('ADMIN'));
+    const match = await prisma.match.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        hiddenAt: true,
+        assignments: {
+          select: {
+            function: true,
+            profile: { select: { name: true, nickname: true, showNickname: true } },
+            team: { select: { id: true, name: true, logo: true } },
+          },
+        },
+      },
+    });
+    if (!match || (match.hiddenAt && !isAdmin)) return res.status(404).json({ error: 'Partido no encontrado' });
+    const shape = (a) => ({
+      function: a.function,
+      name: a.team ? null : (a.profile?.showNickname && a.profile.nickname) || a.profile?.name || null, // el usuario de acceso no se muestra
+      team: a.team ?? null,
+    });
+    res.json({ referees: match.assignments.filter((a) => a.function === 'REFEREE').map(shape), table: match.assignments.filter((a) => a.function === 'TABLE').map(shape) });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
 router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const isAdmin = Boolean(req.user && req.user.roles.includes('ADMIN'));
@@ -313,6 +396,9 @@ router.patch('/:id', ...admin, async (req, res) => {
       if (court !== null && (!Number.isInteger(court) || court < 1)) return res.status(400).json({ error: 'Cancha inválida' });
       data.court = court;
     }
+    const ven = await resolveVenue(b.venueId);
+    if (ven.error) return res.status(400).json({ error: ven.error });
+    if (b.venueId !== undefined) data.venueId = ven.venueId;
     if (b.branch !== undefined) {
       if (!BRANCHES.includes(b.branch)) return res.status(400).json({ error: 'Rama inválida' });
       data.branch = b.branch;
@@ -329,9 +415,32 @@ router.patch('/:id', ...admin, async (req, res) => {
     if ('teamAId' in b) data.teamAId = b.teamAId || null;
     if ('teamBId' in b) data.teamBId = b.teamBId || null;
 
+    // Asignar el partido a un torneo (o sacarlo): solo si todavía no es parte de una zona o llave
+    if ('tournamentId' in b) {
+      const target = b.tournamentId || null;
+      if (target !== match.tournamentId) {
+        if (match.stageId) {
+          return res.status(409).json({ error: 'Un partido del fixture o de las llaves no se puede mover a otro torneo' });
+        }
+        if (target) await assertTournamentOpen(target);
+        data.tournamentId = target;
+      }
+    }
+
     const next = { ...match, ...data };
     const teamError = await validateTeams(next.teamAId, next.teamBId, next.branch, next.modality);
     if (teamError) return res.status(409).json({ error: teamError });
+
+    // Sumar a la tabla de una zona (y entrar a su fixture). Es de un solo sentido: un partido del fixture no se saca de la tabla
+    let plan = null;
+    if (b.countsInStandings === true) {
+      if (match.stageId) return res.status(409).json({ error: 'El partido ya suma a la tabla' });
+      plan = await planStanding({
+        tournamentId: next.tournamentId, stageId: b.stageId, matchdayId: b.matchdayId, teamAId: next.teamAId, teamBId: next.teamBId,
+      });
+    } else if (b.countsInStandings === false && match.stageId) {
+      return res.status(409).json({ error: 'Un partido del fixture no se saca de la tabla: cancelalo u ocultalo' });
+    }
 
     const refereeIds = match.assignments
       .filter((a) => a.function === 'REFEREE' && a.profileId)
@@ -357,6 +466,9 @@ router.patch('/:id', ...admin, async (req, res) => {
     if (data.court !== undefined && data.court !== match.court) {
       changes.push('cancha: ' + (match.court ?? 'sin asignar') + ' → ' + (data.court ?? 'sin asignar'));
     }
+    if (data.venueId !== undefined && data.venueId !== match.venueId) {
+      changes.push('sede: ' + (ven.venueName ?? 'sin sede'));
+    }
     if (data.branch !== undefined && data.branch !== match.branch) {
       changes.push('rama: ' + BRANCH_LABEL[match.branch] + ' → ' + BRANCH_LABEL[data.branch]);
     }
@@ -367,6 +479,8 @@ router.patch('/:id', ...admin, async (req, res) => {
       const before = match.scheduledAt ? match.scheduledAt.getTime() : null;
       const after = data.scheduledAt ? data.scheduledAt.getTime() : null;
       if (before !== after) changes.push('fecha: ' + fmtDate(match.scheduledAt) + ' → ' + fmtDate(data.scheduledAt));
+      if (req.body.timeSet !== undefined) data.timeSet = !!req.body.timeSet && after !== null;
+      else if (before !== after) data.timeSet = after !== null;
     }
     if ('teamAId' in data && data.teamAId !== match.teamAId) {
       changes.push('equipo A: ' + nameOf(match.teamAId) + ' → ' + nameOf(data.teamAId));
@@ -375,7 +489,19 @@ router.patch('/:id', ...admin, async (req, res) => {
       changes.push('equipo B: ' + nameOf(match.teamBId) + ' → ' + nameOf(data.teamBId));
     }
 
-    await prisma.match.update({ where: { id: match.id }, data });
+    if (data.tournamentId !== undefined) {
+      const names = await prisma.tournament.findMany({
+        where: { id: { in: [match.tournamentId, data.tournamentId].filter(Boolean) } }, select: { id: true, name: true },
+      });
+      const tn = (id) => (id ? ((names.find((x) => x.id === id) || {}).name || 'torneo') : 'amistoso');
+      changes.push('torneo: ' + tn(match.tournamentId) + ' → ' + tn(data.tournamentId));
+    }
+    if (plan) changes.push('suma a la tabla de ' + plan.stage.name);
+
+    await prisma.$transaction(async (tx) => {
+      const place = plan ? await placeInFixture(tx, plan, next.scheduledAt) : {};
+      await tx.match.update({ where: { id: match.id }, data: { ...data, ...place } });
+    });
 
     if (changes.length) {
       const label = {
@@ -394,6 +520,127 @@ router.patch('/:id', ...admin, async (req, res) => {
 
     await notifyMatch(req.app.get('io'), req.params.id);
     res.json(serialize(await fetchMatch(match.id, true), true));
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+// Programación masiva de una jornada: cancha y horario de varios partidos de una sola vez (todo o nada).
+// Body: { turnMinutes (10 a 240, opcional), items: [{ matchId, court (int | null), scheduledAt (ISO | null) }] }
+const DEFAULT_TURN_MIN = 60; // por defecto cada partido ocupa 1 hora; la organización puede cambiarlo
+const MAX_BULK = 500;
+router.post('/bulk-schedule', ...admin, async (req, res) => {
+  try {
+    const items = req.body && req.body.items;
+    if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'No hay partidos para programar' });
+    if (items.length > MAX_BULK) return res.status(400).json({ error: 'Máximo ' + MAX_BULK + ' partidos por vez' });
+    const turnMin = req.body.turnMinutes === undefined ? DEFAULT_TURN_MIN : Number(req.body.turnMinutes);
+    if (!Number.isInteger(turnMin) || turnMin < 10 || turnMin > 240) return res.status(400).json({ error: 'Duración del turno inválida (10 a 240 minutos)' });
+    const TURN_MS = turnMin * 60 * 1000;
+
+    const plan = new Map();
+    for (const it of items) {
+      const id = it && it.matchId ? String(it.matchId) : '';
+      if (!id || plan.has(id)) return res.status(400).json({ error: 'Partido repetido o inválido' });
+      const court = it.court === null || it.court === undefined || it.court === '' ? null : Number(it.court);
+      if (court !== null && (!Number.isInteger(court) || court < 1)) return res.status(400).json({ error: 'Cancha inválida' });
+      const at = parseDate(it.scheduledAt);
+      if (at === undefined) return res.status(400).json({ error: 'Fecha inválida' });
+      const ven = await resolveVenue(it.venueId);
+      if (ven.error) return res.status(400).json({ error: ven.error });
+      plan.set(id, { court, scheduledAt: at, ...(it.venueId !== undefined ? { venueId: ven.venueId, venueName: ven.venueName ?? null } : {}) });
+    }
+
+    const matches = await prisma.match.findMany({
+      where: { id: { in: [...plan.keys()] } },
+      include: { teamA: { select: { id: true, name: true } }, teamB: { select: { id: true, name: true } } },
+    });
+    if (matches.length !== plan.size) return res.status(404).json({ error: 'Algún partido no existe' });
+    const blocked = matches.filter((m) => m.hiddenAt || !['SCHEDULED', 'READY'].includes(m.status));
+    if (blocked.length) {
+      return res.status(409).json({ error: 'Solo se programan partidos Programados o Habilitados (' + blocked.length + ' no cumplen)' });
+    }
+
+    // Estado final de los partidos tocados + los demás partidos activos de esos mismos días
+    const finalOf = (m) => ({ ...m, ...plan.get(m.id) });
+    const touched = matches.map(finalOf);
+    const times = touched.map((m) => m.scheduledAt).filter(Boolean).map((d) => d.getTime());
+    let others = [];
+    if (times.length) {
+      const lo = new Date(Math.min(...times) - TURN_MS);
+      const hi = new Date(Math.max(...times) + TURN_MS);
+      others = await prisma.match.findMany({
+        where: {
+          id: { notIn: [...plan.keys()] },
+          hiddenAt: null,
+          status: { in: ['SCHEDULED', 'READY', 'LIVE'] },
+          scheduledAt: { gte: lo, lte: hi },
+        },
+        include: { teamA: { select: { id: true, name: true } }, teamB: { select: { id: true, name: true } } },
+      });
+    }
+
+    const timed = touched.filter((m) => m.scheduledAt);
+    const pool = [...timed, ...others];
+    const label = (m) => (m.teamA ? m.teamA.name : '¿?') + ' vs ' + (m.teamB ? m.teamB.name : '¿?');
+    const problems = [];
+    for (const a of timed) {
+      for (const b of pool) {
+        if (a === b || (b.scheduledAt && plan.has(b.id) && b.id < a.id)) continue; // cada par una sola vez
+        if (!b.scheduledAt || Math.abs(a.scheduledAt.getTime() - b.scheduledAt.getTime()) >= TURN_MS) continue;
+        if (a.court && b.court && a.court === b.court && (!a.venueId || !b.venueId || a.venueId === b.venueId)) {
+          problems.push('Cancha ' + a.court + ' ocupada a las ' + fmtDate(a.scheduledAt) + ': ' + label(a) + ' y ' + label(b));
+        }
+        const ids = [a.teamAId, a.teamBId].filter(Boolean);
+        const shared = [b.teamAId, b.teamBId].filter((t) => t && ids.includes(t));
+        if (shared.length) {
+          const t = [a.teamA, a.teamB, b.teamA, b.teamB].find((x) => x && x.id === shared[0]);
+          problems.push((t ? t.name : 'Un equipo') + ' juega dos partidos a la vez (' + fmtDate(a.scheduledAt) + ')');
+        }
+      }
+    }
+    if (problems.length) {
+      return res.status(409).json({ error: 'Hay choques de horario', errors: [...new Set(problems)].slice(0, 20) });
+    }
+
+    const editorLbl = await editorLabel(req.user);
+    const changed = [];
+    const updates = [];
+    const logs = [];
+    for (const m of matches) {
+      const next = plan.get(m.id);
+      const sameCourt = next.court === m.court;
+      const sameVenue = next.venueId === undefined || next.venueId === m.venueId;
+      const before = m.scheduledAt ? m.scheduledAt.getTime() : null;
+      const after = next.scheduledAt ? next.scheduledAt.getTime() : null;
+      const sameTs = !next.scheduledAt || m.timeSet;
+      if (sameCourt && sameVenue && before === after && sameTs) continue;
+      const parts = [];
+      if (!sameCourt) parts.push('cancha: ' + (m.court ?? 'sin asignar') + ' → ' + (next.court ?? 'sin asignar'));
+      if (before !== after) parts.push('fecha: ' + fmtDate(m.scheduledAt) + ' → ' + fmtDate(next.scheduledAt));
+      if (!sameVenue) parts.push('sede: ' + (next.venueName ?? 'sin sede'));
+      updates.push({
+        id: m.id,
+        data: { court: next.court, scheduledAt: next.scheduledAt, timeSet: next.scheduledAt != null, ...(next.venueId !== undefined ? { venueId: next.venueId } : {}) },
+      });
+      logs.push(buildLogData(
+        { id: m.id, court: next.court, teamAId: m.teamAId, teamBId: m.teamBId, teamA: m.teamA, teamB: m.teamB },
+        req.user.id, editorLbl, 'MATCH_EDIT', 'Programó la jornada (' + parts.join(', ') + ')'
+      ));
+      changed.push(m.id);
+    }
+    // Una jornada completa son decenas de escrituras: el límite por defecto (5 s) no alcanza. Los registros van en una sola consulta.
+    if (updates.length) {
+      await prisma.$transaction(
+        async (tx) => {
+          for (const u of updates) await tx.match.update({ where: { id: u.id }, data: u.data });
+          await tx.matchResultLog.createMany({ data: logs });
+        },
+        { timeout: 60000, maxWait: 10000 },
+      );
+    }
+    for (const id of changed) await notifyMatch(req.app.get('io'), id);
+    res.json({ updated: changed.length, unchanged: matches.length - changed.length });
   } catch (err) {
     handleError(err, res);
   }
@@ -446,6 +693,7 @@ router.post('/:id/ready', authenticate, async (req, res) => {
       where: { id: ctx.match.id },
       data: { status: 'READY', readyAt: new Date(), readyBy: req.user.id },
     });
+    await freezePredictions(ctx.match.id).catch((e) => console.error('[prode] cierre', e)); // las predicciones se cierran al habilitar
     await notifyMatch(req.app.get('io'), req.params.id);
     res.json(serialize(await fetchMatch(ctx.match.id, ctx.perms.isAdmin), ctx.perms.isAdmin));
   } catch (err) {
@@ -465,6 +713,7 @@ router.post('/:id/unready', authenticate, async (req, res) => {
       where: { id: ctx.match.id },
       data: { status: 'SCHEDULED', readyAt: null, readyBy: null },
     });
+    await reopenPredictions(ctx.match.id).catch((e) => console.error('[prode] reapertura', e));
     await notifyMatch(req.app.get('io'), req.params.id);
     res.json(serialize(await fetchMatch(ctx.match.id, ctx.perms.isAdmin), ctx.perms.isAdmin));
   } catch (err) {
@@ -583,6 +832,7 @@ router.post('/:id/finish', authenticate, async (req, res) => {
       where: { id: ctx.match.id },
       data: { status: 'FINISHED', finishedAt: new Date() },
     });
+    invalidateOdds(); // el resultado cambia la fuerza de los equipos: las cuotas se recalculan
     await notifyMatch(req.app.get('io'), req.params.id);
     res.json(serialize(await fetchMatch(ctx.match.id, true), true));
   } catch (err) {
@@ -746,6 +996,8 @@ router.post('/:id/assignments', ...admin, async (req, res) => {
     }
 
     const created = await prisma.matchAssignment.create({ data });
+    // mesa: si ya había predicho este partido, su predicción se anula (árbitro: se anula recién al cerrar)
+    if (data.function === 'TABLE') await voidPredictionsOfTable(match.id, data).catch((e) => console.error('[prode] asignado', e));
     res.status(201).json(created);
   } catch (err) {
     if (err.code === 'P2002') return res.status(409).json({ error: 'Ya está asignado a este partido' });
@@ -789,14 +1041,18 @@ router.post('/:id/sets', authenticate, async (req, res) => {
     const editorLbl = await editorLabel(req.user);
     const logCreate = logEntry(label, req.user.id, editorLbl, 'SET_ADD', description);
 
+    // Momento en que se decidió el set (queda registrado): tiempo y segundos jugados de ese tiempo (cada tiempo dura 20:00)
+    const engine = getMatch(match.id);
+    const half = engine ? engine.matchHalf : null;
+    const matchSecond = engine ? Math.max(0, 20 * 60 - engine.matchTimeLeft) : null;
+
     const [set] = await prisma.$transaction([
-      prisma.matchSet.create({ data: { matchId: match.id, number, winnerTeamId } }),
+      prisma.matchSet.create({ data: { matchId: match.id, number, winnerTeamId, half, matchSecond } }),
       logCreate,
     ]);
     // Al cargar el ganador del set, el reloj de set vuelve a 3:00 y queda en pausa
     // hasta que el árbitro o la mesa inicie el set siguiente (no toca el reloj del partido)
-    const engine = getMatch(match.id);
-    if (engine) engine.reset('set');
+    if (engine) { engine.reset('set'); engine.sanctionSetEnded(); }
     await notifyMatch(req.app.get('io'), req.params.id);
     res.status(201).json(set);
   } catch (err) {

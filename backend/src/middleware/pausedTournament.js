@@ -17,11 +17,15 @@ async function pausedTournament(req, res, next) {
     if (isList) {
       await runOptionalAuth(req, res);
       if (res.headersSent) return undefined;
-      req.hidePaused = !(req.user && req.user.roles.includes('ADMIN'));
+      const admin = !!(req.user && req.user.roles.includes('ADMIN'));
+      req.hidePaused = !admin;
+      req.onlyDeleted = admin && req.query.deleted === 'true'; // papelera: solo la organización
       return next();
     }
 
-    const t = await prisma.tournament.findUnique({ where: { id: idMatch[1] }, select: { pausedAt: true } });
+    const t = await prisma.tournament.findUnique({ where: { id: idMatch[1] }, select: { pausedAt: true, deletedAt: true } });
+    // Eliminado: no existe para nadie (ni la organización) hasta que se restaure
+    if (t && t.deletedAt) return res.status(404).json({ error: 'Torneo no encontrado' });
     if (!t || !t.pausedAt) return next();
     await runOptionalAuth(req, res);
     if (res.headersSent) return undefined;

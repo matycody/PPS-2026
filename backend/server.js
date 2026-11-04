@@ -7,7 +7,7 @@ const http = require("http");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const { Server } = require("socket.io");
-const { registerMatchHandlers } = require("./src/sockets/matchSocket");
+const { registerMatchHandlers, restoreClocks } = require("./src/sockets/matchSocket");
 const { registerSocketAuth } = require("./src/sockets/auth");
 
 const app = express();
@@ -52,6 +52,7 @@ app.get("/health", (req, res) => {
 });
 
 // Auth, perfiles, equipos, torneos, partidos, usuarios y favoritos
+app.use("/auth", require("./src/routes/authLogin"));
 app.use("/me", require("./src/routes/me"));
 app.use("/profiles", require("./src/routes/profiles"));
 app.use("/teams", require("./src/routes/teams"));
@@ -66,10 +67,17 @@ app.use("/stats", require("./src/routes/stats"));
 app.use("/search", require("./src/routes/search"));
 app.use("/matches", require("./src/middleware/bracketAdvance"));
 app.use("/matches", require("./src/routes/matches"));
+app.use("/matches", require("./src/routes/sheets"));
+app.use("/venues", require("./src/routes/venues"));
+app.use("/news", require("./src/routes/news"));
+app.use("/sheets", require("./src/routes/sheetsAdmin"));
+app.use("/sanciones-publicas", require("./src/routes/sanctionsInfo"));
+app.use("/sanctions", require("./src/routes/sanctions"));
 app.use("/audit", require("./src/routes/audit"));
 app.use("/users", require("./src/routes/users"));
 app.use('/player-requests', require('./src/routes/playerRequests'))
 app.use("/favorites", require("./src/routes/favorites"));
+app.use("/predictions", require("./src/routes/predictions"));
 app.use("/me", require("./src/routes/account"));
 app.use("/photos", require("./src/routes/photos"));
 
@@ -105,6 +113,9 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`Servidor escuchando en http://localhost:${PORT}`);
+// Primero se recuperan los relojes y recién después se acepta gente: si un cliente reconecta antes,
+// getEngine le crea un reloj nuevo (20:00 / 3:00) y la recuperación lo saltea.
+// Tope de 10 s por si la base tarda (Neon frío): en ese caso arranca igual.
+Promise.race([restoreClocks(io), new Promise((r) => setTimeout(r, 10000))]).finally(() => {
+  server.listen(PORT, () => console.log(`Servidor escuchando en http://localhost:${PORT}`));
 });

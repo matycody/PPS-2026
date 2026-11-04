@@ -14,6 +14,8 @@ const CLIENT_EVENTS = {
   MATCH_TIMEOUT_START: "match:timeout:start",
   MATCH_TIMEOUT_END: "match:timeout:end",
   MATCH_TIMEOUT_CANCEL: "match:timeout:cancel", // deshacer un tiempo muerto pedido por error
+  MATCH_SANCTION_ADD: "match:sanction:add", // advertencia, amarilla, azul o roja
+  MATCH_SANCTION_REMOVE: "match:sanction:remove", // deshacer una sanción cargada por error
   // Suscripción pública (visitantes y cuentas) y de control (asignados)
   MATCH_JOIN: "match:join",
   MATCH_LEAVE: "match:leave",

@@ -1,0 +1,2 @@
+ALTER TABLE "Stage" ADD COLUMN "playoffPositions" INTEGER[] NOT NULL DEFAULT ARRAY[]::INTEGER[];
+ALTER TABLE "Stage" DROP COLUMN "playoffUp", DROP COLUMN "playoffDown";

@@ -1,4 +1,5 @@
 ﻿const express = require('express');
+const crypto = require('crypto');
 const prisma = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 const storage = require('../services/storage');
@@ -8,7 +9,7 @@ const admin = [authenticate, requireRole('ADMIN')];
 
 function handleError(err, res) {
   if (err.message === 'INVALID_IMAGE') {
-    return res.status(400).json({ error: 'La imagen no es un JPG, PNG o WebP válido' });
+    return res.status(400).json({ error: 'El archivo no es una imagen válida (si es HEIC de iPhone, sacala como JPG o usá una captura)' });
   }
   console.error('[photos]', err);
   return res.status(500).json({ error: 'Error interno' });
@@ -89,6 +90,78 @@ router.delete('/teams/:id', ...admin, async (req, res) => {
 
     await prisma.team.update({ where: { id: team.id }, data: { logo: null } });
     await storage.removeFile(storage.LOGOS_BUCKET, 'teams/' + team.id + '.webp').catch(() => {});
+    res.json({ ok: true });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+// Admin: portada de una noticia (bucket público). Devuelve la URL para guardarla en News.imageUrl
+router.put('/news-image', ...admin, storage.imageBody, async (req, res) => {
+  try {
+    const webp = await storage.processImage(req.body, 'cover');
+    const url = await storage.uploadLogo('news/' + crypto.randomUUID() + '.webp', webp);
+    res.json({ url });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+// Admin: imagen del torneo (bucket público, la URL se guarda en Tournament.logo)
+router.put('/tournaments/:id', ...admin, storage.imageBody, async (req, res) => {
+  try {
+    const t = await prisma.tournament.findUnique({ where: { id: req.params.id } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+
+    const webp = await storage.processImage(req.body, 'logo');
+    const url = await storage.uploadLogo('tournaments/' + t.id + '.webp', webp);
+    await prisma.tournament.update({ where: { id: t.id }, data: { logo: url } });
+    res.json({ logo: url });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+router.delete('/tournaments/:id', ...admin, async (req, res) => {
+  try {
+    const t = await prisma.tournament.findUnique({ where: { id: req.params.id } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+
+    await prisma.tournament.update({ where: { id: t.id }, data: { logo: null } });
+    await storage.removeFile(storage.LOGOS_BUCKET, 'tournaments/' + t.id + '.webp').catch(() => {});
+    res.json({ ok: true });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+// Admin: escudo propio de una rama del equipo (si no tiene, se usa el general)
+const BRANCHES = ['MIXED', 'MALE', 'FEMALE'];
+router.put('/teams/:id/branch/:branch', ...admin, storage.imageBody, async (req, res) => {
+  try {
+    const { id, branch } = req.params;
+    if (!BRANCHES.includes(branch)) return res.status(400).json({ error: 'Rama inválida' });
+    const tb = await prisma.teamBranch.findUnique({ where: { teamId_branch: { teamId: id, branch } } });
+    if (!tb) return res.status(404).json({ error: 'El equipo no tiene esa rama' });
+
+    const webp = await storage.processImage(req.body, 'logo');
+    const url = await storage.uploadLogo('teams/' + id + '-' + branch + '.webp', webp);
+    await prisma.teamBranch.update({ where: { teamId_branch: { teamId: id, branch } }, data: { logo: url } });
+    res.json({ logo: url });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+router.delete('/teams/:id/branch/:branch', ...admin, async (req, res) => {
+  try {
+    const { id, branch } = req.params;
+    if (!BRANCHES.includes(branch)) return res.status(400).json({ error: 'Rama inválida' });
+    const tb = await prisma.teamBranch.findUnique({ where: { teamId_branch: { teamId: id, branch } } });
+    if (!tb) return res.status(404).json({ error: 'El equipo no tiene esa rama' });
+
+    await prisma.teamBranch.update({ where: { teamId_branch: { teamId: id, branch } }, data: { logo: null } });
+    await storage.removeFile(storage.LOGOS_BUCKET, 'teams/' + id + '-' + branch + '.webp').catch(() => {});
     res.json({ ok: true });
   } catch (err) {
     handleError(err, res);

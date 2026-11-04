@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 const express = require('express');
 const prisma = require('../db');
+const { VENUE_SELECT } = require('../lib/venue');
+const { openLeagueTournaments } = require('../services/leagueOpen');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { computeStandings } = require('../services/standings');
 const { decide, matchResult, shuffleWith, buildSpecs, standardEntrants, validateSpecs } = require('../services/bracket');
@@ -152,19 +154,26 @@ function roundLabel(round, maxRound) {
   return 'Ronda ' + round;
 }
 
-async function view(stageId) {
+// withPaused: con el torneo pausado la organización sigue viendo los partidos que ocultó la pausa (marcados paused: true)
+async function view(stageId, withPaused = false) {
+  const hid = withPaused ? { OR: [{ hiddenAt: null }, { hiddenByPause: true }] } : { hiddenAt: null };
   const matches = await prisma.match.findMany({
-    where: { stageId, hiddenAt: null },
+    where: { stageId, ...hid },
     orderBy: [{ round: 'asc' }, { slot: 'asc' }],
     select: {
       id: true,
+      hiddenByPause: true,
+      tournamentId: true,
+      modality: true,
       round: true,
       slot: true,
       status: true,
       statusReason: true,
       originalScheduledAt: true,
       court: true,
+      venue: { select: VENUE_SELECT },
       scheduledAt: true,
+      timeSet: true,
       teamAId: true,
       teamBId: true,
       nextMatchId: true,
@@ -178,13 +187,25 @@ async function view(stageId) {
       sets: { select: { number: true, winnerTeamId: true }, orderBy: { number: 'asc' } },
     },
   });
+  // Marcador en puntos (el que se ve en las fechas): Foam 1 por set; Cloth 2 por set y 1 a cada uno si empatan
+  const points = (m) => {
+    let a = 0;
+    let b = 0;
+    for (const st of m.sets) {
+      if (!st.winnerTeamId) { if (m.modality === 'CLOTH') { a += 1; b += 1; } } else if (st.winnerTeamId === m.teamAId) a += m.modality === 'CLOTH' ? 2 : 1;
+      else if (st.winnerTeamId === m.teamBId) b += m.modality === 'CLOTH' ? 2 : 1;
+    }
+    return { a, b };
+  };
+  // Mientras la liga del torneo no termina, los cruces son probables aunque ya tengan equipos
+  const leagueOpen = await openLeagueTournaments(matches.map((m) => m.tournamentId));
   // Lugares de zona ("2° Zona A") y si esa zona ya terminó
   const fromIds = [...new Set(matches.flatMap((m) => [m.teamAFrom, m.teamBFrom]).filter(Boolean).map((f) => f.stageId))];
   const zoneInfo = new Map();
   if (fromIds.length) {
     const [zones, zms] = await Promise.all([
       prisma.stage.findMany({ where: { id: { in: fromIds } }, select: { id: true, name: true } }),
-      prisma.match.findMany({ where: { stageId: { in: fromIds }, hiddenAt: null }, select: { stageId: true, status: true } }),
+      prisma.match.findMany({ where: { stageId: { in: fromIds }, ...hid }, select: { stageId: true, status: true } }),
     ]);
     for (const z of zones) {
       const own = zms.filter((x) => x.stageId === z.id);
@@ -215,17 +236,21 @@ async function view(stageId) {
     if (!rounds.has(m.round)) rounds.set(m.round, { round: m.round, name: roundLabel(m.round, maxRound), matches: [] });
     rounds.get(m.round).matches.push({
       id: m.id,
+      ...(m.hiddenByPause ? { paused: true } : {}),
       slot: m.slot,
       kind: thirdPlace ? 'THIRD_PLACE' : 'MATCH',
       status: m.status,
       statusReason: m.statusReason,
       originalScheduledAt: m.originalScheduledAt,
       court: m.court,
+      venue: m.venue ?? null,
       scheduledAt: m.scheduledAt,
       teamA: m.teamA,
       teamB: m.teamB,
       setsA: score ? score.setsA : 0,
       setsB: score ? score.setsB : 0,
+      pointsA: points(m).a,
+      pointsB: points(m).b,
       winnerTeamId: res ? res.winnerTeamId : null,
       nextMatchId: m.nextMatchId,
       nextSide: m.nextSide,
@@ -234,6 +259,7 @@ async function view(stageId) {
       feeds: { A: f.A || null, B: f.B || null },
       fromA: slotFrom(m.teamAFrom),
       fromB: slotFrom(m.teamBFrom),
+      provisional: leagueOpen.has(m.tournamentId) && ['SCHEDULED', 'READY'].includes(m.status),
     });
   }
   return { stageId, totalMatches: matches.length, rounds: [...rounds.values()] };
@@ -402,7 +428,7 @@ router.get('/:id/stages/:stageId/bracket', async (req, res) => {
   try {
     const stage = await findStage(req.params.id, req.params.stageId);
     if (!stage) return res.status(404).json({ error: 'Etapa no encontrada' });
-    res.json(await view(stage.id));
+    res.json(await view(stage.id, Boolean(req.user && req.user.roles && req.user.roles.includes('ADMIN'))));
   } catch (err) {
     handleDbError(err, res);
   }
@@ -470,4 +496,80 @@ router.post('/:id/stages/:stageId/bracket/rounds/:round/assign-courts', ...admin
   }
 });
 
+// ───────────── Playoff de ascenso / permanencia ─────────────
+// Se arma solo a partir de los puestos que la organización marcó en cada zona (Estructura):
+// una etapa de llave aparte con un partido por cruce, cuyos lugares son "N° Zona X" y se completan
+// cuando la zona termina (hasta entonces se ve como "Probable cruce").
+const PROMO_NAME = 'Playoff de ascenso/permanencia';
+
+function promoPairs(zones) {
+  const withP = zones.filter((z) => z.positions.length);
+  if (!withP.length) return { pairs: [] };
+  if (withP.length === 2) {
+    const [x, y] = withP;
+    if (x.positions.length !== y.positions.length) {
+      return { error: 'Para armar los cruces, ' + x.name + ' y ' + y.name + ' necesitan la misma cantidad de puestos de playoff' };
+    }
+    return { pairs: x.positions.map((p, i) => [{ stageId: x.id, position: p }, { stageId: y.id, position: y.positions[i] }]) };
+  }
+  const slots = withP.flatMap((z) => z.positions.map((p) => ({ stageId: z.id, position: p })));
+  if (slots.length % 2) return { error: 'La cantidad total de puestos de playoff tiene que ser par para armar los cruces' };
+  const pairs = [];
+  for (let i = 0; i < slots.length; i += 2) pairs.push([slots[i], slots[i + 1]]);
+  return { pairs };
+}
+
+const fromKey = (f) => (f ? f.stageId + ':' + f.position : '-');
+
+// Deja la etapa y sus partidos de promoción al día con la estructura. Devuelve { error? } sin lanzar por reglas de negocio.
+async function syncPromotion(tournamentId, io = null) {
+  const t = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  if (!t || t.status === 'FINISHED') return {};
+  const zones = (
+    await prisma.stage.findMany({
+      where: { tournamentId, type: 'LEAGUE' },
+      orderBy: [{ phase: 'asc' }, { tier: 'asc' }, { name: 'asc' }],
+      select: { id: true, name: true, phase: true, playoffPositions: true },
+    })
+  ).map((z) => ({ ...z, positions: [...z.playoffPositions].sort((a, b) => a - b) }));
+  const existing = await prisma.stage.findFirst({ where: { tournamentId, isPromotion: true } });
+  const built = promoPairs(zones);
+  if (built.error) return { error: built.error };
+
+  if (!built.pairs.length) {
+    if (!existing) return {};
+    const rep = await replaceable(existing.id);
+    if (!rep.ok) return { error: 'El cruce de ascenso/permanencia ya tiene partidos habilitados o jugados: no se quitó' };
+    await prisma.$transaction([
+      prisma.match.deleteMany({ where: { stageId: existing.id } }),
+      prisma.stageTeam.deleteMany({ where: { stageId: existing.id } }),
+      prisma.stage.delete({ where: { id: existing.id } }),
+    ]);
+    return {};
+  }
+
+  if (existing) {
+    const cur = await prisma.match.findMany({ where: { stageId: existing.id }, orderBy: [{ slot: 'asc' }], select: { teamAFrom: true, teamBFrom: true } });
+    const same =
+      cur.length === built.pairs.length &&
+      cur.every((m, i) => fromKey(m.teamAFrom) === fromKey(built.pairs[i][0]) && fromKey(m.teamBFrom) === fromKey(built.pairs[i][1]));
+    if (same) return {};
+    const rep = await replaceable(existing.id);
+    if (!rep.ok) return { error: 'El cruce de ascenso/permanencia ya tiene partidos habilitados o jugados: no se actualizó' };
+  }
+
+  const maxPhase = zones.reduce((n, z) => Math.max(n, z.phase), 1);
+  const stage = existing ?? (await prisma.stage.create({
+    data: { tournamentId, name: PROMO_NAME, type: 'KNOCKOUT', phase: maxPhase + 1, isPromotion: true },
+  }));
+  const specs = built.pairs.map((pr, i) => ({ ref: 'p' + (i + 1), round: 1, slot: i + 1, a: { from: pr[0] }, b: { from: pr[1] } }));
+  await persist({ ...stage, tournament: t }, specs, null);
+
+  // Si alguna zona ya terminó, completa su lugar enseguida
+  const { resolveFromSlots } = require('../services/slotFrom');
+  for (const z of zones) await resolveFromSlots(io, tournamentId, z.id);
+  return {};
+}
+
+router.syncPromotion = syncPromotion;
 module.exports = router;

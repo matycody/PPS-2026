@@ -1,6 +1,8 @@
 const express = require('express');
 const prisma = require('../db');
+const { VENUE_SELECT } = require('../lib/venue');
 const storage = require('../services/storage');
+const { activeSuspensions } = require('../services/sanctions');
 
 // Banner público del jugador. Solo muestra los datos que la persona marcó como públicos
 // (apodo, número, edad, foto); nunca DNI, mail ni fecha de nacimiento.
@@ -8,8 +10,9 @@ const router = express.Router();
 
 const teamSel = { select: { id: true, name: true, logo: true } };
 const matchSelect = {
-  id: true, status: true, court: true, branch: true, modality: true, scheduledAt: true, finishedAt: true, statusReason: true,
+  id: true, status: true, court: true, branch: true, modality: true, scheduledAt: true, timeSet: true, finishedAt: true, statusReason: true,
   tournament: { select: { id: true, name: true } },
+  venue: { select: VENUE_SELECT },
   teamA: teamSel,
   teamB: teamSel,
   teamAId: true,
@@ -83,10 +86,38 @@ router.get('/:id', async (req, res) => {
             where: { ...base, status: 'FINISHED' },
             select: matchSelect,
             orderBy: [{ scheduledAt: { sort: 'desc', nulls: 'last' } }],
-            take: 15,
           }),
         ])
       : [[], []];
+
+    // Resultados de sus equipos mientras formó parte (el sistema no guarda la alineación de cada partido)
+    const finished = recent.map((m) => ({ m, sc: score(m) }));
+    const tally = (list, teamIdsOf) => {
+      const t = { played: 0, won: 0, drawn: 0, lost: 0, pointsFor: 0, pointsAgainst: 0 };
+      for (const { m, sc } of list) {
+        const mineIsA = teamIdsOf.includes(m.teamAId);
+        const mine = mineIsA ? sc.teamA : sc.teamB;
+        const other = mineIsA ? sc.teamB : sc.teamA;
+        t.played++;
+        t.pointsFor += mine;
+        t.pointsAgainst += other;
+        if (mine > other) t.won++;
+        else if (mine < other) t.lost++;
+        else t.drawn++;
+      }
+      return t;
+    };
+    const myTeamIds = p.teams.map((t) => t.teamId);
+    const inStint = (t) => finished.filter(({ m }) => (m.teamAId === t.teamId || m.teamBId === t.teamId) && m.branch === t.branch
+      && m.scheduledAt && m.scheduledAt >= t.from && (!t.to || m.scheduledAt <= t.to));
+    const stats = {
+      total: tally(finished, myTeamIds),
+      FOAM: tally(finished.filter(({ m }) => m.modality === 'FOAM'), myTeamIds),
+      CLOTH: tally(finished.filter(({ m }) => m.modality === 'CLOTH'), myTeamIds),
+    };
+    const stintStats = (t) => { const x = tally(inStint(t), [t.teamId]); return { played: x.played, won: x.won }; };
+
+    const suspension = (await activeSuspensions([p.id]).catch(() => new Map())).get(p.id) || null;
 
     res.json({
       id: p.id,
@@ -97,11 +128,13 @@ router.get('/:id', async (req, res) => {
       photoUrl,
       teams: current.map((t) => ({
         teamId: t.team.id, name: t.team.name, logo: t.team.logo, branch: t.branch,
-        modalities: t.team.modalities.map((m) => m.modality), since: t.from, coach: t.isCoach,
+        modalities: t.team.modalities.map((m) => m.modality), since: t.from, coach: t.isCoach, stint: stintStats(t),
       })),
-      history: past.map((t) => ({ teamId: t.team.id, name: t.team.name, logo: t.team.logo, branch: t.branch, from: t.from, to: t.to })),
+      history: past.map((t) => ({ teamId: t.team.id, name: t.team.name, logo: t.team.logo, branch: t.branch, from: t.from, to: t.to, stint: stintStats(t) })),
       next: next.map(shape),
-      recent: recent.map(shape),
+      recent: recent.slice(0, 15).map(shape),
+      stats,
+      suspension,
     });
   } catch (err) {
     console.error('[players]', err);

@@ -1,5 +1,6 @@
 const prisma = require('../db');
 const { computeStandings } = require('./standings');
+const { openLeagueTournaments } = require('./leagueOpen');
 
 const TEAM = { id: true, name: true, logo: true };
 
@@ -22,7 +23,7 @@ async function phasesFor(ids) {
     where: { id: { in: ids }, stageId: { not: null } },
     select: {
       id: true, tournamentId: true, round: true, slot: true, teamAId: true, teamBId: true, teamAFrom: true, teamBFrom: true,
-      stage: { select: { id: true, name: true, type: true } },
+      stage: { select: { id: true, name: true, type: true, isPromotion: true } },
       matchday: { select: { number: true } },
     },
   });
@@ -94,6 +95,9 @@ async function phasesFor(ids) {
     return roundLabel(m.round, max) + (same.length > 1 ? ' ' + n : '');
   };
 
+  // Mientras la liga del torneo no termina, todo cruce de playoffs es provisorio aunque ya tenga equipos
+  const leagueOpen = await openLeagueTournaments(rows.filter((r) => r.stage.type === 'KNOCKOUT').map((r) => r.tournamentId));
+
   for (const r of rows) {
     if (r.stage.type === 'LEAGUE') {
       const slotA = !r.teamAId && r.teamAFrom ? zoneSlot(r.teamAFrom) : null;
@@ -120,9 +124,10 @@ async function phasesFor(ids) {
       order: 1000 + (m.round || 0) * 10 - (third ? 1 : 0), // después de la liga; el tercer puesto antes de la final
       slot: m.slot ?? 0,
       zone: null,
-      label: third ? 'Tercer puesto' : roundLabel(m.round, max),
+      label: r.stage.isPromotion ? 'Promoción' : third ? 'Tercer puesto' : roundLabel(m.round, max), // el cruce de promoción se distingue de una final común
       slotA: slot('A', m.teamAId, m.teamAFrom),
       slotB: slot('B', m.teamBId, m.teamBFrom),
+      provisional: leagueOpen.has(r.tournamentId),
     });
   }
   return out;

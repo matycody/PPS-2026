@@ -4,8 +4,11 @@ const prisma = require('../db');
 const { getPermissions } = require('../services/matchAccess');
 const { notifyMatch, FEED_ROOM } = require('../services/notify');
 const authCache = require('../services/authCache');
+const tableLock = require('../services/tableLock');
 const { CLIENT_EVENTS, SERVER_EVENTS } = require('../timers/timerEvents');
 const { getOrCreateMatch, getMatch, pauseMatch, resumeMatch } = require('../timers/matchManager');
+const clockStore = require('../timers/clockStore');
+const { listSanctions, emitSanctions, publicName } = require('../services/sanctions');
 
 const MAX_ROOMS = 12;
 // Valores que espera TimerEngine.setModality (verificado contra TimerEngine.js)
@@ -19,10 +22,17 @@ const lastTick = new Map();
 
 function buildCallbacks(io, matchId) {
   return {
-    onTick: ({ matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed }) => {
-      const payload = { matchId, matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed };
+    onPersist: (state, opts) => clockStore.persist(matchId, state, opts),
+    onTick: ({ matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed, recovered, matchEnded, sanctions }) => {
+      const payload = { matchId, matchTime, setTime, isMatchPaused, isSetPaused, matchHalf, timeoutTime, timeoutTeam, isTimeoutRunning, timeoutsUsed, recovered, matchEnded, sanctions };
       lastTick.set(matchId, payload);
       io.to(publicRoom(matchId)).emit(SERVER_EVENTS.MATCH_TICK, payload);
+    },
+    // La amarilla o la azul terminó (por tiempo, por sets o porque se cerró el partido): queda anotado
+    onSanctionEnd: ({ id }) => {
+      prisma.matchSanction.updateMany({ where: { id, endedAt: null }, data: { endedAt: new Date() } })
+        .then(() => emitSanctions(io, matchId))
+        .catch((e) => console.error('[sanction]', e.message));
     },
     onSetExpired: ({ action, message, source }) => {
       const engine = getMatch(matchId);
@@ -54,6 +64,23 @@ function getEngine(io, dbMatch) {
     engine.setModality(MODALITY_TO_ENGINE[dbMatch.modality]);
   }
   return engine;
+}
+
+// Al arrancar el servidor: recrea los relojes guardados de partidos Habilitados o En vivo, siempre en pausa
+async function restoreClocks(io) {
+  try {
+    const rows = await clockStore.loadActive();
+    for (const row of rows) {
+      if (getMatch(row.matchId)) continue;
+      const engine = getOrCreateMatch(row.matchId, buildCallbacks(io, row.matchId));
+      engine.modality = MODALITY_TO_ENGINE[row.match.modality];
+      engine.restore(row);
+    }
+    if (rows.length) console.log('[clock] relojes recuperados:', rows.length);
+  } catch (err) {
+    // Sin la tabla (migración sin aplicar) o base caída: el servidor arranca igual, con relojes nuevos
+    console.error('[clock] no se pudieron recuperar los relojes:', err.code || err.message);
+  }
 }
 
 function emitError(socket, matchId, message) {
@@ -96,6 +123,7 @@ async function authorize(socket, matchId, need) {
 
   const perms = await getPermissions(auth.user, match);
   if (need && !perms[need]) {
+    if (perms.tableLockedBy) return { error: perms.tableLockedBy + ' está operando la mesa de este partido' };
     return { error: 'Sin permiso sobre este partido (o el partido no está Habilitado)' };
   }
   const result = { user: auth.user, match, perms };
@@ -165,7 +193,13 @@ function alreadyRunning(matchId, target) {
 
 // ───────────── Handlers ─────────────
 
+let lockReady = false;
 function registerMatchHandlers(io, socket) {
+  if (!lockReady) {
+    lockReady = true;
+    // Al quedar libre la mesa, quienes esperan en solo lectura vuelven a intentar tomarla
+    tableLock.init((matchId) => io.to(controlRoom(matchId)).emit('match:tableFree', { matchId }));
+  }
   function on(event, need, fn) {
     socket.on(event, (payload) => {
       const p = payload && typeof payload === 'object' ? payload : {};
@@ -231,17 +265,12 @@ function registerMatchHandlers(io, socket) {
         return emitError(socket, matchId, 'Demasiadas suscripciones');
       }
 
-      // Mesa por buena fe: no se bloquea a nadie, pero se avisa si ya hay otra persona operando como mesa
-      let otherTables = [];
+      // Mesa única: la primera persona que entra opera; las demás quedan en solo lectura hasta que salga
+      let live = perms;
       if (perms.isTable && !perms.isReferee && !perms.isAdmin) {
-        const peers = await io.in(controlRoom(match.id)).fetchSockets();
-        otherTables = peers
-          .filter((x) => x.id !== socket.id && x.data.user && x.data.user.id !== ctx.user.id && x.data.tableIn && x.data.tableIn.has(match.id))
-          .map((x) => x.data.displayName || 'otra persona');
-        socket.data.tableIn = socket.data.tableIn || new Set();
-        socket.data.tableIn.add(match.id);
+        tableLock.acquire(match.id, ctx.user.id, socket.id, socket.data.displayName || 'Otra persona');
+        live = await getPermissions(ctx.user, match); // con el bloqueo ya aplicado
       }
-      socket.emit('match:tableOthers', { matchId: match.id, names: [...new Set(otherTables)] });
 
       socket.join(publicRoom(match.id));
       socket.join(controlRoom(match.id));
@@ -249,14 +278,15 @@ function registerMatchHandlers(io, socket) {
       socket.emit(SERVER_EVENTS.MATCH_PERMISSIONS, {
         matchId: match.id,
         status: match.status,
-        isTable: perms.isTable,
-        isReferee: perms.isReferee,
-        canControlClock: perms.canControlClock,
-        canReady: perms.canReady,
-        canUnready: perms.canUnready,
-        canAddSets: perms.canAddSets,
-        canEditResult: perms.canEditResult,
-        canFinish: perms.canFinish,
+        isTable: live.isTable,
+        isReferee: live.isReferee,
+        tableLockedBy: live.tableLockedBy ?? null,
+        canControlClock: live.canControlClock,
+        canReady: live.canReady,
+        canUnready: live.canUnready,
+        canAddSets: live.canAddSets,
+        canEditResult: live.canEditResult,
+        canFinish: live.canFinish,
       });
 
       const snapshot = lastTick.get(match.id);
@@ -270,8 +300,11 @@ function registerMatchHandlers(io, socket) {
   socket.on(CLIENT_EVENTS.MATCH_CONTROL_LEAVE, (payload) => {
     const matchId = payload && payload.matchId;
     if (typeof matchId === 'string') socket.leave(controlRoom(matchId));
-    if (typeof matchId === 'string' && socket.data.tableIn) socket.data.tableIn.delete(matchId);
+    if (typeof matchId === 'string') tableLock.release(matchId, socket.id); // salir de la pantalla libera la mesa al instante
   });
+
+  // Se cortó la conexión: se libera la mesa pasada la gracia (un corte breve de red no la pierde)
+  socket.on('disconnect', () => tableLock.releaseSocket(socket.id, true));
 
   // ── Comandos del reloj: árbitros asignados y mesa, con el partido Habilitado o En vivo ──
   on(CLIENT_EVENTS.MATCH_START, 'canControlClock', async ({ match }, p) => {
@@ -431,6 +464,65 @@ function registerMatchHandlers(io, socket) {
     engine.finishHalf();
     await logAction(io, socket, match.id, 'FINISH_HALF');
   });
+
+  // ── Sanciones: advertencia (solo Foam), amarilla, azul (solo Cloth) y roja ──
+  const KINDS = ['WARNING', 'YELLOW', 'BLUE', 'RED'];
+  on(CLIENT_EVENTS.MATCH_SANCTION_ADD, 'canControlClock', async ({ match }, p) => {
+    const engine = requireEngine(match);
+    if (!engine) return;
+    if (p.side !== 'A' && p.side !== 'B') return emitError(socket, match.id, 'Equipo inválido');
+    if (!KINDS.includes(p.kind)) return emitError(socket, match.id, 'Tipo de sanción inválido');
+    if (p.kind === 'BLUE' && match.modality !== 'CLOTH') return emitError(socket, match.id, 'La tarjeta azul es solo de Cloth');
+    const reason = typeof p.reason === 'string' && p.reason.trim() ? p.reason.trim().slice(0, 200) : null;
+
+    let player = null;
+    if (p.profileId) {
+      const teamId = p.side === 'A' ? match.teamAId : match.teamBId;
+      const inTeam = teamId && await prisma.playerTeam.findFirst({ where: { profileId: String(p.profileId), teamId, to: null }, select: { id: true } });
+      if (!inTeam) return emitError(socket, match.id, 'Ese jugador no pertenece al equipo');
+      player = await prisma.profile.findUnique({ where: { id: String(p.profileId) }, select: { id: true, name: true, nickname: true, showNickname: true } });
+    }
+    if (p.kind === 'WARNING' && !player) return emitError(socket, match.id, 'Elegí al jugador que recibe la advertencia');
+
+    // Foam: la 2.ª advertencia del mismo jugador lo elimina y el equipo pasa a jugar con 5 (en Cloth la advertencia no elimina)
+    let eliminates = false;
+    if (p.kind === 'WARNING' && match.modality === 'FOAM') {
+      const prev = await prisma.matchSanction.count({ where: { matchId: match.id, profileId: player.id, kind: 'WARNING', revokedAt: null } });
+      eliminates = prev >= 1;
+    }
+    const lastSet = await prisma.matchSet.aggregate({ where: { matchId: match.id }, _max: { number: true } });
+    const row = await prisma.matchSanction.create({
+      data: {
+        matchId: match.id,
+        side: p.side,
+        profileId: player ? player.id : null,
+        kind: p.kind,
+        eliminates,
+        reason,
+        half: engine.matchHalf,
+        setNumber: (lastSet._max.number || 0) + 1,
+        matchSecond: Math.max(0, 20 * 60 - engine.matchTimeLeft),
+        createdById: socket.data.user.id,
+      },
+    });
+    if (p.kind === 'YELLOW' || p.kind === 'BLUE') {
+      engine.addSanction({ id: row.id, side: p.side, kind: p.kind, label: player ? publicName(player) : 'Sin identificar' });
+    }
+    await emitSanctions(io, match.id);
+    await logAction(io, socket, match.id, 'SANCTION_ADD', { side: p.side, kind: p.kind, profileId: player ? player.id : null, eliminates });
+  });
+
+  // Deshacer una sanción cargada por error (queda registrada como deshecha)
+  on(CLIENT_EVENTS.MATCH_SANCTION_REMOVE, 'canControlClock', async ({ match }, p) => {
+    const engine = requireEngine(match);
+    if (!engine) return;
+    const row = typeof p.sanctionId === 'string' ? await prisma.matchSanction.findUnique({ where: { id: p.sanctionId } }) : null;
+    if (!row || row.matchId !== match.id || row.revokedAt) return emitError(socket, match.id, 'Sanción no encontrada');
+    await prisma.matchSanction.update({ where: { id: row.id }, data: { revokedAt: new Date() } });
+    engine.removeSanction(row.id);
+    await emitSanctions(io, match.id);
+    await logAction(io, socket, match.id, 'SANCTION_REMOVE', { side: row.side, kind: row.kind });
+  });
 }
 
-module.exports = { registerMatchHandlers };
+module.exports = { registerMatchHandlers, restoreClocks };
