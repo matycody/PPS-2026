@@ -9,6 +9,9 @@ import { useMenuPrefs } from '../stores/menuPrefsStore'
 import ServerClock from './ServerClock'
 import { useTeamLogos } from '../stores/teamLogosStore'
 import { installDragScroll } from '../lib/dragScroll'
+import TourOverlay from './TourOverlay'
+import { tourSeen, useTourStore } from '../stores/tourStore'
+import { tourKeyFor, startTour } from '../lib/tours'
 
 // Pantallas que ya traen su propio "volver" con el nombre de la lista a la que vuelven
 const OWN_BACK = /^\/(liga|admin\/(torneos|equipos|partidos))\/[^/]+$/
@@ -29,8 +32,22 @@ function BackBar() {
 export default function AppLayout() {
   const [open, setOpen] = useState(false)
   const user = useAuthStore((s) => s.user)
+  const menu = useAuthStore((s) => s.menu)
+  const authLoading = useAuthStore((s) => s.loading)
+  const { pathname } = useLocation()
   const look = useMenuPrefs((s) => s.look)
   useEffect(() => { installDragScroll() }, [])
+
+  // Tutorial de la pantalla: sale solo la primera vez que esta persona entra (guarda "visto" por usuario y dispositivo)
+  useEffect(() => {
+    if (authLoading) return undefined
+    const key = tourKeyFor(pathname)
+    if (!key || tourSeen(user?.id, key)) return undefined
+    const t = setTimeout(() => {
+      if (!useTourStore.getState().active) startTour(key, user, menu)
+    }, 900) // deja que la pantalla termine de cargar
+    return () => clearTimeout(t)
+  }, [pathname, authLoading, user, menu])
   const loadLogos = useTeamLogos((s) => s.load)
   useEffect(() => { loadLogos() }, [loadLogos])
   useEffect(() => {
@@ -45,6 +62,7 @@ export default function AppLayout() {
       <header className="sticky top-0 z-30 flex items-center gap-2 menu-glass px-3 pb-3 sm:gap-3 sm:px-4 pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <button
           aria-label="Abrir menú"
+          data-tour="menu"
           onClick={() => setOpen(true)}
           className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-surface sm:h-11 sm:w-11"
         >
@@ -54,13 +72,13 @@ export default function AppLayout() {
           <p className="truncate text-lg font-extrabold leading-tight sm:text-xl">Dodgeball</p>
           <div className="truncate leading-none"><ServerClock /></div>
         </div>
-        <Link to="/buscar" aria-label="Buscar" className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-line bg-surface sm:h-11 sm:w-11">
+        <Link to="/buscar" aria-label="Buscar" data-tour="search" className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-line bg-surface sm:h-11 sm:w-11">
           <Search size={20} />
         </Link>
         {user ? (
-          <Link to="/perfil" className="shrink-0"><UserAvatar /></Link>
+          <Link to="/perfil" data-tour="account" className="shrink-0"><UserAvatar /></Link>
         ) : (
-          <Link to="/login" aria-label="Ingresar" className="flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-3 py-2 text-sm font-bold text-black">
+          <Link to="/login" aria-label="Ingresar" data-tour="account" className="flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-3 py-2 text-sm font-bold text-black">
             <LogIn size={16} className="min-[400px]:hidden" /><span className="max-[399px]:hidden">Ingresar</span>
           </Link>
         )}
@@ -73,6 +91,7 @@ export default function AppLayout() {
 
       <BottomNav />
       <Drawer open={open} onClose={() => setOpen(false)} />
+      <TourOverlay />
     </div>
   )
 }

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Camera, LogOut, Trash2 } from 'lucide-react'
+import { Camera, Info, LogOut, Trash2 } from 'lucide-react'
+import { resetTours } from '../stores/tourStore'
+import { startTour } from '../lib/tours'
 import { api, apiUploadPhoto } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import { BRANCH } from '../lib/format'
@@ -205,6 +207,13 @@ export default function PerfilPage() {
       )}
 
       <MenuPrefsCard />
+
+      <button
+        onClick={() => { resetTours(user?.id); startTour('inicio', user, menu); navigate('/') }}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-surface py-3 font-bold"
+      >
+        <Info size={18} /> Ver los tutoriales de nuevo
+      </button>
 
       <button onClick={() => signOut().then(() => navigate('/'))} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-surface py-3 font-bold">
         <LogOut size={18} /> Cerrar sesión

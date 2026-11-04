@@ -1,5 +1,6 @@
-import { NavLink, Link } from 'react-router-dom'
-import { X, LogOut, LogIn } from 'lucide-react'
+import { NavLink, Link, useLocation } from 'react-router-dom'
+import { X, LogOut, LogIn, Info } from 'lucide-react'
+import { tourKeyFor, startTour } from '../lib/tours'
 import { useAuthStore } from '../stores/authStore'
 import UserAvatar from './UserAvatar'
 import PersonName from './PersonName'
@@ -31,6 +32,8 @@ function Title({ children }) {
 export default function Drawer({ open, onClose }) {
   const { user, menu, signOut, profile } = useAuthStore()
   const order = useMenuPrefs((s) => s.byUser[user?.id]?.order)
+  const { pathname } = useLocation()
+  const tourKey = tourKeyFor(pathname)
 
   return (
     <div className={'fixed inset-0 z-40 ' + (open ? '' : 'pointer-events-none')}>
@@ -90,6 +93,14 @@ export default function Drawer({ open, onClose }) {
         </nav>
 
         <div className="mt-auto border-t border-line pt-4">
+          {tourKey && (
+            <button
+              onClick={() => { onClose(); setTimeout(() => startTour(tourKey, user, menu), 250) }} // espera a que cierre el menú
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold text-fg"
+            >
+              <Info size={20} /> Ver tutorial de esta pantalla
+            </button>
+          )}
           {user ? (
             <button
               onClick={() => { onClose(); signOut() }}
