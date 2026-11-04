@@ -15,7 +15,7 @@ import { tourSeen, useTourStore } from '../stores/tourStore'
 import { tourKeyFor, startTour } from '../lib/tours'
 
 // Pantallas que ya traen su propio "volver" con el nombre de la lista a la que vuelven
-const OWN_BACK = /^\/(liga|admin\/(torneos|equipos|partidos))\/[^/]+$/
+const OWN_BACK = /^\/(liga|control|admin\/(torneos|equipos|partidos))\/[^/]+$/
 
 // Botón "Volver" para todas las pantallas internas (iOS no tiene botón de atrás)
 function BackBar() {
