@@ -183,7 +183,7 @@ export default function NoticiasPage() {
       {writing && <Editor teams={teams} onCancel={() => setWriting(false)} onSaved={() => { setWriting(false); setTab('all'); load() }} />}
       <div className="flex gap-2">
         {[['all', 'Todas'], ['mine', 'Mi equipo']].map(([v, l]) => (
-          <button key={v} onClick={() => setTab(v)} className={'rounded-full border px-4 py-1.5 text-xs font-bold ' + (tab === v ? 'border-accent bg-accent text-black' : 'border-line bg-surface-2')}>{l}</button>
+          <button key={v} onClick={() => setTab(v)} className={'rounded-full border px-4 py-1.5 text-xs font-bold ' + (tab === v ? 'border-accent bg-accent text-black' : 'border-line bg-surface')}>{l}</button>
         ))}
       </div>
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
