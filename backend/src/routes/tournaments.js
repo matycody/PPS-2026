@@ -527,9 +527,6 @@ router.put('/:id/stages', ...admin, async (req, res) => {
       return res.status(409).json({ error: 'La estructura solo se edita en borrador o con el torneo pausado' });
     }
     const hasMatches = (await prisma.match.count({ where: { tournamentId: t.id, stage: { isPromotion: false } } })) > 0;
-    if (hasMatches && !t.pausedAt) {
-      return res.status(409).json({ error: 'El torneo ya tiene partidos: pausalo para rehacer la estructura' });
-    }
 
     const raw = req.body?.stages;
     if (!Array.isArray(raw) || raw.length > 500) {
@@ -626,8 +623,8 @@ router.put('/:id/stages', ...admin, async (req, res) => {
       include: { teams: { select: { teamId: true, seed: true, entryRound: true } } },
     });
     const key = (x) => `${x.name.toLowerCase()}|${x.type}|${x.phase}`;
-    const teamsSig = (arr) =>
-      arr.map((x) => `${x.teamId}:${x.seed ?? ''}:${x.entryRound ?? ''}`).sort().join(',');
+    // Solo importa qué equipos hay en la zona (el sorteo y las posiciones no cambian la estructura)
+    const teamsSig = (arr) => arr.map((x) => x.teamId).sort().join(',');
     const byKey = new Map(existing.map((e) => [key(e), e]));
     const sameStructure =
       existing.length === stages.length &&
@@ -636,16 +633,35 @@ router.put('/:id/stages', ...admin, async (req, res) => {
         return e && (s.type === 'KNOCKOUT' || teamsSig(e.teams) === teamsSig(s.teams)); // los equipos de las llaves los maneja el armado de la llave
       });
 
-    if (sameStructure) {
-      await prisma.$transaction(
-        stages.map((s) =>
+    // Solo se agregan llaves nuevas: las zonas y llaves que ya estaban (con su fixture y resultados) no se tocan
+    const added = stages.filter((s) => !byKey.has(key(s)));
+    const onlyAddsKnockouts =
+      !sameStructure &&
+      added.length > 0 &&
+      added.every((s) => s.type === 'KNOCKOUT') &&
+      existing.every((e) => {
+        const s = stages.find((x) => key(x) === key(e));
+        return s && (e.type === 'KNOCKOUT' || teamsSig(e.teams) === teamsSig(s.teams));
+      });
+
+    if (sameStructure || onlyAddsKnockouts) {
+      await prisma.$transaction([
+        ...stages.filter((s) => byKey.has(key(s))).map((s) =>
           prisma.stage.update({
             where: { id: byKey.get(key(s)).id },
             data: { tier: s.tier, promotions: s.promotions, relegations: s.relegations, playoffPositions: s.playoffPositions },
           }),
         ),
-      );
+        ...added.map((s) =>
+          prisma.stage.create({
+            data: { tournamentId: t.id, name: s.name, type: s.type, phase: s.phase, tier: s.tier, promotions: s.promotions, relegations: s.relegations, playoffPositions: s.playoffPositions, teams: { create: s.teams } },
+          }),
+        ),
+      ]);
     } else {
+      if (hasMatches && !t.pausedAt) {
+        return res.status(409).json({ error: 'El torneo ya tiene partidos: pausalo para rehacer la estructura' });
+      }
       if (hasMatches && req.body?.confirmWipe !== true) {
         return res.status(409).json({
           code: 'WIPE_REQUIRED',
