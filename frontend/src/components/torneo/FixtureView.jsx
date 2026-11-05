@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ChevronUp, ChevronDown, X } from 'lucide-react'
+import { useConfirm } from '../ConfirmProvider'
 import { api } from '../../lib/api'
 import { socket } from '../../sockets/socket'
 import { fmtWhen, courtLabel } from '../../lib/format'
@@ -36,6 +38,7 @@ export function MatchdayCard({ md, zone, tournamentId, admin, base, onChanged, s
   const [date, setDate] = useState(md.date ? md.date.slice(0, 10) : '')
   const [courts, setCourts] = useState(1)
   const [busy, setBusy] = useState(false)
+  const ask = useConfirm()
 
   async function run(fn) {
     setBusy(true); setErr('')
@@ -51,6 +54,18 @@ export function MatchdayCard({ md, zone, tournamentId, admin, base, onChanged, s
   // Mover un partido a otra fecha de la misma zona: el servidor avisa si un equipo ya juega en esa fecha
   const moveTo = (m, matchdayId) => run(() => api('PATCH', '/matches/' + m.id, { matchdayId }))
   const dropEmpty = () => run(() => api('DELETE', '/tournaments/' + tournamentId + '/matchdays/' + md.id))
+  // Orden de juego dentro de la fecha: sube o baja un lugar
+  const shift = (i, d) => run(() => {
+    const ids = md.matches.map((x) => x.id)
+    ;[ids[i], ids[i + d]] = [ids[i + d], ids[i]]
+    return api('PUT', '/tournaments/' + tournamentId + '/matchdays/' + md.id + '/order', { matchIds: ids })
+  })
+  // Eliminar un partido de la fecha (se oculta y se borra definitivamente)
+  async function remove(m) {
+    const nom = (m.teamA?.name ?? 'Por definir') + ' vs ' + (m.teamB?.name ?? 'Por definir')
+    if (!(await ask({ title: 'Eliminar partido', message: '¿Eliminar ' + nom + '? No se puede deshacer.', confirmText: 'Eliminar', danger: true }))) return
+    await run(async () => { await api('POST', '/matches/' + m.id + '/hide'); await api('DELETE', '/matches/' + m.id + '/purge') })
+  }
   const others = (siblings ?? []).filter((x) => x.id !== md.id)
 
   return (
@@ -72,9 +87,20 @@ export function MatchdayCard({ md, zone, tournamentId, admin, base, onChanged, s
         </div>
       )}
       <div className="space-y-2">
-        {md.matches.map((m) => (
+        {md.matches.map((m, i) => (
           <div key={m.id} className="space-y-1">
-            <MatchRow m={m} base={base} />
+            <div className="flex items-center gap-1">
+              <div className="min-w-0 flex-1"><MatchRow m={m} base={base} /></div>
+              {admin && !urls && (
+                <div className="flex shrink-0 items-center">
+                  <button type="button" aria-label="Subir" disabled={busy || i === 0} onClick={() => shift(i, -1)} className="p-1.5 disabled:opacity-30"><ChevronUp size={18} /></button>
+                  <button type="button" aria-label="Bajar" disabled={busy || i === md.matches.length - 1} onClick={() => shift(i, 1)} className="p-1.5 disabled:opacity-30"><ChevronDown size={18} /></button>
+                  {['SCHEDULED', 'FINISHED', 'CANCELLED'].includes(m.status) && (
+                    <button type="button" aria-label="Eliminar partido" disabled={busy} onClick={() => remove(m)} className="p-1.5 text-danger disabled:opacity-30"><X size={18} /></button>
+                  )}
+                </div>
+              )}
+            </div>
             {admin && !urls && others.length > 0 && (m.status === 'SCHEDULED' || m.status === 'READY') && (
               <div className="flex items-center gap-2 px-1 text-xs text-muted">
                 <span>Mover a</span>
