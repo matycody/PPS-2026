@@ -267,16 +267,18 @@ async function cargar(T) {
   const todos = await prisma.team.findMany({ select: { id: true, name: true } })
   const inscriptos = new Set(t.teams.map((x) => x.teamId))
   const equipo = {}
+  const faltan = []
   for (const n of equipos(T)) {
     const buscados = [n, ...(ALIAS[n] || [])].map(NOMBRE)
     const c = todos.filter((x) => buscados.includes(NOMBRE(x.name)))
     const prefer = c.filter((x) => inscriptos.has(x.id))
     const elegido = prefer.length === 1 ? prefer[0] : c.length === 1 ? c[0] : null
-    if (!elegido) {
-      console.log('✖ Equipo "' + n + '": ' + (c.length ? 'hay ' + c.length + ' con ese nombre y no sé cuál usar' : 'no existe en la web') + '. Parecidos: ' + todos.filter((x) => NOMBRE(x.name).includes(NOMBRE(n).slice(0, 4))).map((x) => x.name).join(', '))
+    if (c.length > 1 && !elegido) {
+      console.log('✖ Equipo "' + n + '": hay ' + c.length + ' con ese nombre y no sé cuál usar')
       return false
     }
-    equipo[n] = elegido.id
+    if (!elegido) faltan.push(n) // no existe: se crea al cargar (sin escudo)
+    equipo[n] = elegido ? elegido.id : null
   }
   const extra = t.stages.filter((s) => !(s.type === 'LEAGUE' && s.phase === 1) && !(s.type === 'KNOCKOUT' && s.phase === 2))
   if (extra.length) { console.log('✖ El torneo tiene etapas que no esperaba: ' + extra.map((s) => s.name + ' (' + s.type + ' fase ' + s.phase + ')').join(', ')); return false }
@@ -286,13 +288,18 @@ async function cargar(T) {
   const venue = await prisma.venue.findFirst({ where: { deletedAt: null, OR: [{ name: { contains: T.sede.name.split(' ')[0], mode: 'insensitive' } }, { mapUrl: T.sede.mapUrl }] } })
   const fechas = [...new Set(T.liga.map((x) => x[0]))].sort((a, b) => a - b)
 
-  console.log('✔ Equipos encontrados: ' + equipos(T).join(', '))
+  console.log('✔ Equipos existentes: ' + equipos(T).filter((n) => equipo[n]).join(', '))
+  if (faltan.length) console.log('⚠ Equipos que no existen y se van a CREAR (sin escudo): ' + faltan.join(', '))
   console.log('Se va a hacer: sede ' + (venue ? 'existente "' + venue.name + '"' : 'nueva "' + T.sede.name + '"') + ' · formato ' + (t.format === 'LEAGUE' ? 'LEAGUE → LEAGUE_CUP' : t.format)
     + ' · ' + fechas.length + ' fechas / ' + T.liga.length + ' partidos (' + fechas.map((f) => f + '→' + T.dias[f].slice(5)).join(', ') + ') · llave ' + T.diaLlave.slice(5) + ' (' + T.llave.length + ' partidos)' + (T.llave.some((m) => m.sa == null) ? ' · ⚠ ' + T.llave.filter((m) => m.sa == null).length + ' sin resultado (quedan Programados: hay que jugarlos o cancelarlos en la web antes de finalizar el torneo)' : ''))
   if (!aplicar) return true
 
   await prisma.$transaction(async (tx) => {
     const sede = venue || (await tx.venue.create({ data: T.sede }))
+    for (const n of faltan) equipo[n] = (await tx.team.create({ data: { name: n } })).id
+    // Todos los equipos del torneo tienen que figurar en su rama y modalidad (si no, la web no los deja inscribir ni programar)
+    await tx.teamBranch.createMany({ data: equipos(T).map((n) => ({ teamId: equipo[n], branch: t.branch })), skipDuplicates: true })
+    await tx.teamModality.createMany({ data: equipos(T).map((n) => ({ teamId: equipo[n], modality: t.modality })), skipDuplicates: true })
     const primero = dia(T.dias[fechas[0]])
     await tx.tournament.update({
       where: { id: t.id },
