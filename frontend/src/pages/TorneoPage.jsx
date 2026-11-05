@@ -151,7 +151,7 @@ export default function TorneoPage() {
               <Trophy size={30} className="mx-auto text-warn" />
               <p className="mt-1 text-[11px] font-bold uppercase tracking-widest text-warn">Campeón del torneo</p>
               <div className="mt-2 flex flex-col items-center gap-2">
-                <TeamBadge team={t.champion} size="xl" />
+                <TeamBadge team={t.champion} size="xl" branch={t.branch} />
                 <p className="text-2xl font-extrabold leading-tight">{t.champion.name}</p>
               </div>
               {t.podium?.full && <Podium podium={t.podium} className="mt-4 border-0 bg-transparent p-0" />}

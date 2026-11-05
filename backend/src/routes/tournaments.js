@@ -235,7 +235,7 @@ router.get('/:id', async (req, res) => {
     const t = await prisma.tournament.findUnique({
       where: { id: req.params.id },
       include: {
-        champion: { select: { id: true, name: true } },
+        champion: { select: { id: true, name: true, logo: true } },
         tiebreakers: { orderBy: { order: 'asc' } },
         teams: { include: { team: { select: TEAM_SELECT } }, orderBy: { team: { name: 'asc' } } },
         stages: {
