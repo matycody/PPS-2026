@@ -261,19 +261,18 @@ async function cargar(T) {
   if (errs.length) { console.log('✖ Datos inconsistentes:\n  - ' + errs.join('\n  - ')); return false }
   console.log('✔ Los ' + T.liga.length + ' partidos de liga reproducen exactamente ' + (gruposDe(T).length > 1 ? 'las ' + gruposDe(T).length + ' tablas' : 'la tabla') + ' de la fuente.')
 
-  const todosT = await prisma.tournament.findMany({ where: { deletedAt: null, AND: T.buscar.map((s) => ({ name: { contains: s, mode: 'insensitive' } })) }, include: { stages: true, teams: true } })
-  const cand = todosT.filter((x) => x.branch === T.rama && x.modality === T.modalidad)
-  if (cand.length !== 1) {
-    console.log('✖ Esperaba 1 torneo con "' + T.buscar.join('" y "') + '", rama ' + T.rama + ' y modalidad ' + T.modalidad + ' y encontré ' + cand.length + '.')
-    console.log('  Torneos con ese nombre en la web: ' + (todosT.length ? todosT.map((x) => x.name + ' [' + x.branch + ' / ' + x.modality + ']').join(' | ') : 'ninguno'))
-    if (!todosT.length) console.log('  Todos los torneos: ' + (await prisma.tournament.findMany({ where: { deletedAt: null }, select: { name: true, branch: true, modality: true } })).map((x) => x.name + ' [' + x.branch + ' / ' + x.modality + ']').join(' | '))
-    return false
+  const todosT = await prisma.tournament.findMany({ where: { AND: T.buscar.map((s) => ({ name: { contains: s, mode: 'insensitive' } })) }, include: { stages: true, teams: true } })
+  const mismo = todosT.filter((x) => x.branch === T.rama && x.modality === T.modalidad)
+  if (mismo.some((x) => x.deletedAt)) { console.log('✖ El torneo está en "Eliminados" en la web: restauralo (o borralo definitivamente) y volvé a correr.'); return false }
+  if (mismo.length > 1) { console.log('✖ Hay ' + mismo.length + ' torneos con ese nombre, rama y modalidad: ' + mismo.map((x) => x.name).join(' | ')); return false }
+  const nuevoTorneo = mismo.length === 0
+  let t = mismo[0] || { id: null, name: T.nombre, branch: T.rama, modality: T.modalidad, format: 'LEAGUE', status: 'DRAFT', stages: [], teams: [], startsAt: null, endsAt: null }
+  if (nuevoTorneo) console.log('⚠ El torneo no existe en la web: se va a CREAR "' + T.nombre + '" (borrador)' + (todosT.length ? '' : '. Torneos que hay hoy: ' + (await prisma.tournament.findMany({ where: { deletedAt: null }, select: { name: true } })).map((x) => x.name).join(' | ')))
+  else {
+    console.log('Torneo: ' + t.name + ' (' + t.id + ') · formato ' + t.format + ' · estado ' + t.status)
+    const yaPartidos = await prisma.match.count({ where: { tournamentId: t.id } })
+    if (yaPartidos) { console.log('⚠ Se saltea: ya tiene ' + yaPartidos + ' partidos. Para recargarlo, reiniciá o vaciá el torneo desde la web.'); return false }
   }
-  const t = cand[0]
-  console.log('Torneo: ' + t.name + ' (' + t.id + ') · formato ' + t.format + ' · estado ' + t.status)
-  if (t.modality !== T.modalidad) { console.log('✖ El torneo en la web es ' + t.modality + ' y los datos son ' + T.modalidad); return false }
-  const yaPartidos = await prisma.match.count({ where: { tournamentId: t.id } })
-  if (yaPartidos) { console.log('⚠ Se saltea: ya tiene ' + yaPartidos + ' partidos. Para recargarlo, reiniciá o vaciá el torneo desde la web.'); return false }
 
   const todos = await prisma.team.findMany({ select: { id: true, name: true } })
   const inscriptos = new Set(t.teams.map((x) => x.teamId))
@@ -307,6 +306,15 @@ async function cargar(T) {
 
   await prisma.$transaction(async (tx) => {
     const sede = venue || (await tx.venue.create({ data: T.sede }))
+    if (nuevoTorneo) {
+      const nt = await tx.tournament.create({
+        data: {
+          name: T.nombre, branch: T.rama, modality: T.modalidad, year: 2026, edition: 'Nacional', format: 'LEAGUE',
+          tiebreakers: { create: ['HEAD_TO_HEAD', 'SET_DIFFERENCE', 'SETS_WON', 'DRAW_LOT'].map((criterion, i) => ({ order: i + 1, criterion })) },
+        },
+      })
+      t = { ...t, id: nt.id }
+    }
     for (const n of faltan) equipo[n] = (await tx.team.create({ data: { name: n } })).id
     // Todos los equipos del torneo tienen que figurar en su rama y modalidad (si no, la web no los deja inscribir ni programar)
     await tx.teamBranch.createMany({ data: equipos(T).map((n) => ({ teamId: equipo[n], branch: t.branch })), skipDuplicates: true })
@@ -392,6 +400,7 @@ async function cargar(T) {
 }
 
 async function main() {
+  try { console.log('Base de datos: ' + new URL(process.env.DATABASE_URL).hostname) } catch { /* sin URL */ }
   const lista = TORNEOS.filter((T) => !solo || NOMBRE(T.nombre).includes(NOMBRE(solo)))
   if (!lista.length) { console.log('No hay torneos que coincidan con "' + solo + '".'); return }
   const res = []
