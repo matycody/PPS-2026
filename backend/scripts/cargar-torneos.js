@@ -22,7 +22,7 @@ const CEDEM = {
   courts: 4,
 }
 // Nombres con que un equipo puede estar escrito distinto en la web (sin tildes ni mayúsculas)
-const ALIAS = { Berserker: ['Berseker'] }
+const ALIAS = { Berserker: ['Berseker'], 'Club General Lamadrid': ['Lamadrid'], 'Linces Pueyrredon': ['Linces by Pueyrredón'], 'Deportivo Riestra': ['Riestra by PCH'] }
 
 // ───────────────────────────── TORNEOS ─────────────────────────────
 // buscar: textos que tiene que contener el nombre del torneo en la web; rama (FEMALE, MALE, MIXED) y modalidad lo distinguen de los otros con el mismo nombre.
