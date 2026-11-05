@@ -4,6 +4,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { computeStandings } = require('../services/standings');
 const { decide } = require('../services/bracket');
 const { knockoutChampion } = require('../services/champion');
+const { savePlaces } = require('../services/podium');
 
 const router = express.Router();
 const admin = [authenticate, requireRole('ADMIN')];
@@ -90,6 +91,13 @@ router.post('/:id/close', ...admin, async (req, res) => {
       championId = t.format === 'LEAGUE' ? null : knockoutChampion(t.stages, byStage);
     }
 
+    // 2.º y 3.º puestos a mano (opcionales): equipos del torneo, sin repetir
+    const second = b.secondId || null;
+    const third = b.thirdId || null;
+    const chosen = [championId, second, third].filter(Boolean);
+    if ([second, third].some((x) => x && !t.teams.some((y) => y.teamId === x))) return res.status(400).json({ error: 'El 2.º y el 3.º tienen que ser equipos del torneo' });
+    if (new Set(chosen).size !== chosen.length) return res.status(400).json({ error: 'Un equipo no puede ocupar dos puestos del podio' });
+
     const data = await computeStandings(t.id);
     const standings = [];
     let unresolvedTies = 0;
@@ -129,6 +137,7 @@ router.post('/:id/close', ...admin, async (req, res) => {
       await tx.stageStanding.deleteMany({ where: { stage: { tournamentId: t.id } } });
       if (standings.length) await tx.stageStanding.createMany({ data: standings });
       await tx.tournament.update({ where: { id: t.id }, data: { status: 'FINISHED', championId: championId || null } });
+      if (second || third) await savePlaces(tx, t.id, { second: second || undefined, third: third || undefined });
     });
 
     res.json({
@@ -139,6 +148,38 @@ router.post('/:id/close', ...admin, async (req, res) => {
       unresolvedTies,
       pendingForced: pending.length,
     });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Podio a mano: campeón, 2.º y 3.º (cada uno: id = fijar, null = automático, sin enviar = no tocar). Solo en torneos terminados.
+router.put('/:id/podium', ...admin, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const t = await prisma.tournament.findUnique({ where: { id: req.params.id }, include: { teams: { select: { teamId: true } } } });
+    if (!t) return res.status(404).json({ error: 'Torneo no encontrado' });
+    if (t.status !== 'FINISHED') return res.status(409).json({ error: 'El podio se edita cuando el torneo está terminado (antes se elige al cerrarlo)' });
+    const norm = (v) => (v === undefined ? undefined : v || null);
+    const first = norm(b.firstId);
+    const second = norm(b.secondId);
+    const third = norm(b.thirdId);
+    for (const x of [first, second, third]) {
+      if (x && !t.teams.some((y) => y.teamId === x)) return res.status(400).json({ error: 'El podio solo admite equipos del torneo' });
+    }
+    const { podiums } = require('../services/podium');
+    const final = {
+      first: first === undefined ? t.championId : first,
+      second: second === undefined ? (await podiums([{ id: t.id, championId: t.championId }])).get(t.id)?.manual.second ?? null : second,
+      third: third === undefined ? (await podiums([{ id: t.id, championId: t.championId }])).get(t.id)?.manual.third ?? null : third,
+    };
+    const chosen = Object.values(final).filter(Boolean);
+    if (new Set(chosen).size !== chosen.length) return res.status(400).json({ error: 'Un equipo no puede ocupar dos puestos del podio' });
+    await prisma.$transaction(async (tx) => {
+      if (first !== undefined) await tx.tournament.update({ where: { id: t.id }, data: { championId: first } });
+      await savePlaces(tx, t.id, { second, third });
+    });
+    res.json({ ok: true });
   } catch (err) {
     handleDbError(err, res);
   }

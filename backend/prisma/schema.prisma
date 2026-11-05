@@ -122,6 +122,7 @@ model Team {
   assignments        MatchAssignment[]
   playerRequestTeams PlayerRequestTeam[]
   championOf         Tournament[]        @relation("TournamentChampion")
+  placesWon          TournamentPlace[]
   tournamentTeams    TournamentTeam[]
   stageTeams         StageTeam[]
   standings          StageStanding[]
@@ -194,6 +195,7 @@ model Tournament {
   teams       TournamentTeam[]
   stages      Stage[]
   tiebreakers Tiebreaker[]
+  places      TournamentPlace[]
 
   @@index([year])
   @@index([status])
@@ -511,6 +513,19 @@ model Tiebreaker {
   tournament   Tournament          @relation(fields: [tournamentId], references: [id])
 
   @@unique([tournamentId, order])
+}
+
+// Puestos del podio puestos a mano por la organización (2.º y 3.º; el campeón es Tournament.championId).
+// Si no hay fila, el puesto se deduce solo: final y partido por el tercer puesto, o la tabla de posiciones.
+model TournamentPlace {
+  tournamentId String
+  place        Int
+  teamId       String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  team         Team       @relation(fields: [teamId], references: [id])
+
+  @@id([tournamentId, place])
+  @@index([teamId])
 }
 
 // Tabla final congelada al cerrar el torneo (registro histórico permanente)

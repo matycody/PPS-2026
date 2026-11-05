@@ -767,6 +767,7 @@ router.post('/:id/reset', ...admin, async (req, res) => {
     ops.push(prisma.tournament.update({ where: { id }, data: { championId: null, ...(t.status === 'FINISHED' ? { status: 'ACTIVE' } : {}) } }));
 
     await prisma.$transaction(ops);
+    try { await prisma.tournamentPlace.deleteMany({ where: { tournamentId: id } }); } catch { /* migración de podio pendiente */ }
 
     // Relojes en memoria de los partidos que estaban en juego o habilitados
     matches.filter((m) => ['LIVE', 'READY'].includes(m.status)).forEach((m) => removeMatch(m.id));

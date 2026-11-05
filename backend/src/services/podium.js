@@ -24,35 +24,82 @@ function knockoutPodium(stages, matches) {
   return { firstId: f?.winnerTeamId ?? null, secondId: f?.loserTeamId ?? null, thirdId: t?.winnerTeamId ?? null };
 }
 
+// Puestos puestos a mano (2.º y 3.º). Si la tabla todavía no existe (migración pendiente) se ignoran, sin romper nada.
+async function manualPlaces(ids) {
+  const out = new Map();
+  try {
+    const rows = await prisma.tournamentPlace.findMany({ where: { tournamentId: { in: ids } }, select: { tournamentId: true, place: true, teamId: true } });
+    for (const r of rows) {
+      if (!out.has(r.tournamentId)) out.set(r.tournamentId, {});
+      out.get(r.tournamentId)[r.place] = r.teamId;
+    }
+  } catch { /* sin tabla */ }
+  return out;
+}
+
+// Guarda 2.º y 3.º a mano ({ second, third }: id = fijar, null = volver al automático, undefined = no tocar)
+async function savePlaces(tx, tournamentId, { second, third }) {
+  for (const [place, teamId] of [[2, second], [3, third]]) {
+    if (teamId === undefined) continue;
+    await tx.tournamentPlace.deleteMany({ where: { tournamentId, place } });
+    if (teamId) await tx.tournamentPlace.create({ data: { tournamentId, place, teamId } });
+  }
+}
+
+// Posiciones 1 a 3 de la tabla de la zona principal (torneo solo de liga). Solo si el puesto es único (sin empate).
+function leaguePodium(stages, standings) {
+  const leagues = stages.filter((s) => s.type === 'LEAGUE' && !s.isPromotion);
+  if (!leagues.length) return null;
+  const topPhase = Math.max(...leagues.map((s) => s.phase));
+  const topTier = Math.min(...leagues.filter((s) => s.phase === topPhase).map((s) => s.tier ?? 1));
+  const tops = leagues.filter((s) => s.phase === topPhase && (s.tier ?? 1) === topTier);
+  if (tops.length !== 1) return null;
+  const rows = standings.filter((x) => x.stageId === tops[0].id);
+  if (!rows.length) return null;
+  const at = (n) => { const r = rows.filter((x) => x.position === n); return r.length === 1 && !r[0].tied ? r[0].teamId : null; };
+  return { firstId: at(1), secondId: at(2), thirdId: at(3) };
+}
+
 // rows: [{ id, championId }] de torneos terminados.
-// Devuelve Map(torneo -> { first, second, third, full }). Liga sola: solo 1.º (full=false); con llaves: podio completo (full=true).
+// Devuelve Map(torneo -> { first, second, third, full, manual }).
+// Cada puesto sale, en este orden: de lo puesto a mano, del partido (final / tercer puesto) o de la tabla de posiciones (torneo de liga).
 async function podiums(rows) {
   const out = new Map();
   if (!rows.length) return out;
   const ids = rows.map((r) => r.id);
-  const [stages, matches] = await Promise.all([
-    prisma.stage.findMany({ where: { tournamentId: { in: ids } }, select: { id: true, tournamentId: true, type: true, phase: true, isPromotion: true } }),
+  const [stages, matches, standings, manual] = await Promise.all([
+    prisma.stage.findMany({ where: { tournamentId: { in: ids } }, select: { id: true, tournamentId: true, type: true, phase: true, tier: true, isPromotion: true } }),
     prisma.match.findMany({
       where: { tournamentId: { in: ids }, hiddenAt: null, stage: { type: 'KNOCKOUT' } },
       select: { id: true, tournamentId: true, stageId: true, round: true, slot: true, status: true, teamAId: true, teamBId: true, loserMatchId: true, sets: { select: { winnerTeamId: true } } },
     }),
+    prisma.stageStanding.findMany({ where: { stage: { tournamentId: { in: ids } } }, select: { stageId: true, teamId: true, position: true, tied: true } }),
+    manualPlaces(ids),
   ]);
   const raw = new Map();
   const teamIds = new Set();
   for (const r of rows) {
     const st = stages.filter((s) => s.tournamentId === r.id);
+    const hasKo = st.some((s) => s.type === 'KNOCKOUT' && !s.isPromotion);
+    const man = manual.get(r.id) || {};
     const pod = knockoutPodium(st, matches.filter((m) => m.tournamentId === r.id));
-    const full = st.some((s) => s.type === 'KNOCKOUT' && !s.isPromotion);
-    const p = { firstId: pod?.firstId ?? r.championId ?? null, secondId: full ? pod?.secondId ?? null : null, thirdId: full ? pod?.thirdId ?? null : null, full };
+    const lg = hasKo ? null : leaguePodium(st, standings.filter((x) => st.some((s) => s.id === x.stageId)));
+    const p = {
+      firstId: r.championId ?? pod?.firstId ?? lg?.firstId ?? null,
+      secondId: man[2] ?? pod?.secondId ?? lg?.secondId ?? null,
+      thirdId: man[3] ?? pod?.thirdId ?? lg?.thirdId ?? null,
+      full: hasKo || !!lg || !!man[2] || !!man[3],
+      manual: { second: man[2] ?? null, third: man[3] ?? null },
+    };
     raw.set(r.id, p);
     [p.firstId, p.secondId, p.thirdId].filter(Boolean).forEach((x) => teamIds.add(x));
   }
   const teams = teamIds.size ? await prisma.team.findMany({ where: { id: { in: [...teamIds] } }, select: TEAM }) : [];
   const byId = new Map(teams.map((t) => [t.id, t]));
   for (const [tid, p] of raw) {
-    out.set(tid, { first: byId.get(p.firstId) ?? null, second: byId.get(p.secondId) ?? null, third: byId.get(p.thirdId) ?? null, full: p.full });
+    out.set(tid, { first: byId.get(p.firstId) ?? null, second: byId.get(p.secondId) ?? null, third: byId.get(p.thirdId) ?? null, full: p.full, manual: p.manual });
   }
   return out;
 }
 
-module.exports = { podiums, knockoutPodium };
+module.exports = { podiums, knockoutPodium, savePlaces };

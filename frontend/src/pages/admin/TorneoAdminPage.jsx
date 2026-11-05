@@ -565,6 +565,9 @@ function BracketTab({ t, goStructure }) {
 function SummaryTab({ t, reload, setErr, setMsg }) {
   const ask = useConfirm()
   const [champ, setChamp] = useState('')
+  const [second, setSecond] = useState('')
+  const [third, setThird] = useState('')
+  const [pod, setPod] = useState({ first: t.championId ?? '', second: t.podium?.manual?.second ?? '', third: t.podium?.manual?.third ?? '' })
   const [busy, setBusy] = useState(false)
   const [warn, setWarn] = useState('')
   const [pausing, setPausing] = useState(false)
@@ -632,11 +635,19 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
     setBusy(true); setErr('')
     try { await api('POST', '/tournaments/' + t.id + '/activate', {}); setMsg('Torneo activado'); await reload() } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
+  async function savePodium() {
+    setBusy(true); setErr('')
+    try {
+      await api('PUT', '/tournaments/' + t.id + '/podium', { firstId: pod.first || null, secondId: pod.second || null, thirdId: pod.third || null })
+      setMsg('Podio guardado')
+      await reload()
+    } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
   async function close(force) {
     if (!(await ask({ title: 'Cerrar torneo', message: 'Se congela la tabla final y no se podrá modificar. ¿Cerrar "' + t.name + '"?', confirmText: 'Cerrar' }))) return
     setBusy(true); setErr('')
     try {
-      const r = await api('POST', '/tournaments/' + t.id + '/close', { ...(champ ? { championId: champ } : {}), ...(force ? { force: true } : {}) })
+      const r = await api('POST', '/tournaments/' + t.id + '/close', { ...(champ ? { championId: champ } : {}), ...(second ? { secondId: second } : {}), ...(third ? { thirdId: third } : {}), ...(force ? { force: true } : {}) })
       setMsg('Torneo cerrado' + (r.unresolvedTies ? ' · empates sin resolver: ' + r.unresolvedTies : ''))
       await reload()
     } catch (e) {
@@ -675,6 +686,22 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
           <Btn tone="danger" disabled={pausing} onClick={resetTournament} className="w-full">{pausing ? 'Reiniciando…' : 'Reiniciar torneo'}</Btn>
         </div>
       )}
+      {t.status === 'FINISHED' && (
+        <div className="space-y-2 rounded-3xl border border-line bg-surface p-4">
+          <p className="text-sm font-bold">Podio</p>
+          <p className="text-xs text-muted">Automático: sale de la final, del partido por el tercer puesto o de la tabla de posiciones. Si algún puesto no se define solo (por ejemplo, un torneo sin partido por el 3.º), elegilo a mano.</p>
+          {!t.podium?.third && <p className="text-xs font-bold text-warn">El 3.º puesto está sin definir.</p>}
+          {[['first', 'Campeón', t.podium?.first], ['second', '2.º puesto', t.podium?.second], ['third', '3.º puesto', t.podium?.third]].map(([k, l, auto]) => (
+            <label key={k} className="block text-xs text-muted">{l}
+              <select className={inputCls} value={pod[k]} onChange={(e) => setPod({ ...pod, [k]: e.target.value })}>
+                <option value="">{k === 'first' ? 'Sin campeón' : 'Automático' + (auto && !pod[k] ? ': ' + auto.name : '')}</option>
+                {t.teams.map((x) => <option key={x.teamId} value={x.teamId}>{x.team.name}</option>)}
+              </select>
+            </label>
+          ))}
+          <Btn tone="accent" disabled={busy} onClick={savePodium} className="w-full">Guardar podio</Btn>
+        </div>
+      )}
       {t.status === 'ACTIVE' && (
         <div className="space-y-2 rounded-3xl border border-line bg-surface p-4">
           <p className="text-sm font-bold">Cerrar torneo</p>
@@ -684,6 +711,15 @@ function SummaryTab({ t, reload, setErr, setMsg }) {
             <option value="">Campeón automático</option>
             {t.teams.map((x) => <option key={x.teamId} value={x.teamId}>{x.team.name}</option>)}
           </select>
+          <select className={inputCls} value={second} onChange={(e) => setSecond(e.target.value)}>
+            <option value="">2.º puesto automático</option>
+            {t.teams.map((x) => <option key={x.teamId} value={x.teamId}>{x.team.name}</option>)}
+          </select>
+          <select className={inputCls} value={third} onChange={(e) => setThird(e.target.value)}>
+            <option value="">3.º puesto automático</option>
+            {t.teams.map((x) => <option key={x.teamId} value={x.teamId}>{x.team.name}</option>)}
+          </select>
+          <p className="text-xs text-muted">Automático: el campeón y el 2.º salen de la final, el 3.º del partido por el tercer puesto o, en un torneo de liga, de la tabla. Si el torneo no tiene partido por el 3.º, elegilo acá.</p>
           <Btn tone="accent" disabled={busy} onClick={() => close(false)} className="w-full">Cerrar torneo</Btn>
           <Btn disabled={busy} onClick={() => close(true)} className="w-full">Cerrar con partidos pendientes</Btn>
         </div>
