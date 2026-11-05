@@ -95,7 +95,7 @@ export function MatchdayCard({ md, zone, tournamentId, admin, base, onChanged, s
             <div className="mt-2 flex items-center gap-2 border-t border-line pt-2">
               {canMove
                 ? (
-                  <select className={inputCls + ' !min-h-0 min-w-0 flex-1 !py-1.5 text-xs'} value="" disabled={busy} onChange={(e) => e.target.value && moveTo(m, e.target.value)} aria-label="Mover el partido a otra fecha">
+                  <select className={inputCls + ' !min-h-0 !bg-surface min-w-0 flex-1 !py-1.5 text-xs'} value="" disabled={busy} onChange={(e) => e.target.value && moveTo(m, e.target.value)} aria-label="Mover el partido a otra fecha">
                     <option value="">Mover a otra fecha…</option>
                     {others.map((x) => <option key={x.id} value={x.id}>Fecha {x.number}</option>)}
                   </select>
