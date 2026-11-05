@@ -49,7 +49,7 @@ export function ManualMatchForm({ t, days, onDone, setErr }) {
   const leagues = t.stages.filter((s) => s.type === 'LEAGUE')
   const [stageId, setStageId] = useState(leagues[0]?.id ?? '')
   const [matchdayId, setMatchdayId] = useState('new')
-  const [f, setF] = useState({ teamAId: '', teamBId: '', court: '', day: '', counts: true })
+  const [f, setF] = useState({ teamAId: '', teamBId: '', court: '', day: '', time: '', counts: true })
   const [busy, setBusy] = useState(false)
   const [ok, setOk] = useState('')
   const pickLast = useRef(false)
@@ -83,7 +83,8 @@ export function ManualMatchForm({ t, days, onDone, setErr }) {
       branch: t.branch,
       modality: t.modality,
       court: f.court === '' ? null : Number(f.court),
-      scheduledAt: f.day ? f.day + 'T15:00:00.000Z' : null,
+      scheduledAt: f.day ? (f.time ? new Date(f.day + 'T' + f.time + ':00').toISOString() : f.day + 'T15:00:00.000Z') : null,
+      timeSet: !!(f.day && f.time),
       teamAId: f.teamAId,
       teamBId: f.teamBId,
       ...(f.counts ? { countsInStandings: true, stageId, matchdayId } : {}),
@@ -99,7 +100,7 @@ export function ManualMatchForm({ t, days, onDone, setErr }) {
       const nombres = (id) => teams.find((x) => x.id === id)?.name ?? ''
       setOk('Agregado: ' + nombres(f.teamAId) + ' vs ' + nombres(f.teamBId))
       if (matchdayId === 'new') pickLast.current = true
-      setF((s) => ({ ...s, teamAId: '', teamBId: '', court: '' }))
+      setF((s) => ({ ...s, teamAId: '', teamBId: '', court: '', time: '' }))
       await onDone()
     } catch (er) { setErr(er.message) } finally { setBusy(false) }
   }
@@ -109,7 +110,7 @@ export function ManualMatchForm({ t, days, onDone, setErr }) {
   return (
     <form onSubmit={submit} className="space-y-3">
       <p className="text-xs text-muted">
-        Cargá los partidos de a uno. La fecha se crea sola si elegís "Fecha nueva", y queda elegida para cargar los siguientes. Un equipo no puede jugar dos veces en la misma fecha, pero sí varias fechas el mismo día.
+        Cargá los partidos de a uno. La fecha se crea sola si elegís "Fecha nueva", y queda elegida para cargar los siguientes. Un equipo no puede jugar dos veces en la misma fecha, pero sí varias fechas el mismo día. El día, la hora y la cancha son opcionales: ponelos solo si los tenés.
       </p>
       <div className="grid grid-cols-2 gap-3 text-xs text-muted [&>*]:min-w-0">
         {f.counts && (
@@ -135,10 +136,13 @@ export function ManualMatchForm({ t, days, onDone, setErr }) {
             </select>
           </label>
         ))}
-        <label>Día (la hora no importa)
+        <label>Día (opcional)
           <input type="date" className={inputCls} value={f.day} onChange={(e) => set('day', e.target.value)} />
         </label>
-        <label>Cancha
+        <label>Hora (opcional)
+          <input type="time" disabled={!f.day} className={inputCls} value={f.time} onChange={(e) => set('time', e.target.value)} />
+        </label>
+        <label>Cancha (opcional)
           <input type="number" min="1" placeholder="Opcional" className={inputCls} value={f.court} onChange={(e) => set('court', e.target.value)} />
         </label>
       </div>

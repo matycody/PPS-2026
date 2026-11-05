@@ -121,6 +121,11 @@ router.post('/:id/stages/:stageId/fixture', ...admin, async (req, res) => {
     }
     const schedule = parseSchedule(b.schedule);
     if (schedule === undefined) return res.status(400).json({ error: 'schedule inválido (interval, sameDay o weekend)' });
+    // Hora y cancha opcionales: se aplican a todos los partidos sorteados (la hora solo con día)
+    const time = b.time === undefined || b.time === null || b.time === '' ? null : String(b.time);
+    if (time !== null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return res.status(400).json({ error: 'time inválida (HH:MM)' });
+    const court = b.court === undefined || b.court === null || b.court === '' ? null : Number(b.court);
+    if (court !== null && (!Number.isInteger(court) || court < 1 || court > 50)) return res.status(400).json({ error: 'court inválida (entero de 1 a 50)' });
     const dateFor = (i) => {
       if (dates && i < dates.length) return dates[i];
       return scheduleDate({ schedule, startDate, intervalDays, i, total: rounds.length });
@@ -153,10 +158,11 @@ router.post('/:id/stages/:stageId/fixture', ...admin, async (req, res) => {
           stageId: stage.id,
           matchdayId: md.id,
           slot: k + 1,
-          court: null,
+          court,
           branch: t.branch,
           modality: t.modality,
-          scheduledAt: date,
+          scheduledAt: date && time ? new Date(date.toISOString().slice(0, 10) + 'T' + time + ':00-03:00') : date,
+          timeSet: !!(date && time),
           teamAId,
           teamBId,
         });

@@ -261,7 +261,7 @@ function FixtureTab({ t, setErr }) {
   // Las opciones del sorteo se recuerdan por torneo en este dispositivo
   const optKey = 'fixtureOpt:' + t.id
   const [opt, setOpt] = useState(() => {
-    const base = { startDate: '', schedule: 'interval', intervalDays: 7, doubleRound: false, shuffle: true }
+    const base = { startDate: '', time: '', court: '', schedule: 'interval', intervalDays: 7, doubleRound: false, shuffle: true }
     try { return { ...base, ...JSON.parse(localStorage.getItem(optKey) || '{}') } } catch { return base }
   })
   useEffect(() => { try { localStorage.setItem(optKey, JSON.stringify(opt)) } catch { /* sin localStorage */ } }, [optKey, opt])
@@ -275,6 +275,7 @@ function FixtureTab({ t, setErr }) {
       await api('POST', '/tournaments/' + t.id + '/stages/' + stage.id + '/fixture', {
         shuffle: opt.shuffle, doubleRound: opt.doubleRound, intervalDays: Number(opt.intervalDays) || 7, schedule: opt.schedule,
         startDate: opt.startDate ? opt.startDate + 'T15:00:00.000Z' : undefined,
+        time: opt.startDate && opt.time ? opt.time : undefined, court: opt.court ? Number(opt.court) : undefined,
       })
       setTick((x) => x + 1)
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
@@ -304,9 +305,9 @@ function FixtureTab({ t, setErr }) {
             : <ManualMatchForm t={t} days={days} setErr={setErr} onDone={async () => setTick((x) => x + 1)} />)}
           {modo === 'auto' && (
             <div className="space-y-3">
-              <p className="text-xs text-muted">Genera todos los cruces de cada zona de una vez. Después podés mover partidos entre fechas.</p>
+              <p className="text-xs text-muted">Genera todos los cruces de cada zona de una vez. El día, la hora y la cancha son opcionales (la hora y la cancha se aplican a todos los partidos). Después podés mover partidos entre fechas.</p>
           <div className="grid grid-cols-2 gap-3 text-xs text-muted [&>*]:min-w-0">
-            <label>{opt.schedule === 'interval' ? 'Primera fecha' : opt.schedule === 'weekend' ? 'Sábado (primer día)' : 'Día de juego'}<input type="date" className={inputCls} value={opt.startDate} onChange={(e) => setOpt({ ...opt, startDate: e.target.value })} /></label>
+            <label>{opt.schedule === 'interval' ? 'Primera fecha' : opt.schedule === 'weekend' ? 'Sábado (primer día)' : 'Día de juego'} (opcional)<input type="date" className={inputCls} value={opt.startDate} onChange={(e) => setOpt({ ...opt, startDate: e.target.value })} /></label>
             <label>Cuándo se juega
               <select className={inputCls} value={opt.schedule} onChange={(e) => setOpt({ ...opt, schedule: e.target.value })}>
                 <option value="interval">Cada tantos días</option>
@@ -314,6 +315,8 @@ function FixtureTab({ t, setErr }) {
                 <option value="weekend">Fin de semana (sáb y dom)</option>
               </select>
             </label>
+            <label>Hora (opcional)<input type="time" disabled={!opt.startDate} className={inputCls} value={opt.time} onChange={(e) => setOpt({ ...opt, time: e.target.value })} /></label>
+            <label>Cancha (opcional)<input type="number" min="1" className={inputCls} value={opt.court} onChange={(e) => setOpt({ ...opt, court: e.target.value })} /></label>
             {opt.schedule === 'interval' && (
               <label>Días entre fechas<input type="number" min="1" className={inputCls} value={opt.intervalDays} onChange={(e) => setOpt({ ...opt, intervalDays: e.target.value })} /></label>
             )}
@@ -347,7 +350,7 @@ function BracketBuilder({ t, stage, onDone, setErr }) {
   const [source, setSource] = useState(leagues.length ? 'standings' : 'teams')
   const [order, setOrder] = useState(t.teams.map((x) => x.team))
   const [top, setTop] = useState(2)
-  const [o, setO] = useState({ shuffle: false, keepTop: 0, thirdPlace: false, pairing: 'auto', startDate: '', schedule: 'interval', intervalDays: 7, ladder: false })
+  const [o, setO] = useState({ shuffle: false, keepTop: 0, thirdPlace: false, pairing: 'auto', startDate: '', time: '', court: '', schedule: 'interval', intervalDays: 7, ladder: false })
   const [entry, setEntry] = useState({})
   const [busy, setBusy] = useState(false)
 
@@ -422,7 +425,7 @@ function BracketBuilder({ t, stage, onDone, setErr }) {
         </select>
       </label>
       <div className="grid grid-cols-2 gap-3 text-xs text-muted [&>*]:min-w-0">
-        <label>{o.schedule === 'interval' ? 'Primera ronda' : o.schedule === 'weekend' ? 'Sábado (primer día)' : 'Día de juego'}<input type="date" className={inputCls} value={o.startDate} onChange={(e) => setO({ ...o, startDate: e.target.value })} /></label>
+        <label>{o.schedule === 'interval' ? 'Primera ronda' : o.schedule === 'weekend' ? 'Sábado (primer día)' : 'Día de juego'} (opcional)<input type="date" className={inputCls} value={o.startDate} onChange={(e) => setO({ ...o, startDate: e.target.value })} /></label>
         <label>Reparto de rondas
           <select className={inputCls} value={o.schedule} onChange={(e) => setO({ ...o, schedule: e.target.value })}>
             <option value="interval">Cada N días</option>
