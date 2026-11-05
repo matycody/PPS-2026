@@ -25,7 +25,7 @@ const CEDEM = {
 const ALIAS = { Berserker: ['Berseker'] }
 
 // ───────────────────────────── TORNEOS ─────────────────────────────
-// buscar: textos que tiene que contener el nombre del torneo en la web.
+// buscar: textos que tiene que contener el nombre del torneo en la web; rama (FEMALE, MALE, MIXED) y modalidad lo distinguen de los otros con el mismo nombre.
 // liga: [fecha, local, visitante, puntos local, puntos visitante] (en Foam son sets; en Cloth, los puntos del marcador).
 // dias: día de cada fecha de la liga (la hora no se carga). diaLlave: día de los playoffs.
 // tabla: tabla final de la fuente, para verificar la carga: equipo → [PTS, puntos a favor, puntos en contra], en orden de posición.
@@ -34,7 +34,8 @@ const ALIAS = { Berserker: ['Berseker'] }
 const TORNEOS = [
   {
     nombre: 'Femenino Cloth - Nacional de Buenos Aires 2026',
-    buscar: ['Femenino Cloth', 'Nacional de Buenos Aires 2026'],
+    buscar: ['Nacional de Buenos Aires 2026'],
+    rama: 'FEMALE',
     modalidad: 'CLOTH',
     sede: CEDEM, // no se sabe en qué cancha se jugó cada partido: todos en cancha 1
     cancha: 1,
@@ -62,7 +63,8 @@ const TORNEOS = [
   },
   {
     nombre: 'Masculino Foam - Nacional de Buenos Aires 2026',
-    buscar: ['Masculino Foam', 'Nacional de Buenos Aires 2026'],
+    buscar: ['Nacional de Buenos Aires 2026'],
+    rama: 'MALE',
     modalidad: 'FOAM',
     sede: CEDEM,
     cancha: 1,
@@ -99,7 +101,8 @@ const TORNEOS = [
   },
   {
     nombre: 'Masculino Cloth - Nacional de Buenos Aires 2026',
-    buscar: ['Masculino Cloth', 'Nacional de Buenos Aires 2026'],
+    buscar: ['Nacional de Buenos Aires 2026'],
+    rama: 'MALE',
     modalidad: 'CLOTH',
     sede: CEDEM,
     cancha: 1,
@@ -132,7 +135,8 @@ const TORNEOS = [
   },
   {
     nombre: 'Mixto Foam - Nacional de Buenos Aires 2026',
-    buscar: ['Mixto Foam', 'Nacional de Buenos Aires 2026'],
+    buscar: ['Nacional de Buenos Aires 2026'],
+    rama: 'MIXED',
     modalidad: 'FOAM',
     sede: CEDEM,
     cancha: 1,
@@ -169,7 +173,8 @@ const TORNEOS = [
   },
   {
     nombre: 'Mixto Cloth - Nacional de Buenos Aires 2026',
-    buscar: ['Mixto Cloth', 'Nacional de Buenos Aires 2026'],
+    buscar: ['Nacional de Buenos Aires 2026'],
+    rama: 'MIXED',
     modalidad: 'CLOTH',
     sede: CEDEM,
     cancha: 1,
@@ -256,8 +261,14 @@ async function cargar(T) {
   if (errs.length) { console.log('✖ Datos inconsistentes:\n  - ' + errs.join('\n  - ')); return false }
   console.log('✔ Los ' + T.liga.length + ' partidos de liga reproducen exactamente ' + (gruposDe(T).length > 1 ? 'las ' + gruposDe(T).length + ' tablas' : 'la tabla') + ' de la fuente.')
 
-  const cand = await prisma.tournament.findMany({ where: { deletedAt: null, AND: T.buscar.map((s) => ({ name: { contains: s, mode: 'insensitive' } })) }, include: { stages: true, teams: true } })
-  if (cand.length !== 1) { console.log('✖ Esperaba 1 torneo que contenga "' + T.buscar.join('" y "') + '" y encontré ' + cand.length + (cand.length ? ': ' + cand.map((t) => t.name).join(' | ') : '')); return false }
+  const todosT = await prisma.tournament.findMany({ where: { deletedAt: null, AND: T.buscar.map((s) => ({ name: { contains: s, mode: 'insensitive' } })) }, include: { stages: true, teams: true } })
+  const cand = todosT.filter((x) => x.branch === T.rama && x.modality === T.modalidad)
+  if (cand.length !== 1) {
+    console.log('✖ Esperaba 1 torneo con "' + T.buscar.join('" y "') + '", rama ' + T.rama + ' y modalidad ' + T.modalidad + ' y encontré ' + cand.length + '.')
+    console.log('  Torneos con ese nombre en la web: ' + (todosT.length ? todosT.map((x) => x.name + ' [' + x.branch + ' / ' + x.modality + ']').join(' | ') : 'ninguno'))
+    if (!todosT.length) console.log('  Todos los torneos: ' + (await prisma.tournament.findMany({ where: { deletedAt: null }, select: { name: true, branch: true, modality: true } })).map((x) => x.name + ' [' + x.branch + ' / ' + x.modality + ']').join(' | '))
+    return false
+  }
   const t = cand[0]
   console.log('Torneo: ' + t.name + ' (' + t.id + ') · formato ' + t.format + ' · estado ' + t.status)
   if (t.modality !== T.modalidad) { console.log('✖ El torneo en la web es ' + t.modality + ' y los datos son ' + T.modalidad); return false }
