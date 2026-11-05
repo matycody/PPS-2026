@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { socket } from '../../sockets/socket'
 import { Btn, Alert, inputCls } from '../ui'
+import { useConfirm } from '../ConfirmProvider'
 import { MatchRow } from './FixtureView'
 
 // Zonas de liga donde juegan los dos equipos (para poder sumar el partido a su tabla)
@@ -44,6 +45,7 @@ function StandingsPicker({ t, days, teamAId, teamBId, value, onChange }) {
 
 // Alta de un partido del torneo, en cualquier momento (aunque ya esté en curso): la organización decide si suma a la tabla
 function AddMatchForm({ t, days, onDone, setErr }) {
+  const ask = useConfirm()
   const teams = t.teams.map((x) => x.team)
   const [f, setF] = useState({ teamAId: '', teamBId: '', court: '', scheduledAt: '', counts: false })
   const [place, setPlace] = useState({ stageId: '', matchdayId: 'new' })
@@ -53,17 +55,24 @@ function AddMatchForm({ t, days, onDone, setErr }) {
   async function submit(e) {
     e.preventDefault()
     setBusy(true); setErr('')
+    const body = {
+      tournamentId: t.id,
+      branch: t.branch,
+      modality: t.modality,
+      court: f.court === '' ? null : Number(f.court),
+      scheduledAt: f.scheduledAt ? new Date(f.scheduledAt).toISOString() : null,
+      teamAId: f.teamAId || undefined,
+      teamBId: f.teamBId || undefined,
+      ...(f.counts ? { countsInStandings: true, stageId: place.stageId, matchdayId: place.matchdayId } : {}),
+    }
     try {
-      await api('POST', '/matches', {
-        tournamentId: t.id,
-        branch: t.branch,
-        modality: t.modality,
-        court: f.court === '' ? null : Number(f.court),
-        scheduledAt: f.scheduledAt ? new Date(f.scheduledAt).toISOString() : null,
-        teamAId: f.teamAId || undefined,
-        teamBId: f.teamBId || undefined,
-        ...(f.counts ? { countsInStandings: true, stageId: place.stageId, matchdayId: place.matchdayId } : {}),
-      })
+      try {
+        await api('POST', '/matches', body)
+      } catch (er) {
+        // Cruce que ya existe en la zona: se puede agregar igual si es ida y vuelta
+        if (er.data?.code !== 'REPEATED_PAIR' || !(await ask({ title: 'Cruce repetido', message: er.message, confirmText: 'Agregar igual' }))) throw er
+        await api('POST', '/matches', { ...body, force: true })
+      }
       setF({ teamAId: '', teamBId: '', court: '', scheduledAt: '', counts: false })
       await onDone()
     } catch (er) { setErr(er.message) } finally { setBusy(false) }

@@ -279,6 +279,15 @@ function FixtureTab({ t, setErr }) {
       setTick((x) => x + 1)
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
+  // Armado a mano: agrega una fecha vacía a la zona (con su día, opcional)
+  const [newDay, setNewDay] = useState('')
+  async function addFecha(stage) {
+    setBusy(true); setErr('')
+    try {
+      await api('POST', '/tournaments/' + t.id + '/stages/' + stage.id + '/matchdays', { date: newDay ? newDay + 'T15:00:00.000Z' : null })
+      setTick((x) => x + 1)
+    } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
   async function drop(stage) {
     if (!(await ask({ title: 'Eliminar fixture', message: '¿Eliminar el fixture de ' + stage.name + '?', confirmText: 'Eliminar', danger: true }))) return
     setErr('')
@@ -316,6 +325,18 @@ function FixtureTab({ t, setErr }) {
                 : <Btn tone="accent" disabled={busy || t.status === 'FINISHED'} onClick={() => draw(s)}>Sortear</Btn>}
             </div>
           ))}
+        </div>
+      )}
+      {leagues.length > 0 && days !== null && (
+        <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
+          <p className="text-sm font-bold">Armar a mano</p>
+          <p className="text-xs text-muted">Para cargar un torneo ya jugado o un fixture propio: agregá las fechas, sumá los partidos con "Agregar partido al torneo" (marcando "Suma a la tabla") y movelos entre fechas con "Mover a". Un equipo no puede jugar dos veces en la misma fecha, pero sí varias fechas el mismo día.</p>
+          <label className="block text-xs text-muted">Día de la fecha nueva (opcional)
+            <input type="date" className={inputCls} value={newDay} onChange={(e) => setNewDay(e.target.value)} />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {leagues.map((s) => <Btn key={s.id} disabled={busy || t.status === 'FINISHED'} onClick={() => addFecha(s)}>+ Fecha en {s.name}</Btn>)}
+          </div>
         </div>
       )}
       <FixtureView tournamentId={t.id} admin base="/admin/partidos/" reloadKey={tick} onLoaded={setDays} />

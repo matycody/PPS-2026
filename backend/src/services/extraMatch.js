@@ -8,9 +8,55 @@ const prisma = require('../db');
 const { VENUE_SELECT } = require('../lib/venue');
 
 class ExtraMatchError extends Error {
-  constructor(status, message) {
+  constructor(status, message, code) {
     super(message);
     this.status = status;
+    this.code = code;
+  }
+}
+
+// Un equipo no puede jugar dos veces en la misma fecha de una zona (sí puede jugar varias fechas el mismo día).
+// excludeMatchId: el partido que se está editando o moviendo, para no chocar consigo mismo.
+async function assertFechaLibre(matchdayId, teamIds, excludeMatchId) {
+  const ids = [...new Set((teamIds || []).filter(Boolean))];
+  if (!matchdayId || !ids.length) return;
+  const clash = await prisma.match.findFirst({
+    where: {
+      matchdayId,
+      hiddenAt: null,
+      ...(excludeMatchId ? { id: { not: excludeMatchId } } : {}),
+      OR: [{ teamAId: { in: ids } }, { teamBId: { in: ids } }],
+    },
+    select: {
+      teamAId: true,
+      teamA: { select: { name: true } },
+      teamB: { select: { name: true } },
+      matchday: { select: { number: true, stage: { select: { name: true } } } },
+    },
+  });
+  if (!clash) return;
+  const who = ids.includes(clash.teamAId) ? clash.teamA : clash.teamB;
+  throw new ExtraMatchError(
+    409,
+    (who ? who.name : 'Un equipo') + ' ya juega en la Fecha ' + clash.matchday.number + ' de ' + clash.matchday.stage.name +
+      ' (' + (clash.teamA?.name ?? '—') + ' vs ' + (clash.teamB?.name ?? '—') + '). Un equipo no puede estar dos veces en la misma fecha.',
+    'TEAM_IN_FECHA',
+  );
+}
+
+// Aviso (se puede confirmar con force): los dos equipos ya se enfrentan en la zona (válido si es ida y vuelta).
+async function assertParNuevo(stageId, teamAId, teamBId, excludeMatchId, force) {
+  if (force || !stageId || !teamAId || !teamBId) return;
+  const n = await prisma.match.count({
+    where: {
+      stageId,
+      hiddenAt: null,
+      ...(excludeMatchId ? { id: { not: excludeMatchId } } : {}),
+      OR: [{ teamAId, teamBId }, { teamAId: teamBId, teamBId: teamAId }],
+    },
+  });
+  if (n) {
+    throw new ExtraMatchError(409, 'Estos dos equipos ya se enfrentan en esta zona. Si es ida y vuelta, confirmá para agregarlo igual.', 'REPEATED_PAIR');
   }
 }
 
@@ -25,7 +71,7 @@ async function assertTournamentOpen(tournamentId) {
 
 // Valida que el partido pueda sumar a la tabla de una zona y devuelve { stage, matchday|null }.
 // matchdayId: id de una fecha existente de esa zona, o vacío / "new" para crear una fecha nueva.
-async function planStanding({ tournamentId, stageId, matchdayId, teamAId, teamBId }) {
+async function planStanding({ tournamentId, stageId, matchdayId, teamAId, teamBId, excludeMatchId, force }) {
   if (!tournamentId) throw new ExtraMatchError(400, 'Para sumar a la tabla el partido tiene que ser de un torneo');
   if (!stageId) throw new ExtraMatchError(400, 'Elegí la zona en la que suma');
   const stage = await prisma.stage.findFirst({
@@ -42,7 +88,9 @@ async function planStanding({ tournamentId, stageId, matchdayId, teamAId, teamBI
   if (matchdayId && matchdayId !== 'new') {
     matchday = await prisma.matchday.findFirst({ where: { id: String(matchdayId), stageId: stage.id } });
     if (!matchday) throw new ExtraMatchError(404, 'Fecha no encontrada en esa zona');
+    await assertFechaLibre(matchday.id, [teamAId, teamBId], excludeMatchId);
   }
+  await assertParNuevo(stage.id, teamAId, teamBId, excludeMatchId, force);
   return { stage, matchday };
 }
 
@@ -86,4 +134,4 @@ function listExtraMatches(tournamentId, TEAM_SELECT, includePaused = false) {
   });
 }
 
-module.exports = { ExtraMatchError, assertTournamentOpen, planStanding, placeInFixture, listExtraMatches };
+module.exports = { ExtraMatchError, assertFechaLibre, assertParNuevo, assertTournamentOpen, planStanding, placeInFixture, listExtraMatches };

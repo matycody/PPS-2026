@@ -185,6 +185,40 @@ router.post('/:id/stages/:stageId/fixture', ...admin, async (req, res) => {
   }
 });
 
+// Armado a mano: agrega una fecha vacía al final de una zona de liga (con su día, opcional).
+// Después los partidos se agregan a la fecha (POST /matches con countsInStandings) o se mueven entre fechas (PATCH /matches/:id con matchdayId).
+router.post('/:id/stages/:stageId/matchdays', ...admin, async (req, res) => {
+  try {
+    const stage = await findStage(req.params.id, req.params.stageId);
+    if (!stage) return res.status(404).json({ error: 'Zona no encontrada' });
+    if (stage.tournament.status === 'FINISHED') return res.status(409).json({ error: 'El torneo finalizó' });
+    if (stage.type !== 'LEAGUE') return res.status(409).json({ error: 'Las fechas son solo para zonas de liga' });
+    const date = parseDate(req.body?.date);
+    if (date === undefined) return res.status(400).json({ error: 'Fecha inválida' });
+    const last = await prisma.matchday.aggregate({ where: { stageId: stage.id }, _max: { number: true } });
+    const md = await prisma.matchday.create({ data: { stageId: stage.id, number: (last._max.number ?? 0) + 1, date } });
+    res.status(201).json({ id: md.id, stageId: stage.id, number: md.number, date: md.date });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
+// Quita una fecha vacía (sin partidos), por ejemplo una agregada por error.
+router.delete('/:id/matchdays/:matchdayId', ...admin, async (req, res) => {
+  try {
+    const md = await findMatchday(req.params.id, req.params.matchdayId);
+    if (!md) return res.status(404).json({ error: 'Jornada no encontrada' });
+    if (md.stage.tournament.status === 'FINISHED') return res.status(409).json({ error: 'El torneo finalizó' });
+    if (await prisma.match.count({ where: { matchdayId: md.id } })) {
+      return res.status(409).json({ error: 'La fecha tiene partidos: movelos a otra fecha antes de quitarla' });
+    }
+    await prisma.matchday.delete({ where: { id: md.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    handleDbError(err, res);
+  }
+});
+
 // Elimina el fixture de una zona. Solo si ningún partido fue habilitado, jugado ni tiene asignaciones.
 router.delete('/:id/stages/:stageId/fixture', ...admin, async (req, res) => {
   try {

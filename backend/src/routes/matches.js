@@ -5,7 +5,7 @@ const { formsFor } = require('../services/teamForm');
 const { authenticate, optionalAuth, requireRole } = require('../middleware/auth');
 const { getPermissions } = require('../services/matchAccess');
 const { notifyMatch } = require('../services/notify');
-const { ExtraMatchError, assertTournamentOpen, planStanding, placeInFixture } = require('../services/extraMatch');
+const { ExtraMatchError, assertTournamentOpen, assertFechaLibre, assertParNuevo, planStanding, placeInFixture } = require('../services/extraMatch');
 const { getMatch } = require('../timers/matchManager');
 const { setsWithScore } = require('../services/scoreTimeline');
 const { freezePredictions, reopenPredictions, voidPredictionsOfTable } = require('../services/prode');
@@ -160,7 +160,7 @@ function loadForLabel(matchId) {
 }
 
 function handleError(err, res) {
-  if (err instanceof ExtraMatchError) return res.status(err.status).json({ error: err.message });
+  if (err instanceof ExtraMatchError) return res.status(err.status).json({ error: err.message, ...(err.code ? { code: err.code } : {}) });
   if (err.code === 'P2002') return res.status(409).json({ error: 'Registro duplicado (reintentá)' });
   if (err.code === 'P2025') return res.status(404).json({ error: 'No encontrado' });
   console.error('[matches]', err);
@@ -242,7 +242,7 @@ router.post('/', ...admin, async (req, res) => {
 
     // countsInStandings: el partido suma a la tabla de una zona (y aparece en su fixture). Sin eso queda en "Fuera del fixture"
     const plan = req.body.countsInStandings === true
-      ? await planStanding({ tournamentId, stageId: req.body.stageId, matchdayId: req.body.matchdayId, teamAId, teamBId })
+      ? await planStanding({ tournamentId, stageId: req.body.stageId, matchdayId: req.body.matchdayId, teamAId, teamBId, force: req.body.force === true })
       : null;
 
     const match = await prisma.$transaction(async (tx) => {
@@ -436,10 +436,32 @@ router.patch('/:id', ...admin, async (req, res) => {
     if (b.countsInStandings === true) {
       if (match.stageId) return res.status(409).json({ error: 'El partido ya suma a la tabla' });
       plan = await planStanding({
-        tournamentId: next.tournamentId, stageId: b.stageId, matchdayId: b.matchdayId, teamAId: next.teamAId, teamBId: next.teamBId,
+        tournamentId: next.tournamentId, stageId: b.stageId, matchdayId: b.matchdayId, teamAId: next.teamAId, teamBId: next.teamBId, force: b.force === true,
       });
     } else if (b.countsInStandings === false && match.stageId) {
       return res.status(409).json({ error: 'Un partido del fixture no se saca de la tabla: cancelalo u ocultalo' });
+    }
+
+    // Partido que ya está en una fecha del fixture: mover a otra fecha de su zona o cambiar sus equipos.
+    // Un equipo no puede jugar dos veces en la misma fecha (error); repetir el cruce de la zona pide confirmación (force)
+    let move = null;
+    let oldMd = null;
+    if (match.stageId && match.matchdayId && b.countsInStandings !== true) {
+      const teamsChanged = next.teamAId !== match.teamAId || next.teamBId !== match.teamBId;
+      if (b.matchdayId && b.matchdayId !== match.matchdayId) {
+        move = await prisma.matchday.findFirst({ where: { id: String(b.matchdayId), stageId: match.stageId } });
+        if (!move) return res.status(404).json({ error: 'Fecha no encontrada en esa zona' });
+        oldMd = await prisma.matchday.findUnique({ where: { id: match.matchdayId } });
+      }
+      if (move || teamsChanged) {
+        await assertFechaLibre((move ?? { id: match.matchdayId }).id, [next.teamAId, next.teamBId], match.id);
+      }
+      if (teamsChanged) await assertParNuevo(match.stageId, next.teamAId, next.teamBId, match.id, b.force === true);
+      if (move && b.scheduledAt === undefined) {
+        // si el partido seguía el día de su fecha anterior, pasa al día de la nueva
+        const same = !match.scheduledAt || (oldMd?.date && oldMd.date.getTime() === match.scheduledAt.getTime());
+        if (same) { data.scheduledAt = move.date ?? null; req.body.timeSet = false; next.scheduledAt = data.scheduledAt; }
+      }
     }
 
     const refereeIds = match.assignments
@@ -497,9 +519,14 @@ router.patch('/:id', ...admin, async (req, res) => {
       changes.push('torneo: ' + tn(match.tournamentId) + ' → ' + tn(data.tournamentId));
     }
     if (plan) changes.push('suma a la tabla de ' + plan.stage.name);
+    if (move) changes.push('fecha del fixture: Fecha ' + (oldMd?.number ?? '?') + ' → Fecha ' + move.number);
 
     await prisma.$transaction(async (tx) => {
-      const place = plan ? await placeInFixture(tx, plan, next.scheduledAt) : {};
+      let place = plan ? await placeInFixture(tx, plan, next.scheduledAt) : {};
+      if (move) {
+        const lastSlot = await tx.match.aggregate({ where: { matchdayId: move.id }, _max: { slot: true } });
+        place = { matchdayId: move.id, slot: (lastSlot._max.slot ?? 0) + 1 };
+      }
       await tx.match.update({ where: { id: match.id }, data: { ...data, ...place } });
     });
 

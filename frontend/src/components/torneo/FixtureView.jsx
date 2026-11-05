@@ -32,7 +32,7 @@ export function MatchRow({ m, base }) {
 }
 
 // urls: para rondas de playoffs, { date, assign } reemplaza a los de la jornada del fixture
-export function MatchdayCard({ md, zone, tournamentId, admin, base, onChanged, setErr, urls, onDate }) {
+export function MatchdayCard({ md, zone, tournamentId, admin, base, onChanged, setErr, urls, onDate, siblings }) {
   const [date, setDate] = useState(md.date ? md.date.slice(0, 10) : '')
   const [courts, setCourts] = useState(1)
   const [busy, setBusy] = useState(false)
@@ -47,6 +47,11 @@ export function MatchdayCard({ md, zone, tournamentId, admin, base, onChanged, s
   const assign = () => run(() => api('POST', urls?.assign ?? '/tournaments/' + tournamentId + '/matchdays/' + md.id + '/assign-courts', {
     courts: Number(courts),
   }))
+
+  // Mover un partido a otra fecha de la misma zona: el servidor avisa si un equipo ya juega en esa fecha
+  const moveTo = (m, matchdayId) => run(() => api('PATCH', '/matches/' + m.id, { matchdayId }))
+  const dropEmpty = () => run(() => api('DELETE', '/tournaments/' + tournamentId + '/matchdays/' + md.id))
+  const others = (siblings ?? []).filter((x) => x.id !== md.id)
 
   return (
     <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
@@ -67,7 +72,26 @@ export function MatchdayCard({ md, zone, tournamentId, admin, base, onChanged, s
         </div>
       )}
       <div className="space-y-2">
-        {md.matches.map((m) => <MatchRow key={m.id} m={m} base={base} />)}
+        {md.matches.map((m) => (
+          <div key={m.id} className="space-y-1">
+            <MatchRow m={m} base={base} />
+            {admin && !urls && others.length > 0 && (m.status === 'SCHEDULED' || m.status === 'READY') && (
+              <div className="flex items-center gap-2 px-1 text-xs text-muted">
+                <span>Mover a</span>
+                <select className={inputCls} style={{ width: 'auto' }} value="" disabled={busy} onChange={(e) => e.target.value && moveTo(m, e.target.value)} aria-label="Mover el partido a otra fecha">
+                  <option value="">Elegí una fecha…</option>
+                  {others.map((x) => <option key={x.id} value={x.id}>Fecha {x.number}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+        ))}
+        {admin && !urls && md.matches.length === 0 && (
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-muted">Fecha vacía: sumale partidos con "Agregar partido al torneo" o quitala.</p>
+            <Btn tone="danger" onClick={dropEmpty} disabled={busy}>Quitar fecha</Btn>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -106,6 +130,7 @@ export default function FixtureView({ tournamentId, admin = false, base = '/part
   }
   const card = (md, zone) => (
     <MatchdayCard key={md.id} md={md} zone={zone} tournamentId={tournamentId} admin={admin} base={base} onChanged={load} setErr={setErr}
+      siblings={days.filter((x) => x.stage.id === md.stage.id)}
       onDate={(id, v) => setDrafts((d) => ({ ...d, [id]: v }))} />
   )
 
