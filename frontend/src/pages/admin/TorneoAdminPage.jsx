@@ -12,7 +12,7 @@ import StandingsView from '../../components/torneo/StandingsView'
 import { useTournamentLive } from '../../hooks/useTournamentLive'
 import BracketView from '../../components/torneo/BracketView'
 import FixtureView, { PlayoffsSchedule } from '../../components/torneo/FixtureView'
-import ExtraMatchesView from '../../components/torneo/ExtraMatchesView'
+import ExtraMatchesView, { ManualMatchForm } from '../../components/torneo/ExtraMatchesView'
 import BracketEditor, { emptyBracket, fromView } from '../../components/torneo/BracketEditor'
 
 const TABS = [
@@ -279,15 +279,8 @@ function FixtureTab({ t, setErr }) {
       setTick((x) => x + 1)
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
-  // Armado a mano: agrega una fecha vacía a la zona (con su día, opcional)
-  const [newDay, setNewDay] = useState('')
-  async function addFecha(stage) {
-    setBusy(true); setErr('')
-    try {
-      await api('POST', '/tournaments/' + t.id + '/stages/' + stage.id + '/matchdays', { date: newDay ? newDay + 'T15:00:00.000Z' : null })
-      setTick((x) => x + 1)
-    } catch (e) { setErr(e.message) } finally { setBusy(false) }
-  }
+  const [mode, setMode] = useState(null)
+  const modo = mode ?? ((days ?? []).length ? 'manual' : 'auto')
   async function drop(stage) {
     if (!(await ask({ title: 'Eliminar fixture', message: '¿Eliminar el fixture de ' + stage.name + '?', confirmText: 'Eliminar', danger: true }))) return
     setErr('')
@@ -299,7 +292,19 @@ function FixtureTab({ t, setErr }) {
       {leagues.length === 0 && <p className="text-muted">No hay zonas de liga. Definilas en Estructura.</p>}
       {leagues.length > 0 && days !== null && (
         <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
-          <p className="text-sm font-bold">Sorteo todos contra todos</p>
+          <p className="text-sm font-bold">Armar el fixture</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[['manual', 'Cargar a mano'], ['auto', 'Sortear automático']].map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setMode(k)}
+                className={'rounded-2xl border px-3 py-2 text-sm font-bold ' + (modo === k ? 'border-accent bg-accent text-black' : 'border-line bg-surface-2')}>{l}</button>
+            ))}
+          </div>
+          {modo === 'manual' && (t.status === 'FINISHED'
+            ? <p className="text-sm text-muted">El torneo está finalizado.</p>
+            : <ManualMatchForm t={t} days={days} setErr={setErr} onDone={async () => setTick((x) => x + 1)} />)}
+          {modo === 'auto' && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted">Genera todos los cruces de cada zona de una vez. Después podés mover partidos entre fechas.</p>
           <div className="grid grid-cols-2 gap-3 text-xs text-muted [&>*]:min-w-0">
             <label>{opt.schedule === 'interval' ? 'Primera fecha' : opt.schedule === 'weekend' ? 'Sábado (primer día)' : 'Día de juego'}<input type="date" className={inputCls} value={opt.startDate} onChange={(e) => setOpt({ ...opt, startDate: e.target.value })} /></label>
             <label>Cuándo se juega
@@ -325,18 +330,8 @@ function FixtureTab({ t, setErr }) {
                 : <Btn tone="accent" disabled={busy || t.status === 'FINISHED'} onClick={() => draw(s)}>Sortear</Btn>}
             </div>
           ))}
-        </div>
-      )}
-      {leagues.length > 0 && days !== null && (
-        <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
-          <p className="text-sm font-bold">Armar a mano</p>
-          <p className="text-xs text-muted">Para cargar un torneo ya jugado o un fixture propio: agregá las fechas, sumá los partidos con "Agregar partido al torneo" (marcando "Suma a la tabla") y movelos entre fechas con "Mover a". Un equipo no puede jugar dos veces en la misma fecha, pero sí varias fechas el mismo día.</p>
-          <label className="block text-xs text-muted">Día de la fecha nueva (opcional)
-            <input type="date" className={inputCls} value={newDay} onChange={(e) => setNewDay(e.target.value)} />
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {leagues.map((s) => <Btn key={s.id} disabled={busy || t.status === 'FINISHED'} onClick={() => addFecha(s)}>+ Fecha en {s.name}</Btn>)}
-          </div>
+            </div>
+          )}
         </div>
       )}
       <FixtureView tournamentId={t.id} admin base="/admin/partidos/" reloadKey={tick} onLoaded={setDays} />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { socket } from '../../sockets/socket'
 import { Btn, Alert, inputCls } from '../ui'
@@ -43,27 +43,50 @@ function StandingsPicker({ t, days, teamAId, teamBId, value, onChange }) {
   )
 }
 
-// Alta de un partido del torneo, en cualquier momento (aunque ya esté en curso): la organización decide si suma a la tabla
-function AddMatchForm({ t, days, onDone, setErr }) {
+// Carga de partidos a mano, en un solo formulario: zona → equipos de esa zona → fecha → día. Pensado para armar un fixture propio o cargar un torneo ya jugado.
+export function ManualMatchForm({ t, days, onDone, setErr }) {
   const ask = useConfirm()
-  const teams = t.teams.map((x) => x.team)
-  const [f, setF] = useState({ teamAId: '', teamBId: '', court: '', scheduledAt: '', counts: false })
-  const [place, setPlace] = useState({ stageId: '', matchdayId: 'new' })
+  const leagues = t.stages.filter((s) => s.type === 'LEAGUE')
+  const [stageId, setStageId] = useState(leagues[0]?.id ?? '')
+  const [matchdayId, setMatchdayId] = useState('new')
+  const [f, setF] = useState({ teamAId: '', teamBId: '', court: '', day: '', counts: true })
   const [busy, setBusy] = useState(false)
+  const [ok, setOk] = useState('')
+  const pickLast = useRef(false)
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }))
+
+  const stage = leagues.find((s) => s.id === stageId)
+  const teams = t.teams.map((x) => x.team).filter((tm) => !f.counts || !stage || stage.teams.some((z) => z.teamId === tm.id))
+  const fechas = (days ?? []).filter((d) => d.stage.id === stageId)
+
+  // Después de crear una fecha nueva, queda elegida para seguir cargando partidos en ella
+  useEffect(() => {
+    if (!pickLast.current) return
+    pickLast.current = false
+    if (fechas.length) setMatchdayId(fechas[fechas.length - 1].id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days])
+
+  function pickFecha(id) {
+    setMatchdayId(id)
+    const d = fechas.find((x) => x.id === id)
+    if (d?.date) set('day', String(d.date).slice(0, 10))
+  }
 
   async function submit(e) {
     e.preventDefault()
-    setBusy(true); setErr('')
+    if (!f.teamAId || !f.teamBId) { setErr('Elegí los dos equipos.'); return }
+    if (f.teamAId === f.teamBId) { setErr('Los dos equipos son el mismo.'); return }
+    setBusy(true); setErr(''); setOk('')
     const body = {
       tournamentId: t.id,
       branch: t.branch,
       modality: t.modality,
       court: f.court === '' ? null : Number(f.court),
-      scheduledAt: f.scheduledAt ? new Date(f.scheduledAt).toISOString() : null,
-      teamAId: f.teamAId || undefined,
-      teamBId: f.teamBId || undefined,
-      ...(f.counts ? { countsInStandings: true, stageId: place.stageId, matchdayId: place.matchdayId } : {}),
+      scheduledAt: f.day ? f.day + 'T15:00:00.000Z' : null,
+      teamAId: f.teamAId,
+      teamBId: f.teamBId,
+      ...(f.counts ? { countsInStandings: true, stageId, matchdayId } : {}),
     }
     try {
       try {
@@ -73,39 +96,58 @@ function AddMatchForm({ t, days, onDone, setErr }) {
         if (er.data?.code !== 'REPEATED_PAIR' || !(await ask({ title: 'Cruce repetido', message: er.message, confirmText: 'Agregar igual' }))) throw er
         await api('POST', '/matches', { ...body, force: true })
       }
-      setF({ teamAId: '', teamBId: '', court: '', scheduledAt: '', counts: false })
+      const nombres = (id) => teams.find((x) => x.id === id)?.name ?? ''
+      setOk('Agregado: ' + nombres(f.teamAId) + ' vs ' + nombres(f.teamBId))
+      if (matchdayId === 'new') pickLast.current = true
+      setF((s) => ({ ...s, teamAId: '', teamBId: '', court: '' }))
       await onDone()
     } catch (er) { setErr(er.message) } finally { setBusy(false) }
   }
 
+  if (!leagues.length) return <p className="text-sm text-muted">Primero definí las zonas en Estructura.</p>
+
   return (
-    <form onSubmit={submit} className="space-y-3 rounded-3xl border border-line bg-surface p-4">
-      <p className="text-sm font-bold">Agregar partido al torneo</p>
-      <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
+    <form onSubmit={submit} className="space-y-3">
+      <p className="text-xs text-muted">
+        Cargá los partidos de a uno. La fecha se crea sola si elegís "Fecha nueva", y queda elegida para cargar los siguientes. Un equipo no puede jugar dos veces en la misma fecha, pero sí varias fechas el mismo día.
+      </p>
+      <div className="grid grid-cols-2 gap-3 text-xs text-muted [&>*]:min-w-0">
+        {f.counts && (
+          <>
+            <label>Zona
+              <select className={inputCls} value={stageId} onChange={(e) => { setStageId(e.target.value); setMatchdayId('new'); setF((s) => ({ ...s, teamAId: '', teamBId: '' })) }}>
+                {leagues.map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
+              </select>
+            </label>
+            <label>Fecha
+              <select className={inputCls} value={matchdayId} onChange={(e) => pickFecha(e.target.value)}>
+                <option value="new">Fecha nueva (la {fechas.length + 1})</option>
+                {fechas.map((d) => <option key={d.id} value={d.id}>Fecha {d.number}</option>)}
+              </select>
+            </label>
+          </>
+        )}
         {[['teamAId', 'Equipo A'], ['teamBId', 'Equipo B']].map(([k, l]) => (
-          <label key={k} className="text-xs text-muted">{l}
+          <label key={k}>{l}
             <select className={inputCls} value={f[k]} onChange={(e) => set(k, e.target.value)}>
-              <option value="">Por definir</option>
+              <option value="">Elegir…</option>
               {teams.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
             </select>
           </label>
         ))}
-      </div>
-      <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
-        <label className="text-xs text-muted">Fecha y hora
-          <input type="datetime-local" className={inputCls} value={f.scheduledAt} onChange={(e) => set('scheduledAt', e.target.value)} />
+        <label>Día (la hora no importa)
+          <input type="date" className={inputCls} value={f.day} onChange={(e) => set('day', e.target.value)} />
         </label>
-        <label className="text-xs text-muted">Cancha
+        <label>Cancha
           <input type="number" min="1" placeholder="Opcional" className={inputCls} value={f.court} onChange={(e) => set('court', e.target.value)} />
         </label>
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={f.counts} onChange={(e) => set('counts', e.target.checked)} /> Suma a la tabla de posiciones
       </label>
-      {f.counts
-        ? <StandingsPicker t={t} days={days} teamAId={f.teamAId} teamBId={f.teamBId} value={place} onChange={setPlace} />
-        : <p className="text-xs text-muted">Sin sumar, el partido se muestra aparte en "Fuera del fixture" y no cuenta en la tabla.</p>}
-      <Btn type="submit" tone="accent" disabled={busy || (f.counts && !commonZones(t, f.teamAId, f.teamBId).length)} className="w-full">Agregar partido</Btn>
+      {!f.counts && <p className="text-xs text-muted">Sin sumar, el partido se muestra aparte en "Fuera del fixture" y no cuenta en la tabla.</p>}
+      {ok && <p className="text-xs font-bold text-live">{ok}</p>}
+      <Btn type="submit" tone="accent" disabled={busy} className="w-full">Agregar partido</Btn>
     </form>
   )
 }
@@ -179,7 +221,6 @@ export default function ExtraMatchesView({ tournamentId, t, days, admin = false,
   return (
     <div className="space-y-3">
       {err && <Alert onClose={() => setErr('')}>{err}</Alert>}
-      {admin && <AddMatchForm t={t} days={days} onDone={changed} setErr={setErr} />}
       {list.length > 0 && (
         <div className="space-y-3 rounded-3xl border border-line bg-surface p-4">
           <p className="text-sm font-bold">Fuera del fixture<span className="ml-2 font-normal text-muted">no suman a la tabla</span></p>
