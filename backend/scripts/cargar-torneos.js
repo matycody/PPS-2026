@@ -29,7 +29,8 @@ const ALIAS = { Berserker: ['Berseker'] }
 // liga: [fecha, local, visitante, puntos local, puntos visitante] (en Foam son sets; en Cloth, los puntos del marcador).
 // dias: día de cada fecha de la liga (la hora no se carga). diaLlave: día de los playoffs.
 // tabla: tabla final de la fuente, para verificar la carga: equipo → [PTS, puntos a favor, puntos en contra], en orden de posición.
-// llave: cruces de playoffs; "byes" pasan directo a la ronda 2. aWin/bWin = ganador de otro cruce.
+// Con varios grupos se usa grupos: [{ nombre, tabla }] (una tabla por grupo) y siembra: orden general de los clasificados a la llave.
+// llave: cruces de playoffs (sa/sb en null = sin resultado: el partido queda Programado); "byes" pasan directo a la ronda 2. aWin/bWin = ganador de otro cruce.
 const TORNEOS = [
   {
     nombre: 'Femenino Cloth - Nacional de Buenos Aires 2026',
@@ -59,13 +60,151 @@ const TORNEOS = [
       { ref: 'F', round: 3, slot: 1, aWin: 'S1', bWin: 'S2', sa: 22, sb: 6 },
     ],
   },
+  {
+    nombre: 'Masculino Foam - Nacional de Buenos Aires 2026',
+    buscar: ['Masculino Foam', 'Nacional de Buenos Aires 2026'],
+    modalidad: 'FOAM',
+    sede: CEDEM,
+    cancha: 1,
+    dias: { 1: '2026-10-10', 2: '2026-10-10', 3: '2026-10-10', 4: '2026-10-11', 5: '2026-10-11' },
+    diaLlave: '2026-10-12',
+    grupos: [
+      { nombre: 'Grupo A', tabla: { Noazar: [12, 24, 7], 'Club Moran': [9, 21, 10], 'Linces Pueyrredon': [6, 21, 9], 'The Catchers': [3, 15, 19], Mineros: [0, 0, 36] } },
+      { nombre: 'Grupo B', tabla: { Panthers: [9, 21, 9], Berserker: [9, 16, 12], 'Club General Lamadrid': [6, 20, 14], Marvin: [3, 11, 20], 'Los Teros': [3, 10, 23] } },
+      { nombre: 'Grupo C', tabla: { Hydra: [7, 18, 8], 'Tama Dodgeball': [7, 17, 11], 'Deportivo Riestra': [7, 15, 11], Freestyle: [7, 15, 13], Dementores: [0, 4, 26] } },
+    ],
+    liga: [
+      [1, 'The Catchers', 'Noazar', 2, 6], [1, 'Club Moran', 'Mineros', 9, 0], [1, 'Los Teros', 'Berserker', 4, 3],
+      [1, 'Panthers', 'Marvin', 6, 1], [1, 'Tama Dodgeball', 'Dementores', 6, 1], [1, 'Hydra', 'Deportivo Riestra', 2, 3],
+      [2, 'The Catchers', 'Linces Pueyrredon', 1, 7], [2, 'Noazar', 'Club Moran', 5, 2], [2, 'Los Teros', 'Club General Lamadrid', 2, 8],
+      [2, 'Berserker', 'Panthers', 5, 2], [2, 'Tama Dodgeball', 'Freestyle', 6, 3], [2, 'Dementores', 'Hydra', 0, 9],
+      [3, 'Linces Pueyrredon', 'Mineros', 9, 0], [3, 'Club Moran', 'The Catchers', 6, 3], [3, 'Club General Lamadrid', 'Marvin', 7, 2],
+      [3, 'Panthers', 'Los Teros', 7, 1], [3, 'Freestyle', 'Deportivo Riestra', 4, 3], [3, 'Hydra', 'Tama Dodgeball', 4, 2],
+      [4, 'Club Moran', 'Linces Pueyrredon', 4, 2], [4, 'Noazar', 'Mineros', 9, 0], [4, 'Panthers', 'Club General Lamadrid', 6, 2],
+      [4, 'Berserker', 'Marvin', 4, 3], [4, 'Hydra', 'Freestyle', 3, 3], [4, 'Dementores', 'Deportivo Riestra', 2, 6],
+      [5, 'Linces Pueyrredon', 'Noazar', 3, 4], [5, 'Mineros', 'The Catchers', 0, 9], [5, 'Club General Lamadrid', 'Berserker', 3, 4],
+      [5, 'Marvin', 'Los Teros', 5, 3], [5, 'Freestyle', 'Dementores', 5, 1], [5, 'Deportivo Riestra', 'Tama Dodgeball', 3, 3],
+    ],
+    // Orden general de los 8 clasificados (1° puesto x 8°, 4° x 5°, 2° x 7°, 3° x 6° en cuartos)
+    siembra: ['Noazar', 'Panthers', 'Hydra', 'Club Moran', 'Berserker', 'Tama Dodgeball', 'Deportivo Riestra', 'Linces Pueyrredon'],
+    llave: [
+      { ref: 'C1', round: 1, slot: 1, a: 'Noazar', b: 'Linces Pueyrredon', sa: 5, sb: 2 }, // 1° x 8°
+      { ref: 'C2', round: 1, slot: 2, a: 'Club Moran', b: 'Berserker', sa: 2, sb: 6 }, // 4° x 5°
+      { ref: 'C3', round: 1, slot: 3, a: 'Panthers', b: 'Deportivo Riestra', sa: 3, sb: 6 }, // 2° x 7°
+      { ref: 'C4', round: 1, slot: 4, a: 'Hydra', b: 'Tama Dodgeball', sa: 4, sb: 6 }, // 3° x 6°
+      { ref: 'S1', round: 2, slot: 1, aWin: 'C1', bWin: 'C2', sa: 1, sb: 11 },
+      { ref: 'S2', round: 2, slot: 2, aWin: 'C3', bWin: 'C4', sa: 5, sb: 6 },
+      { ref: 'F', round: 3, slot: 1, aWin: 'S1', bWin: 'S2', sa: 7, sb: 4 },
+    ],
+  },
+  {
+    nombre: 'Masculino Cloth - Nacional de Buenos Aires 2026',
+    buscar: ['Masculino Cloth', 'Nacional de Buenos Aires 2026'],
+    modalidad: 'CLOTH',
+    sede: CEDEM,
+    cancha: 1,
+    dias: { 1: '2026-10-10', 2: '2026-10-10', 3: '2026-10-10' },
+    diaLlave: '2026-10-12',
+    grupos: [
+      { nombre: 'Grupo A', tabla: { Panthers: [9, 40, 16], 'Linces Pueyrredon': [6, 28, 22], 'Tama Dodgeball': [3, 26, 22], 'The Catchers': [0, 12, 46] } },
+      { nombre: 'Grupo B', tabla: { Noazar: [7, 39, 27], 'Deportivo Riestra': [6, 37, 19], 'Club General Lamadrid': [2, 29, 35], Marvin: [1, 21, 45] } },
+      { nombre: 'Grupo C', tabla: { Hydra: [9, 34, 14], Berserker: [6, 30, 22], 'Club Moran': [3, 23, 25], Freestyle: [0, 11, 37] } },
+    ],
+    liga: [
+      [1, 'The Catchers', 'Tama Dodgeball', 6, 14], [1, 'Linces Pueyrredon', 'Panthers', 7, 13], [1, 'Club General Lamadrid', 'Noazar', 13, 13],
+      [1, 'Deportivo Riestra', 'Marvin', 20, 2], [1, 'Hydra', 'Berserker', 9, 7], [1, 'Freestyle', 'Club Moran', 3, 11],
+      [2, 'Linces Pueyrredon', 'The Catchers', 14, 4], [2, 'Panthers', 'Tama Dodgeball', 9, 7], [2, 'Deportivo Riestra', 'Club General Lamadrid', 11, 5],
+      [2, 'Marvin', 'Noazar', 8, 14], [2, 'Freestyle', 'Hydra', 2, 14], [2, 'Club Moran', 'Berserker', 7, 11],
+      [3, 'The Catchers', 'Panthers', 2, 18], [3, 'Tama Dodgeball', 'Linces Pueyrredon', 5, 7], [3, 'Club General Lamadrid', 'Marvin', 11, 11],
+      [3, 'Noazar', 'Deportivo Riestra', 12, 6], [3, 'Hydra', 'Club Moran', 11, 5], [3, 'Berserker', 'Freestyle', 12, 6],
+    ],
+    // Orden general de los 8 clasificados (1° x 8°, 4° x 5°, 2° x 7°, 3° x 6° en cuartos)
+    siembra: ['Panthers', 'Hydra', 'Noazar', 'Deportivo Riestra', 'Berserker', 'Linces Pueyrredon', 'Tama Dodgeball', 'Club Moran'],
+    llave: [
+      { ref: 'C1', round: 1, slot: 1, a: 'Panthers', b: 'Club Moran', sa: 14, sb: 10 }, // 1° x 8°
+      { ref: 'C2', round: 1, slot: 2, a: 'Deportivo Riestra', b: 'Berserker', sa: 15, sb: 5 }, // 4° x 5°
+      { ref: 'C3', round: 1, slot: 3, a: 'Hydra', b: 'Tama Dodgeball', sa: 16, sb: 4 }, // 2° x 7°
+      { ref: 'C4', round: 1, slot: 4, a: 'Noazar', b: 'Linces Pueyrredon', sa: 18, sb: 4 }, // 3° x 6°
+      { ref: 'S1', round: 2, slot: 1, aWin: 'C1', bWin: 'C2', sa: 16, sb: 18 },
+      { ref: 'S2', round: 2, slot: 2, aWin: 'C3', bWin: 'C4', sa: 17, sb: 13 },
+      { ref: 'F', round: 3, slot: 1, aWin: 'S1', bWin: 'S2', sa: 16, sb: 12 },
+    ],
+  },
+  {
+    nombre: 'Mixto Foam - Nacional de Buenos Aires 2026',
+    buscar: ['Mixto Foam', 'Nacional de Buenos Aires 2026'],
+    modalidad: 'FOAM',
+    sede: CEDEM,
+    cancha: 1,
+    dias: { 1: '2026-10-10', 2: '2026-10-10', 3: '2026-10-10', 4: '2026-10-11', 5: '2026-10-11' },
+    diaLlave: '2026-10-12',
+    grupos: [
+      { nombre: 'Grupo A', tabla: { Noazar: [12, 28, 9], Hydra: [9, 29, 7], 'Club General Lamadrid': [6, 18, 20], 'The Catchers': [3, 11, 27], 'Los Teros': [0, 6, 29] } },
+      { nombre: 'Grupo B', tabla: { Panthers: [12, 21, 10], Berserker: [9, 22, 8], PCH: [6, 17, 12], Marvin: [3, 15, 20], 'Soul Dodgeball': [0, 6, 31] } },
+      { nombre: 'Grupo C', tabla: { Freestyle: [9, 15, 12], 'Linces Pueyrredon': [7, 16, 11], 'Tama Dodgeball': [7, 15, 11], 'Club Moran': [6, 11, 15], Dementores: [0, 8, 16] } },
+    ],
+    liga: [
+      [1, 'Hydra', 'Noazar', 2, 5], [1, 'The Catchers', 'Los Teros', 6, 3], [1, 'Marvin', 'Soul Dodgeball', 8, 2],
+      [1, 'Berserker', 'Panthers', 2, 4], [1, 'Club Moran', 'Freestyle', 4, 2], [1, 'Dementores', 'Tama Dodgeball', 2, 4],
+      [2, 'Hydra', 'Club General Lamadrid', 8, 2], [2, 'Noazar', 'The Catchers', 9, 2], [2, 'Marvin', 'PCH', 1, 5],
+      [2, 'Soul Dodgeball', 'Berserker', 0, 9], [2, 'Club Moran', 'Linces Pueyrredon', 1, 6], [2, 'Freestyle', 'Dementores', 4, 2],
+      [3, 'Club General Lamadrid', 'Los Teros', 4, 3], [3, 'The Catchers', 'Hydra', 0, 8], [3, 'PCH', 'Panthers', 2, 5],
+      [3, 'Berserker', 'Marvin', 7, 2], [3, 'Linces Pueyrredon', 'Tama Dodgeball', 3, 3], [3, 'Dementores', 'Club Moran', 2, 4],
+      [4, 'The Catchers', 'Club General Lamadrid', 3, 7], [4, 'Noazar', 'Los Teros', 8, 0], [4, 'Berserker', 'PCH', 4, 2],
+      [4, 'Soul Dodgeball', 'Panthers', 2, 6], [4, 'Dementores', 'Linces Pueyrredon', 2, 4], [4, 'Freestyle', 'Tama Dodgeball', 4, 3],
+      [5, 'Club General Lamadrid', 'Noazar', 5, 6], [5, 'Los Teros', 'Hydra', 0, 11], [5, 'PCH', 'Soul Dodgeball', 8, 2],
+      [5, 'Panthers', 'Marvin', 6, 4], [5, 'Linces Pueyrredon', 'Freestyle', 3, 5], [5, 'Tama Dodgeball', 'Club Moran', 5, 2],
+    ],
+    // Orden general de los 8 clasificados (1° x 8°, 4° x 5°, 2° x 7°, 3° x 6° en cuartos)
+    siembra: ['Noazar', 'Panthers', 'Freestyle', 'Hydra', 'Berserker', 'Linces Pueyrredon', 'Tama Dodgeball', 'PCH'],
+    llave: [
+      { ref: 'C1', round: 1, slot: 1, a: 'Noazar', b: 'PCH', sa: 5, sb: 4 }, // 1° x 8°
+      { ref: 'C2', round: 1, slot: 2, a: 'Hydra', b: 'Berserker', sa: 2, sb: 5 }, // 4° x 5°
+      { ref: 'C3', round: 1, slot: 3, a: 'Panthers', b: 'Tama Dodgeball', sa: 5, sb: 6 }, // 2° x 7°
+      { ref: 'C4', round: 1, slot: 4, a: 'Freestyle', b: 'Linces Pueyrredon', sa: 5, sb: 3 }, // 3° x 6°
+      { ref: 'S1', round: 2, slot: 1, aWin: 'C1', bWin: 'C2', sa: 3, sb: 6 },
+      { ref: 'S2', round: 2, slot: 2, aWin: 'C3', bWin: 'C4', sa: 6, sb: 5 },
+      { ref: 'F', round: 3, slot: 1, aWin: 'S1', bWin: 'S2', sa: null, sb: null }, // Berserker vs Tama: en Copa Fácil todavía sin resultado
+    ],
+  },
+  {
+    nombre: 'Mixto Cloth - Nacional de Buenos Aires 2026',
+    buscar: ['Mixto Cloth', 'Nacional de Buenos Aires 2026'],
+    modalidad: 'CLOTH',
+    sede: CEDEM,
+    cancha: 1,
+    dias: { 1: '2026-10-10', 2: '2026-10-10', 3: '2026-10-10' },
+    diaLlave: '2026-10-12',
+    grupos: [
+      { nombre: 'Grupo A', tabla: { Hydra: [7, 36, 18], Berserker: [5, 27, 23], 'Club Moran': [3, 21, 37], 'Club General Lamadrid': [1, 24, 30] } },
+      { nombre: 'Grupo B', tabla: { Panthers: [6, 22, 14], Noazar: [3, 21, 21], 'Tama Dodgeball': [0, 15, 23] } },
+      { nombre: 'Grupo C', tabla: { PCH: [6, 21, 11], Marvin: [3, 19, 17], Freestyle: [0, 12, 24] } },
+    ],
+    liga: [
+      [1, 'Club Moran', 'Berserker', 6, 10], [1, 'Hydra', 'Club General Lamadrid', 10, 6], [1, 'Tama Dodgeball', 'Panthers', 6, 10], [1, 'Freestyle', 'Marvin', 8, 12],
+      [2, 'Hydra', 'Club Moran', 18, 4], [2, 'Club General Lamadrid', 'Berserker', 9, 9], [2, 'Tama Dodgeball', 'Noazar', 9, 13], [2, 'Freestyle', 'PCH', 4, 12],
+      [3, 'Club Moran', 'Club General Lamadrid', 11, 9], [3, 'Berserker', 'Hydra', 8, 8], [3, 'Noazar', 'Panthers', 8, 12], [3, 'PCH', 'Marvin', 9, 7],
+    ],
+    // Orden general de los 8 clasificados (1° x 8°, 4° x 5°, 2° x 7°, 3° x 6° en cuartos)
+    siembra: ['Hydra', 'PCH', 'Panthers', 'Berserker', 'Marvin', 'Noazar', 'Club Moran', 'Tama Dodgeball'],
+    llave: [
+      { ref: 'C1', round: 1, slot: 1, a: 'Hydra', b: 'Tama Dodgeball', sa: 20, sb: 4 }, // 1° x 8°
+      { ref: 'C2', round: 1, slot: 2, a: 'Berserker', b: 'Marvin', sa: 9, sb: 15 }, // 4° x 5°
+      { ref: 'C3', round: 1, slot: 3, a: 'PCH', b: 'Club Moran', sa: 14, sb: 10 }, // 2° x 7°
+      { ref: 'C4', round: 1, slot: 4, a: 'Panthers', b: 'Noazar', sa: 15, sb: 9 }, // 3° x 6°
+      { ref: 'S1', round: 2, slot: 1, aWin: 'C1', bWin: 'C2', sa: 13, sb: 21 },
+      { ref: 'S2', round: 2, slot: 2, aWin: 'C3', bWin: 'C4', sa: 15, sb: 13 },
+      { ref: 'F', round: 3, slot: 1, aWin: 'S1', bWin: 'S2', sa: 10, sb: 18 },
+    ],
+  },
   // ← Agregar acá los próximos torneos
 ]
 // ───────────────────────────────────────────────────────────────────
 
 const NOMBRE = (n) => n.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 const dia = (iso) => new Date(iso + 'T12:00:00-03:00') // mediodía local: el día no se corre por zona horaria
-const equipos = (T) => Object.keys(T.tabla)
+const gruposDe = (T) => T.grupos || [{ nombre: '1ª Fase', tabla: T.tabla }]
+const equipos = (T) => gruposDe(T).flatMap((g) => Object.keys(g.tabla))
 
 // Sets de un partido a partir de su marcador. Foam: 1 punto por set. Cloth: 2 por set ganado y 1 a cada uno por set empatado
 // (por eso los dos puntajes tienen que tener la misma paridad: si es impar hubo un set empatado).
@@ -88,17 +227,26 @@ function sets(T, sa, sb, teamA, teamB) {
 
 function verificar(T) {
   const err = []
-  const calc = {}
-  for (const n of equipos(T)) calc[n] = [0, 0, 0]
+  const G = gruposDe(T)
+  const grupoDe = (n) => G.findIndex((g) => g.tabla[n])
+  const calc = G.map((g) => Object.fromEntries(Object.keys(g.tabla).map((n) => [n, [0, 0, 0]])))
   for (const [f, a, b, sa, sb] of T.liga) {
-    if (!calc[a] || !calc[b]) { err.push('equipo desconocido en la liga: ' + a + ' / ' + b); continue }
+    const ga = grupoDe(a)
+    if (ga < 0 || grupoDe(b) < 0) { err.push('equipo desconocido en la liga: ' + a + ' / ' + b); continue }
+    if (ga !== grupoDe(b)) { err.push('partido entre grupos distintos: ' + a + ' vs ' + b); continue }
     if (!T.dias[f]) err.push('falta el día de la fecha ' + f)
     if (T.modalidad === 'CLOTH' && sa % 2 !== sb % 2) err.push('marcador imposible en Cloth (paridad distinta): ' + a + ' ' + sa + '-' + sb + ' ' + b)
-    calc[a][1] += sa; calc[a][2] += sb; calc[b][1] += sb; calc[b][2] += sa
-    if (sa > sb) calc[a][0] += 3; else if (sa < sb) calc[b][0] += 3; else { calc[a][0] += 1; calc[b][0] += 1 }
+    const c = calc[ga]
+    c[a][1] += sa; c[a][2] += sb; c[b][1] += sb; c[b][2] += sa
+    if (sa > sb) c[a][0] += 3; else if (sa < sb) c[b][0] += 3; else { c[a][0] += 1; c[b][0] += 1 }
   }
-  for (const n of equipos(T)) if (calc[n].join() !== T.tabla[n].join()) err.push('la tabla calculada no coincide para ' + n + ': ' + calc[n] + ' vs ' + T.tabla[n])
-  for (const m of T.llave) if (T.modalidad === 'CLOTH' && m.sa % 2 !== m.sb % 2) err.push('marcador imposible en la llave ' + m.ref)
+  G.forEach((g, i) => {
+    for (const n of Object.keys(g.tabla)) if (calc[i][n].join() !== g.tabla[n].join()) err.push('la tabla calculada no coincide para ' + n + ': ' + calc[i][n] + ' vs ' + g.tabla[n])
+  })
+  const sig = T.siembra || (G.length === 1 ? Object.keys(G[0].tabla) : null)
+  if (!sig) err.push('con varios grupos falta "siembra" (orden general de los clasificados a la llave)')
+  else for (const m of T.llave) for (const n of [m.a, m.b]) if (n && !sig.includes(n)) err.push('la llave usa un equipo que no está en la siembra: ' + n)
+  for (const m of T.llave) if (T.modalidad === 'CLOTH' && m.sa != null && m.sa % 2 !== m.sb % 2) err.push('marcador imposible en la llave ' + m.ref)
   return err
 }
 
@@ -106,7 +254,7 @@ async function cargar(T) {
   console.log('\n══ ' + T.nombre + ' ══')
   const errs = verificar(T)
   if (errs.length) { console.log('✖ Datos inconsistentes:\n  - ' + errs.join('\n  - ')); return false }
-  console.log('✔ Los ' + T.liga.length + ' partidos de liga reproducen exactamente la tabla de la fuente.')
+  console.log('✔ Los ' + T.liga.length + ' partidos de liga reproducen exactamente ' + (gruposDe(T).length > 1 ? 'las ' + gruposDe(T).length + ' tablas' : 'la tabla') + ' de la fuente.')
 
   const cand = await prisma.tournament.findMany({ where: { deletedAt: null, AND: T.buscar.map((s) => ({ name: { contains: s, mode: 'insensitive' } })) }, include: { stages: true, teams: true } })
   if (cand.length !== 1) { console.log('✖ Esperaba 1 torneo que contenga "' + T.buscar.join('" y "') + '" y encontré ' + cand.length + (cand.length ? ': ' + cand.map((t) => t.name).join(' | ') : '')); return false }
@@ -132,12 +280,15 @@ async function cargar(T) {
   }
   const extra = t.stages.filter((s) => !(s.type === 'LEAGUE' && s.phase === 1) && !(s.type === 'KNOCKOUT' && s.phase === 2))
   if (extra.length) { console.log('✖ El torneo tiene etapas que no esperaba: ' + extra.map((s) => s.name + ' (' + s.type + ' fase ' + s.phase + ')').join(', ')); return false }
+  const G = gruposDe(T)
+  const ligasWeb = t.stages.filter((s) => s.type === 'LEAGUE').sort((x, y) => x.name.localeCompare(y.name))
+  if (ligasWeb.length && ligasWeb.length !== G.length) { console.log('✖ El torneo en la web tiene ' + ligasWeb.length + ' zonas (' + ligasWeb.map((s) => s.name).join(', ') + ') y los datos tienen ' + G.length + ' grupos. Ajustá la estructura en la web o avisame.'); return false }
   const venue = await prisma.venue.findFirst({ where: { deletedAt: null, OR: [{ name: { contains: T.sede.name.split(' ')[0], mode: 'insensitive' } }, { mapUrl: T.sede.mapUrl }] } })
   const fechas = [...new Set(T.liga.map((x) => x[0]))].sort((a, b) => a - b)
 
   console.log('✔ Equipos encontrados: ' + equipos(T).join(', '))
   console.log('Se va a hacer: sede ' + (venue ? 'existente "' + venue.name + '"' : 'nueva "' + T.sede.name + '"') + ' · formato ' + (t.format === 'LEAGUE' ? 'LEAGUE → LEAGUE_CUP' : t.format)
-    + ' · ' + fechas.length + ' fechas / ' + T.liga.length + ' partidos (' + fechas.map((f) => f + '→' + T.dias[f].slice(5)).join(', ') + ') · llave ' + T.diaLlave.slice(5) + ' (' + T.llave.length + ' partidos) · campeón ' + (() => { const f = T.llave.find((x) => x.ref === 'F'); return f.sa > f.sb ? '(ganador de la final)' : '' })())
+    + ' · ' + fechas.length + ' fechas / ' + T.liga.length + ' partidos (' + fechas.map((f) => f + '→' + T.dias[f].slice(5)).join(', ') + ') · llave ' + T.diaLlave.slice(5) + ' (' + T.llave.length + ' partidos)' + (T.llave.some((m) => m.sa == null) ? ' · ⚠ ' + T.llave.filter((m) => m.sa == null).length + ' sin resultado (quedan Programados: hay que jugarlos o cancelarlos en la web antes de finalizar el torneo)' : ''))
   if (!aplicar) return true
 
   await prisma.$transaction(async (tx) => {
@@ -149,44 +300,57 @@ async function cargar(T) {
     })
     await tx.tournamentTeam.createMany({ data: equipos(T).map((n) => ({ tournamentId: t.id, teamId: equipo[n] })), skipDuplicates: true })
 
-    const liga = t.stages.find((s) => s.type === 'LEAGUE') || (await tx.stage.create({ data: { tournamentId: t.id, name: '1ª Fase', type: 'LEAGUE', phase: 1 } }))
+    const ligas = []
+    for (let i = 0; i < G.length; i++) {
+      ligas.push(ligasWeb[i] || (await tx.stage.create({ data: { tournamentId: t.id, name: G[i].nombre, type: 'LEAGUE', phase: 1 } })))
+      await tx.stageTeam.createMany({ data: Object.keys(G[i].tabla).map((n) => ({ stageId: ligas[i].id, teamId: equipo[n] })), skipDuplicates: true })
+    }
+    const ligaDe = (n) => ligas[G.findIndex((g) => g.tabla[n])]
     const llave = t.stages.find((s) => s.type === 'KNOCKOUT') || (await tx.stage.create({ data: { tournamentId: t.id, name: '2ª Fase', type: 'KNOCKOUT', phase: 2 } }))
-    await tx.stageTeam.createMany({ data: equipos(T).map((n) => ({ stageId: liga.id, teamId: equipo[n] })), skipDuplicates: true })
 
     const base = { tournamentId: t.id, branch: t.branch, modality: t.modality, status: 'FINISHED', court: T.cancha, venueId: sede.id, timeSet: false }
     const filas = []
     const setsRows = []
     const nuevo = (fila, sa, sb) => {
       const id = crypto.randomUUID()
+      if (sa == null) { // sin resultado (todavía no se jugó): queda Programado y sin sets
+        filas.push({ id, ...base, ...fila, status: 'SCHEDULED', finishedAt: null })
+        return id
+      }
       filas.push({ id, ...base, ...fila, finishedAt: fila.scheduledAt })
       for (const s of sets(T, sa, sb, fila.teamAId, fila.teamBId)) setsRows.push({ matchId: id, ...s })
       return id
     }
 
     const dias = {}
-    for (const n of fechas) {
-      const f = dia(T.dias[n])
-      const md = await tx.matchday.upsert({
-        where: { stageId_number: { stageId: liga.id, number: n } },
-        update: { date: f },
-        create: { stageId: liga.id, number: n, date: f },
-      })
-      dias[n] = { id: md.id, f }
+    for (const lg of ligas) {
+      for (const n of fechas) {
+        const f = dia(T.dias[n])
+        const md = await tx.matchday.upsert({
+          where: { stageId_number: { stageId: lg.id, number: n } },
+          update: { date: f },
+          create: { stageId: lg.id, number: n, date: f },
+        })
+        dias[lg.id + ':' + n] = { id: md.id, f }
+      }
     }
     for (const [n, a, b, sa, sb] of T.liga) {
-      nuevo({ stageId: liga.id, matchdayId: dias[n].id, scheduledAt: dias[n].f, teamAId: equipo[a], teamBId: equipo[b] }, sa, sb)
+      const lg = ligaDe(a)
+      const d = dias[lg.id + ':' + n]
+      nuevo({ stageId: lg.id, matchdayId: d.id, scheduledAt: d.f, teamAId: equipo[a], teamBId: equipo[b] }, sa, sb)
     }
 
     const fl = dia(T.diaLlave)
     const ids = {}
     const rows = {}
-    const orden = equipos(T) // la tabla viene en orden de posición
-    const pos = (n) => ({ stageId: liga.id, position: orden.indexOf(n) + 1 })
+    const orden = T.siembra || equipos(T) // orden general de clasificación (con una sola zona, el de su tabla)
+    // De dónde sale cada lugar: solo se puede indicar con una zona única (con varios grupos el cruce es general y se carga el equipo directo)
+    const pos = (n) => (ligas.length === 1 ? { stageId: ligas[0].id, position: orden.indexOf(n) + 1 } : undefined)
     const ganador = (ref) => { const o = T.llave.find((x) => x.ref === ref); return o.sa > o.sb ? rows[o.ref].teamAId : rows[o.ref].teamBId }
     for (const m of T.llave) {
       const fila = { stageId: llave.id, round: m.round, slot: m.slot, scheduledAt: fl }
-      if (m.a) { fila.teamAId = equipo[m.a]; fila.teamAFrom = pos(m.a) }
-      if (m.b) { fila.teamBId = equipo[m.b]; fila.teamBFrom = pos(m.b) }
+      if (m.a) { fila.teamAId = equipo[m.a]; if (pos(m.a)) fila.teamAFrom = pos(m.a) }
+      if (m.b) { fila.teamBId = equipo[m.b]; if (pos(m.b)) fila.teamBFrom = pos(m.b) }
       if (m.aWin) fila.teamAId = ganador(m.aWin)
       if (m.bWin) fila.teamBId = ganador(m.bWin)
       rows[m.ref] = fila
@@ -202,7 +366,7 @@ async function cargar(T) {
     }
     await tx.stageTeam.deleteMany({ where: { stageId: llave.id } })
     await tx.stageTeam.createMany({
-      data: orden.map((n, i) => ({ stageId: llave.id, teamId: equipo[n], seed: i + 1, entryRound: (T.byes || []).includes(n) ? 2 : 1 })),
+      data: orden.filter((n) => equipo[n]).map((n, i) => ({ stageId: llave.id, teamId: equipo[n], seed: i + 1, entryRound: (T.byes || []).includes(n) ? 2 : 1 })),
     })
     console.log('✔ Cargados ' + filas.length + ' partidos y ' + setsRows.length + ' sets.')
   }, { timeout: 60000 })
