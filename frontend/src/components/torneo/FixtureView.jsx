@@ -10,7 +10,7 @@ import StatusPill from '../StatusPill'
 import MatchNotice from '../MatchNotice'
 
 // Fila de un partido: equipos (o lugar por definir), marcador, hora, cancha y estado
-export function MatchRow({ m, base }) {
+export function MatchRow({ m, base, footer }) {
   return (
     <div className={'rounded-2xl bg-surface-2 px-3 py-2 text-sm' + (m.paused ? ' opacity-70' : '')}>
       <Link to={base + m.id} className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -29,6 +29,7 @@ export function MatchRow({ m, base }) {
         </span>
       </Link>
       <MatchNotice m={m} compact className="mt-1" />
+      {footer}
     </div>
   )
 }
@@ -87,31 +88,28 @@ export function MatchdayCard({ md, zone, tournamentId, admin, base, onChanged, s
         </div>
       )}
       <div className="space-y-2">
-        {md.matches.map((m, i) => (
-          <div key={m.id} className="space-y-1">
-            <div className="flex items-center gap-1">
-              <div className="min-w-0 flex-1"><MatchRow m={m} base={base} /></div>
-              {admin && !urls && (
-                <div className="flex shrink-0 items-center">
-                  <button type="button" aria-label="Subir" disabled={busy || i === 0} onClick={() => shift(i, -1)} className="p-1.5 disabled:opacity-30"><ChevronUp size={18} /></button>
-                  <button type="button" aria-label="Bajar" disabled={busy || i === md.matches.length - 1} onClick={() => shift(i, 1)} className="p-1.5 disabled:opacity-30"><ChevronDown size={18} /></button>
-                  {['SCHEDULED', 'FINISHED', 'CANCELLED'].includes(m.status) && (
-                    <button type="button" aria-label="Eliminar partido" disabled={busy} onClick={() => remove(m)} className="p-1.5 text-danger disabled:opacity-30"><X size={18} /></button>
-                  )}
-                </div>
-              )}
-            </div>
-            {admin && !urls && others.length > 0 && (m.status === 'SCHEDULED' || m.status === 'READY') && (
-              <div className="flex items-center gap-2 px-1 text-xs text-muted">
-                <span>Mover a</span>
-                <select className={inputCls} style={{ width: 'auto' }} value="" disabled={busy} onChange={(e) => e.target.value && moveTo(m, e.target.value)} aria-label="Mover el partido a otra fecha">
-                  <option value="">Elegí una fecha…</option>
-                  {others.map((x) => <option key={x.id} value={x.id}>Fecha {x.number}</option>)}
-                </select>
+        {md.matches.map((m, i) => {
+          const canMove = admin && !urls && others.length > 0 && (m.status === 'SCHEDULED' || m.status === 'READY')
+          const canDelete = ['SCHEDULED', 'FINISHED', 'CANCELLED'].includes(m.status)
+          const footer = admin && !urls ? (
+            <div className="mt-2 flex items-center gap-2 border-t border-line pt-2">
+              {canMove
+                ? (
+                  <select className={inputCls + ' !min-h-0 min-w-0 flex-1 !py-1.5 text-xs'} value="" disabled={busy} onChange={(e) => e.target.value && moveTo(m, e.target.value)} aria-label="Mover el partido a otra fecha">
+                    <option value="">Mover a otra fecha…</option>
+                    {others.map((x) => <option key={x.id} value={x.id}>Fecha {x.number}</option>)}
+                  </select>
+                )
+                : <span className="flex-1" />}
+              <div className="flex shrink-0 items-center rounded-xl bg-surface">
+                <button type="button" aria-label="Subir" disabled={busy || i === 0} onClick={() => shift(i, -1)} className="p-2 disabled:opacity-30"><ChevronUp size={18} /></button>
+                <button type="button" aria-label="Bajar" disabled={busy || i === md.matches.length - 1} onClick={() => shift(i, 1)} className="p-2 disabled:opacity-30"><ChevronDown size={18} /></button>
+                {canDelete && <button type="button" aria-label="Eliminar partido" disabled={busy} onClick={() => remove(m)} className="p-2 text-danger disabled:opacity-30"><X size={18} /></button>}
               </div>
-            )}
-          </div>
-        ))}
+            </div>
+          ) : null
+          return <MatchRow key={m.id} m={m} base={base} footer={footer} />
+        })}
         {admin && !urls && md.matches.length === 0 && (
           <div className="flex items-center gap-3">
             <p className="text-xs text-muted">Fecha vacía: sumale partidos con "Agregar partido al torneo" o quitala.</p>
