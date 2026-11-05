@@ -156,7 +156,7 @@ export default function FavoritosPage() {
       )}
 
       {!adding && !nothing && (
-        <div className="flex border-b border-line" role="tablist">
+        <div className="flex rounded-2xl border border-line bg-surface px-2" role="tablist">
           {[['partidos', 'Partidos'], ['posiciones', 'Posiciones']].map(([k, label]) => (
             <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={'flex-1 border-b-2 py-3 text-sm font-bold ' + (tab === k ? 'border-accent' : 'border-transparent text-muted')}>{label}</button>
           ))}

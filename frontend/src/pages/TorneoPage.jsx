@@ -131,13 +131,13 @@ export default function TorneoPage() {
         )}
       </header>
 
-      <nav className="flex gap-6 overflow-x-auto border-b border-line" aria-label="Secciones del torneo">
+      <nav className="flex gap-2 overflow-x-auto pb-1" aria-label="Secciones del torneo">
         {tabs.map(([k, label]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
             aria-current={tab === k ? 'page' : undefined}
-            className={'shrink-0 border-b-2 pb-2.5 text-sm font-bold ' + (tab === k ? 'border-accent text-accent' : 'border-transparent text-muted')}
+            className={'shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold ' + (tab === k ? 'border-accent bg-accent text-black' : 'border-line bg-surface')}
           >
             {label}
           </button>
