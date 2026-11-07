@@ -95,6 +95,7 @@ function microCache(req, res, next) {
   inflight.set(key, []);
   const startedAt = generation;
   let released = false;
+  let holding = false; // esperando el gzip: el cierre de la respuesta original no debe soltar a los que esperan
   const release = (result) => {
     if (released) return;
     released = true;
@@ -113,20 +114,25 @@ function microCache(req, res, next) {
       if (startedAt === generation) { // si hubo una escritura mientras se calculaba, no se guarda (se reparte igual a los que esperan)
         if (store.size >= MAX_ENTRIES) store.clear();
         store.set(key, entry);
-        const raw = typeof body === 'string' ? Buffer.from(body) : body;
-        if (raw.length >= MIN_GZIP_BYTES) {
-          zlib.gzip(raw, (err, gz) => { if (!err && store.get(key) === entry) entry.gz = gz; });
-        }
       }
       const out = origSend(body);
-      release(entry);
+      const raw = typeof body === 'string' ? Buffer.from(body) : body;
+      const hasWaiters = (inflight.get(key) || []).length > 0;
+      if (raw.length >= MIN_GZIP_BYTES) {
+        // Se comprime una sola vez; los que esperan reciben la versión ya comprimida (no 60 compresiones seguidas)
+        if (hasWaiters) holding = true;
+        zlib.gzip(raw, (err, gz) => { if (!err) entry.gz = gz; release(entry); });
+        if (!hasWaiters) release(entry);
+      } else {
+        release(entry);
+      }
       return out;
     }
     const out = origSend(body);
     release(null);
     return out;
   };
-  res.on('close', () => release(null)); // la respuesta se cortó antes de enviar: liberar a los que esperan
+  res.on('close', () => { if (!holding) release(null); }); // la respuesta se cortó antes de enviar: liberar a los que esperan
   res.set('X-Cache', isRefresh ? 'REFRESH' : 'MISS');
   return next();
 }

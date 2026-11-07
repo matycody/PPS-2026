@@ -20,7 +20,7 @@ function run(path, c, d) {
     ruta: path, conex: c,
     reqs: +j.requests.average.toFixed(1),
     med_ms: j.latency.p50, p975_ms: j.latency.p97_5, max_ms: j.latency.max,
-    errores: j.errors, timeouts: j.timeouts, resets: j.resets ?? 0, non2xx: j.non2xx, mb: +(j.throughput.total / 1048576).toFixed(1),
+    errores: j.errors, timeouts: j.timeouts, resets: j.resets ?? 0, non2xx: j.non2xx, c4xx: j['4xx'], c5xx: j['5xx'], mb: +(j.throughput.total / 1048576).toFixed(1),
   }
   console.log(JSON.stringify(row))
   return row
