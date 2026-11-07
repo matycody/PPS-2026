@@ -1,6 +1,7 @@
 const prisma = require('../db');
 const { computeStandings } = require('./standings');
 const { memo } = require('../lib/memo');
+const { briefErr } = require('../lib/briefErr');
 
 // equipo|modalidad|rama -> hasta 5 resultados (V/E/D) del más nuevo al más viejo, para todos los equipos
 async function loadResultsByKey() {
@@ -35,7 +36,7 @@ async function loadResultsByKey() {
 async function formsFor(matches) {
   const out = new Map();
   // Posición actual en la tabla de su zona (se recalcula en cada consulta: refleja la tabla de hoy, no la de cuando se jugó)
-  const ranksP = ranksFor(matches).catch((e) => { console.error('[rank]', e.message); return new Map(); });
+  const ranksP = ranksFor(matches).catch((e) => { console.error('[rank]', briefErr(e)); return new Map(); });
   const teams = [...new Set(matches.flatMap((m) => [m.teamA?.id, m.teamB?.id]).filter(Boolean))];
   if (!teams.length) return out;
   // Resultados recientes de todos los equipos: se calculan una sola vez y se comparten entre todos los listados (memoria corta)
