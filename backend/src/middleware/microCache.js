@@ -9,7 +9,7 @@ const http = require('http');
 const crypto = require('crypto');
 const { clearMemo } = require('../lib/memo');
 const TTL_MS = Number(process.env.MICROCACHE_TTL_MS) || 5000;
-const STALE_MS = Number(process.env.MICROCACHE_STALE_MS) || 20000; // máximo que se sirve una respuesta vencida
+const STALE_MS = Number(process.env.MICROCACHE_STALE_MS) || 90000; // máximo que se sirve una respuesta vencida (las escrituras la vacían igual)
 const MAX_ENTRIES = 500;
 const MAX_WAITERS = 500;
 const MIN_GZIP_BYTES = 1024;
@@ -27,28 +27,51 @@ function etagOf(body) {
   return 'W/"' + crypto.createHash('sha1').update(body).digest('base64').slice(0, 22) + '"';
 }
 
-// Direcciones más pedidas: tras una escritura se recalculan solas, para que nadie espere el cálculo en frío
-const hot = new Map(); // url -> pedidos
+// Direcciones más pedidas: se recalculan solas (tras una escritura y cada tanto en reposo) para que nadie espere el cálculo en frío
+const hot = new Map(); // url -> { n: pedidos, last: último pedido }
 const REWARM_TOP = process.env.MICROCACHE_REWARM_TOP === undefined ? 6 : Number(process.env.MICROCACHE_REWARM_TOP) || 0; // 0 lo apaga
 const REWARM_DELAY_MS = 1500;
+const WARM_EVERY_MS = Number(process.env.MICROCACHE_WARM_EVERY_MS) || 45000; // mantenimiento en reposo
+const WARM_IDLE_MS = 15 * 60 * 1000; // dejan de mantenerse si nadie las pide en 15 min
 let localPort = null;
 let rewarmTimer = null;
+
+function topKeys(maxIdleMs) {
+  const now = Date.now();
+  return [...hot.entries()]
+    .filter(([, v]) => v.n >= 3 && now - v.last < maxIdleMs)
+    .sort((a, b) => b[1].n - a[1].n)
+    .slice(0, REWARM_TOP)
+    .map(([k]) => k);
+}
+
+// Recalcula de a una las direcciones que faltan o están por vencer: no se juntan varios cálculos pesados
+function warmKeys(keys, maxAgeMs) {
+  const next = () => {
+    const key = keys.shift();
+    if (!key) return;
+    const e = store.get(key);
+    if (e && Date.now() - e.at < maxAgeMs) return next(); // sigue fresca
+    startRefresh(localPort, key, next);
+  };
+  next();
+}
 
 function scheduleRewarm() {
   if (!REWARM_TOP || !localPort || rewarmTimer) return;
   rewarmTimer = setTimeout(() => {
     rewarmTimer = null;
-    const keys = [...hot.entries()].filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]).slice(0, REWARM_TOP).map(([k]) => k);
-    for (const [k, n] of hot) hot.set(k, Math.floor(n / 2)); // el interés viejo se va apagando
-    const next = () => {
-      const key = keys.shift();
-      if (!key) return;
-      if (store.has(key)) return next(); // ya la recalculó alguien
-      startRefresh(localPort, key, next); // de a una: no se juntan varios cálculos pesados
-    };
-    next();
+    const keys = topKeys(WARM_IDLE_MS);
+    for (const v of hot.values()) v.n = Math.floor(v.n / 2); // el interés viejo se va apagando
+    warmKeys(keys, 1); // tras una escritura el caché está vacío: se recalculan todas
   }, REWARM_DELAY_MS);
   if (rewarmTimer.unref) rewarmTimer.unref();
+}
+
+// En reposo: cada tanto se renuevan las populares antes de que venzan, así el primer visitante nunca espera
+if (REWARM_TOP) {
+  const t = setInterval(() => { if (localPort) warmKeys(topKeys(WARM_IDLE_MS), Math.floor(STALE_MS / 3)); }, WARM_EVERY_MS);
+  if (t.unref) t.unref();
 }
 
 function acceptsGzip(req) {
@@ -116,7 +139,8 @@ function microCache(req, res, next) {
   localPort = req.socket.localPort;
   if (!req.headers['x-mc-refresh']) {
     if (hot.size >= MAX_ENTRIES && !hot.has(key)) hot.clear();
-    hot.set(key, (hot.get(key) || 0) + 1);
+    const h = hot.get(key);
+    if (h) { h.n += 1; h.last = Date.now(); } else hot.set(key, { n: 1, last: Date.now() });
   }
   const isRefresh = req.headers['x-mc-refresh'] === REFRESH_TOKEN;
   const hit = isRefresh ? null : store.get(key);
