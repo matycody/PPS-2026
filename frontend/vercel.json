@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/edge/:path*", "destination": "https://dodgeball-ba.onrender.com/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

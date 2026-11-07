@@ -2,6 +2,12 @@
 
 const BASE = import.meta.env.VITE_BACKEND_URL
 
+// Lecturas públicas sin sesión: pasan por el CDN de Vercel (/edge, reescrito hacia Render en vercel.json).
+// El backend las marca con s-maxage=5: miles de visitantes leyendo lo mismo no llegan al servidor.
+// Con sesión (organización, mesa, jugadores) se va directo al backend: ven sus cambios al instante.
+const EDGE_ON = import.meta.env.PROD && import.meta.env.VITE_EDGE !== '0'
+const EDGE_PATHS = /^\/(tournaments|teams|players|stats|matches|search)(\/|\?|$)/
+
 // Si no hay red, el navegador tira un error técnico ("Load failed", "Failed to fetch"): lo cambiamos por un mensaje claro
 const MSG_OFFLINE = 'Sin conexión a internet. Revisá tu red y volvé a intentar.'
 const MSG_SERVER = 'No pudimos conectar con el servidor. Puede estar iniciándose: probá de nuevo en unos segundos.'
@@ -39,7 +45,7 @@ export function api(method, path, body) {
 async function apiFetch(method, path, body) {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
-  const res = await netFetch(BASE + path, {
+  const init = {
     method,
     headers: {
       'ngrok-skip-browser-warning': 'true',
@@ -47,7 +53,15 @@ async function apiFetch(method, path, body) {
       ...(token ? { Authorization: 'Bearer ' + token } : {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
+  }
+  const viaEdge = EDGE_ON && method === 'GET' && !token && EDGE_PATHS.test(path)
+  let res
+  if (viaEdge) {
+    // Si el CDN falla (o Render está arrancando y el CDN corta), se reintenta directo
+    res = await netFetch('/edge' + path, init).catch(() => null)
+    if (!res || res.status >= 502) res = null
+  }
+  if (!res) res = await netFetch(BASE + path, init)
   const json = await res.json().catch(() => null)
   if (!res.ok) {
     // Sesión revocada o inexistente en Supabase: se limpia solo este dispositivo y se vuelve al login

@@ -32,7 +32,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/\.pdf$/], // el reglamento en PDF se abre tal cual, no la app
+        navigateFallbackDenylist: [/\.pdf$/, /^\/edge\//], // el reglamento en PDF se abre tal cual, no la app
         cleanupOutdatedCaches: true,
         // La API (Render) y los sockets nunca se cachean: solo la app y las fuentes
         runtimeCaching: [
