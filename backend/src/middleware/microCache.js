@@ -20,6 +20,7 @@ const refreshing = new Set(); // urls que se están recalculando en segundo plan
 const REFRESH_TOKEN = crypto.randomBytes(16).toString('hex'); // solo este proceso conoce el valor: un cliente no puede forzar recálculos
 let generation = 0; // sube con cada escritura: un cálculo iniciado antes de una escritura no se guarda
 
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const PUBLIC_PREFIXES = ['/tournaments', '/teams', '/players', '/stats', '/matches', '/search'];
 
 function etagOf(body) {
@@ -98,6 +99,8 @@ function startRefresh(port, key, onDone) {
 
 function microCache(req, res, next) {
   if (req.method !== 'GET') {
+    // HEAD y OPTIONS no modifican datos: pasan sin vaciar el caché
+    if (!WRITE_METHODS.has(req.method)) return next();
     generation += 1;
     if (store.size) store.clear();
     clearMemo();
