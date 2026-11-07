@@ -13,6 +13,7 @@ const STALE_MS = Number(process.env.MICROCACHE_STALE_MS) || 20000; // máximo qu
 const MAX_ENTRIES = 500;
 const MAX_WAITERS = 500;
 const MIN_GZIP_BYTES = 1024;
+const WAIT_LIMIT_MS = 30000; // máximo que esperan los pedidos agrupados antes de seguir por su cuenta
 const store = new Map(); // url -> { at, status, type, body, gz }
 const inflight = new Map(); // url -> [{ req, res, next }]
 const refreshing = new Set(); // urls que se están recalculando en segundo plano
@@ -95,10 +96,12 @@ function microCache(req, res, next) {
   inflight.set(key, []);
   const startedAt = generation;
   let released = false;
-  let holding = false; // esperando el gzip: el cierre de la respuesta original no debe soltar a los que esperan
+  let guard = null;
+  let holding = false; // esperando el gzip: el fin de la respuesta original no debe soltar a los que esperan
   const release = (result) => {
     if (released) return;
     released = true;
+    clearTimeout(guard);
     const list = inflight.get(key) || [];
     inflight.delete(key);
     for (const w of list) {
@@ -106,6 +109,10 @@ function microCache(req, res, next) {
       else w.next(); // no hubo resultado reutilizable: cada uno sigue por su cuenta
     }
   };
+
+  // Red de seguridad: si el cálculo nunca responde, los que esperan siguen por su cuenta
+  guard = setTimeout(() => release(null), WAIT_LIMIT_MS);
+  if (guard.unref) guard.unref();
 
   const origSend = res.send.bind(res);
   res.send = (body) => {
@@ -129,10 +136,14 @@ function microCache(req, res, next) {
       return out;
     }
     const out = origSend(body);
-    release(null);
+    // Un 5xx se reparte tal cual a los que esperaban (no se guarda): si cada uno recalculara, saturarían la base
+    const failed = res.statusCode >= 500 && (typeof body === 'string' || Buffer.isBuffer(body));
+    release(failed ? { at: Date.now(), status: res.statusCode, type: res.get('Content-Type') || 'application/json', body, gz: null } : null);
     return out;
   };
-  res.on('close', () => { if (!holding) release(null); }); // la respuesta se cortó antes de enviar: liberar a los que esperan
+  // Respuesta terminada sin pasar por send (por ejemplo un redirect): se suelta a los que esperan.
+  // Si el cliente se desconecta antes, el cálculo sigue y se reparte igual (no hay evento 'close' que los suelte a todos a la vez).
+  res.on('finish', () => { if (!holding) release(null); });
   res.set('X-Cache', isRefresh ? 'REFRESH' : 'MISS');
   return next();
 }

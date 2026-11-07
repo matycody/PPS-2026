@@ -10,7 +10,7 @@ const TEAM_SELECT = { id: true, name: true, logo: true };
 
 function fail(err, res) {
   if (err && err.name === 'PrismaClientValidationError') return res.status(400).json({ error: 'Filtro inválido' });
-  console.error('[stats]', err);
+  console.error('[stats]', require('../lib/briefErr').briefErr(err));
   return res.status(500).json({ error: 'Error interno' });
 }
 
