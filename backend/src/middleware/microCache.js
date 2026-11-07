@@ -166,6 +166,8 @@ function microCache(req, res, next) {
   res.send = (body) => {
     if (res.statusCode === 200 && (typeof body === 'string' || Buffer.isBuffer(body))) {
       const entry = { at: Date.now(), status: 200, type: res.get('Content-Type') || 'application/json', body, gz: null, etag: etagOf(body) };
+      // El primer pedido (MISS) lleva las mismas cabeceras que los siguientes; Express responde 304 solo si el ETag coincide
+      res.set({ ETag: entry.etag, 'Cache-Control': CACHE_CONTROL });
       if (startedAt === generation) { // si hubo una escritura mientras se calculaba, no se guarda (se reparte igual a los que esperan)
         if (store.size >= MAX_ENTRIES) store.clear();
         store.set(key, entry);
