@@ -1,22 +1,16 @@
 const prisma = require('../db');
 const { computeStandings } = require('./standings');
+const { memo } = require('../lib/memo');
 
-// "Últimas": resultados de los últimos 5 partidos terminados de cada equipo, separados por modalidad y rama
-// (Foam y Cloth, o rama Mixto y Masculino, nunca se mezclan). Orden: del más viejo al más nuevo.
-async function formsFor(matches) {
-  const out = new Map();
-  // Posición actual en la tabla de su zona (se recalcula en cada consulta: refleja la tabla de hoy, no la de cuando se jugó)
-  const ranksP = ranksFor(matches).catch((e) => { console.error('[rank]', e.message); return new Map(); });
-  const teams = [...new Set(matches.flatMap((m) => [m.teamA?.id, m.teamB?.id]).filter(Boolean))];
-  if (!teams.length) return out;
-  const finishedP = prisma.match.findMany({
-    where: { status: 'FINISHED', hiddenAt: null, OR: [{ teamAId: { in: teams } }, { teamBId: { in: teams } }] },
+// equipo|modalidad|rama -> hasta 5 resultados (V/E/D) del más nuevo al más viejo, para todos los equipos
+async function loadResultsByKey() {
+  const finished = await prisma.match.findMany({
+    where: { status: 'FINISHED', hiddenAt: null },
     orderBy: [{ finishedAt: 'desc' }, { scheduledAt: 'desc' }],
-    take: 3000,
+    take: 6000,
     select: { teamAId: true, teamBId: true, modality: true, branch: true, sets: { select: { winnerTeamId: true } } },
   });
-  const [ranks, finished] = await Promise.all([ranksP, finishedP]);
-  const byKey = new Map(); // equipo|modalidad|rama -> resultados del más nuevo al más viejo
+  const byKey = new Map();
   for (const f of finished) {
     const win = f.modality === 'CLOTH' ? 2 : 1;
     let a = 0;
@@ -27,12 +21,25 @@ async function formsFor(matches) {
       else if (s.winnerTeamId === f.teamBId) b += win;
     }
     for (const [id, mine, theirs] of [[f.teamAId, a, b], [f.teamBId, b, a]]) {
-      if (!id || !teams.includes(id)) continue;
+      if (!id) continue;
       const k = id + '|' + f.modality + '|' + f.branch;
       const list = byKey.get(k) ?? [];
       if (list.length < 5) { list.push(mine > theirs ? 'V' : mine === theirs ? 'E' : 'D'); byKey.set(k, list); }
     }
   }
+  return byKey;
+}
+
+// "Últimas": resultados de los últimos 5 partidos terminados de cada equipo, separados por modalidad y rama
+// (Foam y Cloth, o rama Mixto y Masculino, nunca se mezclan). Orden: del más viejo al más nuevo.
+async function formsFor(matches) {
+  const out = new Map();
+  // Posición actual en la tabla de su zona (se recalcula en cada consulta: refleja la tabla de hoy, no la de cuando se jugó)
+  const ranksP = ranksFor(matches).catch((e) => { console.error('[rank]', e.message); return new Map(); });
+  const teams = [...new Set(matches.flatMap((m) => [m.teamA?.id, m.teamB?.id]).filter(Boolean))];
+  if (!teams.length) return out;
+  // Resultados recientes de todos los equipos: se calculan una sola vez y se comparten entre todos los listados (memoria corta)
+  const [ranks, byKey] = await Promise.all([ranksP, memo('forms|all', loadResultsByKey)]);
   for (const m of matches) {
     const get = (t) => (t?.id ? [...(byKey.get(t.id + '|' + m.modality + '|' + m.branch) ?? [])].reverse() : []);
     const rk = ranks.get(m.id);
