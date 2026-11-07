@@ -1,5 +1,5 @@
 const prisma = require('../db');
-const { computeStandings } = require('./standings');
+const { computeStandingsMany } = require('./standings');
 const { memo } = require('../lib/memo');
 const { briefErr } = require('../lib/briefErr');
 
@@ -57,17 +57,19 @@ async function ranksFor(matches) {
   });
   const byTournament = new Map();
   for (const r of rows) byTournament.set(r.tournamentId, [...(byTournament.get(r.tournamentId) ?? []), r]);
-  // Los torneos se calculan en paralelo
-  await Promise.all([...byTournament].map(async ([tid, list]) => {
-    const data = await computeStandings(tid);
-    if (!data) return;
+  // Todas las tablas juntas (3 consultas en total, no 3 por torneo); pedidos iguales comparten el cálculo
+  const tids = [...byTournament.keys()].sort();
+  const all = await memo('ranks|' + tids.join(','), () => computeStandingsMany(tids));
+  for (const [tid, list] of byTournament) {
+    const data = all.get(tid);
+    if (!data) continue;
     const pos = new Map(); // stageId -> teamId -> lugar (1, 2, 3... aunque haya empate)
     for (const st of data.stages) pos.set(st.id, new Map(st.rows.map((x, i) => [x.team.id, i + 1])));
     for (const r of list) {
       const z = pos.get(r.stageId); // solo zonas de liga: en playoffs no hay tabla
       if (z) out.set(r.id, { A: z.get(r.teamAId) ?? null, B: z.get(r.teamBId) ?? null });
     }
-  }));
+  }
   return out;
 }
 

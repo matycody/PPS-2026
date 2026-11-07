@@ -1,5 +1,5 @@
 const prisma = require('../db');
-const { memo } = require('../lib/memo');
+const { memo, memoPrefill } = require('../lib/memo');
 
 const TEAM_SELECT = { id: true, name: true, logo: true };
 
@@ -158,26 +158,13 @@ function buildTable(stage, t, matches, criteria, penalties = []) {
 // Tabla de posiciones de las zonas de liga de un torneo (o de una sola con stageId).
 // Se calcula siempre desde los partidos finalizados.
 // withPaused: la organización ve la tabla con los partidos que ocultó la pausa del torneo
-async function computeStandingsRaw(tournamentId, stageId = null, withPaused = false) {
-  const t = await prisma.tournament.findUnique({
-    where: { id: tournamentId },
-    include: { tiebreakers: { orderBy: { order: 'asc' } } },
-  });
-  if (!t) return null;
+const STAGE_INCLUDE = { teams: { include: { team: { select: TEAM_SELECT } } }, penalties: { select: { id: true, teamId: true, points: true, kind: true, missing: true, reason: true, createdAt: true }, orderBy: { createdAt: 'asc' } } };
+const STAGE_ORDER = [{ phase: 'asc' }, { tier: 'asc' }, { name: 'asc' }];
+const MATCH_SELECT = { stageId: true, modality: true, teamAId: true, teamBId: true, finishedAt: true, scheduledAt: true, sets: { select: { winnerTeamId: true } } };
 
-  const stages = await prisma.stage.findMany({
-    where: { tournamentId, type: 'LEAGUE', ...(stageId ? { id: stageId } : {}) },
-    orderBy: [{ phase: 'asc' }, { tier: 'asc' }, { name: 'asc' }],
-    include: { teams: { include: { team: { select: TEAM_SELECT } } }, penalties: { select: { id: true, teamId: true, points: true, kind: true, missing: true, reason: true, createdAt: true }, orderBy: { createdAt: 'asc' } } },
-  });
-  const matches = stages.length
-    ? await prisma.match.findMany({
-        where: { stageId: { in: stages.map((s) => s.id) }, status: 'FINISHED', ...(withPaused ? { OR: [{ hiddenAt: null }, { hiddenByPause: true }] } : { hiddenAt: null }) },
-        select: { stageId: true, modality: true, teamAId: true, teamBId: true, finishedAt: true, scheduledAt: true, sets: { select: { winnerTeamId: true } } },
-      })
-    : [];
+// Arma la respuesta de un torneo a partir de sus datos ya leídos (la misma para uno solo o para varios juntos)
+function assemble(t, stages, matches) {
   const criteria = t.tiebreakers.map((x) => x.criterion);
-
   return {
     tournament: {
       id: t.id,
@@ -202,7 +189,55 @@ async function computeStandingsRaw(tournamentId, stageId = null, withPaused = fa
   };
 }
 
+async function computeStandingsRaw(tournamentId, stageId = null, withPaused = false) {
+  const t = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    include: { tiebreakers: { orderBy: { order: 'asc' } } },
+  });
+  if (!t) return null;
+
+  const stages = await prisma.stage.findMany({
+    where: { tournamentId, type: 'LEAGUE', ...(stageId ? { id: stageId } : {}) },
+    orderBy: STAGE_ORDER,
+    include: STAGE_INCLUDE,
+  });
+  const matches = stages.length
+    ? await prisma.match.findMany({
+        where: { stageId: { in: stages.map((s) => s.id) }, status: 'FINISHED', ...(withPaused ? { OR: [{ hiddenAt: null }, { hiddenByPause: true }] } : { hiddenAt: null }) },
+        select: MATCH_SELECT,
+      })
+    : [];
+  return assemble(t, stages, matches);
+}
+
+// Las tablas de varios torneos juntos (sin pausados ni zona puntual): 3 consultas en total en vez de 3 por torneo.
+// Devuelve Map(tournamentId -> igual que computeStandings) y deja cada uno disponible para computeStandings (memoria corta).
+async function computeStandingsMany(tournamentIds) {
+  const ids = [...new Set(tournamentIds)].filter(Boolean);
+  const out = new Map();
+  if (!ids.length) return out;
+  const tournaments = await prisma.tournament.findMany({ where: { id: { in: ids } }, include: { tiebreakers: { orderBy: { order: 'asc' } } } });
+  const stages = await prisma.stage.findMany({ where: { tournamentId: { in: ids }, type: 'LEAGUE' }, orderBy: STAGE_ORDER, include: STAGE_INCLUDE });
+  const matches = stages.length
+    ? await prisma.match.findMany({ where: { stageId: { in: stages.map((s) => s.id) }, status: 'FINISHED', hiddenAt: null }, select: MATCH_SELECT })
+    : [];
+  const matchesByStage = new Map();
+  for (const m of matches) {
+    if (!matchesByStage.has(m.stageId)) matchesByStage.set(m.stageId, []);
+    matchesByStage.get(m.stageId).push(m);
+  }
+  for (const t of tournaments) {
+    const own = stages.filter((s) => s.tournamentId === t.id);
+    const ownMatches = own.flatMap((s) => matchesByStage.get(s.id) ?? []);
+    const data = assemble(t, own, ownMatches);
+    out.set(t.id, data);
+    memoPrefill('standings|' + t.id + '||', Promise.resolve(data));
+  }
+  for (const id of ids) if (!out.has(id)) out.set(id, null);
+  return out;
+}
+
 // Con memoria corta: el Inicio pide las tablas de cada torneo en cada carga
 const computeStandings = (tournamentId, stageId = null, withPaused = false) => memo('standings|' + tournamentId + '|' + (stageId ?? '') + '|' + (withPaused ? 'p' : ''), () => computeStandingsRaw(tournamentId, stageId, withPaused));
 
-module.exports = { computeStandings, buildTable, matchPoints };
+module.exports = { computeStandings, computeStandingsMany, buildTable, matchPoints };

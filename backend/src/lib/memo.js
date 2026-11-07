@@ -17,8 +17,16 @@ function memo(key, fn) {
   return entry.promise;
 }
 
+// Deja un resultado ya calculado (por ejemplo, el de varios torneos juntos) disponible para quien lo pida con memo()
+function memoPrefill(key, promise) {
+  if (store.size >= MAX_ENTRIES) store.clear();
+  const entry = { at: Date.now(), promise };
+  store.set(key, entry);
+  promise.catch(() => { if (store.get(key) === entry) store.delete(key); });
+}
+
 function clearMemo() {
   store.clear();
 }
 
-module.exports = { memo, clearMemo };
+module.exports = { memo, memoPrefill, clearMemo };
