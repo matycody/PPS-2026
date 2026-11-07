@@ -14,13 +14,13 @@ async function get(path) {
 }
 
 function run(path, c, d) {
-  const out = execSync(`npx --yes autocannon -c ${c} -d ${d} --json "${BASE}${path}"`, { maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'ignore'] })
+  const out = execSync(`npx --yes autocannon -c ${c} -d ${d} -H "accept-encoding: gzip" --json "${BASE}${path}"`, { maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'ignore'] })
   const j = JSON.parse(out.toString())
   const row = {
     ruta: path, conex: c,
     reqs: +j.requests.average.toFixed(1),
     med_ms: j.latency.p50, p975_ms: j.latency.p97_5, max_ms: j.latency.max,
-    errores: j.errors + j.timeouts, non2xx: j.non2xx,
+    errores: j.errors, timeouts: j.timeouts, resets: j.resets ?? 0, non2xx: j.non2xx, mb: +(j.throughput.total / 1048576).toFixed(1),
   }
   console.log(JSON.stringify(row))
   return row
@@ -68,7 +68,7 @@ if (tanda === 'quiebre' || tanda === 'todo') {
   for (const p of ['/matches', ...(process.env.QUIEBRE_EXTRA ? process.env.QUIEBRE_EXTRA.split(',') : [])]) {
     for (const c of [60, 100, 200, 400]) {
       const r = run(p, c, 20); filas.push(r)
-      if (r.errores > 0 || r.non2xx > 0 || r.p975_ms > MAX_P975) { console.log(`CORTE en ${p} con ${c} conexiones`); break }
+      if (r.errores > 0 || r.timeouts > 0 || r.non2xx > 0 || r.p975_ms > MAX_P975) { console.log(`CORTE en ${p} con ${c} conexiones`); break }
       await new Promise(r => setTimeout(r, 15000)) // enfriar
     }
   }
