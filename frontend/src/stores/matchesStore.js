@@ -9,7 +9,8 @@ export const useMatchesStore = create((set) => ({
 
   load: async (days) => {
     try {
-      const to = days ? '&to=' + encodeURIComponent(new Date(Date.now() + days * 864e5).toISOString()) : ''
+      // solo el día (+1 para no perder el último): la dirección se repite entre usuarios y el servidor reutiliza la respuesta
+      const to = days ? '&to=' + new Date(Date.now() + (days + 1) * 864e5).toLocaleDateString('en-CA') : ''
       const list = await api('GET', '/matches?status=LIVE,READY,SCHEDULED&limit=200&includeUndated=true' + to)
       const byId = {}
       list.forEach((m) => { byId[m.id] = normMatch(m) })

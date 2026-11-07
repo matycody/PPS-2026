@@ -51,7 +51,7 @@ export default function OrgMatches({ byId, filter }) {
   useEffect(() => {
     if (filter !== 'all' && filter !== 'sched') return
     let alive = true
-    const iso = (d) => encodeURIComponent(new Date(Date.now() + d * 864e5).toISOString())
+    const iso = (d) => new Date(Date.now() + d * 864e5).toLocaleDateString('en-CA') // solo el día: la dirección se repite y el servidor reutiliza la respuesta
     const load = () =>
       api('GET', '/matches?status=LIVE,READY,SCHEDULED,SUSPENDED,FINISHED&includeUndated=true&limit=200&from=' + iso(-CAL_BACK) + '&to=' + iso(CAL_AHEAD))
         .then((r) => { if (alive) setCal(r.map(normMatch)) })

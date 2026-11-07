@@ -22,13 +22,52 @@ let generation = 0; // sube con cada escritura: un cálculo iniciado antes de un
 
 const PUBLIC_PREFIXES = ['/tournaments', '/teams', '/players', '/stats', '/matches', '/search'];
 
+function etagOf(body) {
+  return 'W/"' + crypto.createHash('sha1').update(body).digest('base64').slice(0, 22) + '"';
+}
+
+// Direcciones más pedidas: tras una escritura se recalculan solas, para que nadie espere el cálculo en frío
+const hot = new Map(); // url -> pedidos
+const REWARM_TOP = process.env.MICROCACHE_REWARM_TOP === undefined ? 6 : Number(process.env.MICROCACHE_REWARM_TOP) || 0; // 0 lo apaga
+const REWARM_DELAY_MS = 1500;
+let localPort = null;
+let rewarmTimer = null;
+
+function scheduleRewarm() {
+  if (!REWARM_TOP || !localPort || rewarmTimer) return;
+  rewarmTimer = setTimeout(() => {
+    rewarmTimer = null;
+    const keys = [...hot.entries()].filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]).slice(0, REWARM_TOP).map(([k]) => k);
+    for (const [k, n] of hot) hot.set(k, Math.floor(n / 2)); // el interés viejo se va apagando
+    const next = () => {
+      const key = keys.shift();
+      if (!key) return;
+      if (store.has(key)) return next(); // ya la recalculó alguien
+      startRefresh(localPort, key, next); // de a una: no se juntan varios cálculos pesados
+    };
+    next();
+  }, REWARM_DELAY_MS);
+  if (rewarmTimer.unref) rewarmTimer.unref();
+}
+
 function acceptsGzip(req) {
   const h = req.headers['accept-encoding'];
   return typeof h === 'string' && /\bgzip\b/i.test(h);
 }
 
+// Los navegadores revalidan siempre (max-age=0: tras escribir ven lo nuevo al instante); un CDN puede reutilizar 5 s
+const CACHE_CONTROL = 'public, max-age=0, s-maxage=5, stale-while-revalidate=20';
+
 function reply(req, res, hit, state) {
   res.set('X-Cache', state);
+  if (hit.status === 200 && hit.etag) {
+    res.set({ ETag: hit.etag, 'Cache-Control': CACHE_CONTROL, Vary: 'Accept-Encoding' });
+    // El cliente ya tiene esta versión: se responde sin cuerpo (ahorra CPU y datos)
+    if (req.headers['if-none-match'] === hit.etag) {
+      res.status(304).end();
+      return;
+    }
+  }
   if (hit.gz && acceptsGzip(req)) {
     // Ya comprimida: el middleware de compresión la deja pasar tal cual
     res.set({ 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' });
@@ -39,13 +78,14 @@ function reply(req, res, hit, state) {
 }
 
 // Recalcula una URL en segundo plano con un pedido interno (por loopback) que atraviesa la ruta normal
-function startRefresh(req, key) {
-  if (refreshing.has(key) || inflight.has(key)) return;
+function startRefresh(port, key, onDone) {
+  if (refreshing.has(key) || inflight.has(key)) { if (onDone) onDone(); return; }
   refreshing.add(key);
-  const done = () => refreshing.delete(key);
+  let ended = false;
+  const done = () => { if (ended) return; ended = true; refreshing.delete(key); if (onDone) onDone(); };
   try {
     const r = http.request({
-      host: '127.0.0.1', port: req.socket.localPort, path: key, method: 'GET', timeout: 30000,
+      host: '127.0.0.1', port, path: key, method: 'GET', timeout: 30000,
       headers: { 'x-mc-refresh': REFRESH_TOKEN, 'accept-encoding': 'identity', accept: 'application/json' },
     }, (resp) => { resp.resume(); resp.on('end', done); resp.on('error', done); resp.on('close', done); });
     r.on('error', done);
@@ -61,7 +101,7 @@ function microCache(req, res, next) {
     generation += 1;
     if (store.size) store.clear();
     clearMemo();
-    res.on('finish', () => { generation += 1; store.clear(); clearMemo(); }); // y otra vez al terminar, por si un GET guardó datos viejos mientras se escribía
+    res.on('finish', () => { generation += 1; store.clear(); clearMemo(); scheduleRewarm(); }); // y otra vez al terminar, por si un GET guardó datos viejos mientras se escribía
     return next();
   }
   // Con sesión la respuesta puede depender del rol; el listado de partidos es igual para todos (salvo los ocultos del admin)
@@ -70,6 +110,11 @@ function microCache(req, res, next) {
   if (!PUBLIC_PREFIXES.some((p) => req.path === p || req.path.startsWith(p + '/'))) return next();
 
   const key = req.originalUrl;
+  localPort = req.socket.localPort;
+  if (!req.headers['x-mc-refresh']) {
+    if (hot.size >= MAX_ENTRIES && !hot.has(key)) hot.clear();
+    hot.set(key, (hot.get(key) || 0) + 1);
+  }
   const isRefresh = req.headers['x-mc-refresh'] === REFRESH_TOKEN;
   const hit = isRefresh ? null : store.get(key);
   if (hit) {
@@ -80,7 +125,7 @@ function microCache(req, res, next) {
     }
     if (age < STALE_MS) {
       reply(req, res, hit, 'STALE'); // vencida: se entrega igual y se recalcula aparte
-      startRefresh(req, key);
+      startRefresh(req.socket.localPort, key);
       return undefined;
     }
   }
@@ -117,7 +162,7 @@ function microCache(req, res, next) {
   const origSend = res.send.bind(res);
   res.send = (body) => {
     if (res.statusCode === 200 && (typeof body === 'string' || Buffer.isBuffer(body))) {
-      const entry = { at: Date.now(), status: 200, type: res.get('Content-Type') || 'application/json', body, gz: null };
+      const entry = { at: Date.now(), status: 200, type: res.get('Content-Type') || 'application/json', body, gz: null, etag: etagOf(body) };
       if (startedAt === generation) { // si hubo una escritura mientras se calculaba, no se guarda (se reparte igual a los que esperan)
         if (store.size >= MAX_ENTRIES) store.clear();
         store.set(key, entry);

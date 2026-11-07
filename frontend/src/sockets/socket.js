@@ -7,6 +7,7 @@ const NGROK = { 'ngrok-skip-browser-warning': 'true' }
 
 export const socket = io(SOCKET_URL, {
   autoConnect: true,
+  transports: ['websocket', 'polling'], // directo por websocket (1 pedido); polling solo si la red lo bloquea. Así cada usuario no suma pedidos HTTP al servidor
   reconnection: true,
   reconnectionDelay: 1000, // espera creciente con azar: evita que todos reconecten a la vez
   reconnectionDelayMax: 15000,

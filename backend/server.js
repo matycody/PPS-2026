@@ -102,13 +102,14 @@ app.set('io', io); // notifica cambios de estado desde las rutas REST
 // Token opcional en el handshake: sin token entra como visitante (solo lectura)
 registerSocketAuth(io);
 
+const SOCKET_LOG = process.env.SOCKET_LOG === "1"; // con cientos de conexiones, un log por cada una carga la CPU y llena los logs
 io.on("connection", (socket) => {
-  console.log(`Cliente conectado: ${socket.id}`);
+  if (SOCKET_LOG) console.log(`Cliente conectado: ${socket.id}`);
 
   registerMatchHandlers(io, socket);
 
   socket.on("disconnect", () => {
-    console.log(`Cliente desconectado: ${socket.id}`);
+    if (SOCKET_LOG) console.log(`Cliente desconectado: ${socket.id}`);
   });
 });
 
