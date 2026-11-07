@@ -1,5 +1,5 @@
 const prisma = require('../db');
-const { memo, memoPrefill } = require('../lib/memo');
+const { memo, memoPeek, memoPrefill } = require('../lib/memo');
 
 const TEAM_SELECT = { id: true, name: true, logo: true };
 
@@ -213,8 +213,18 @@ async function computeStandingsRaw(tournamentId, stageId = null, withPaused = fa
 // Las tablas de varios torneos juntos (sin pausados ni zona puntual): 3 consultas en total en vez de 3 por torneo.
 // Devuelve Map(tournamentId -> igual que computeStandings) y deja cada uno disponible para computeStandings (memoria corta).
 async function computeStandingsMany(tournamentIds) {
-  const ids = [...new Set(tournamentIds)].filter(Boolean);
+  const wanted = [...new Set(tournamentIds)].filter(Boolean);
   const out = new Map();
+  if (!wanted.length) return out;
+  // Lo que ya está calculado y vigente se reutiliza; solo se consulta lo que falta
+  const ids = [];
+  await Promise.all(wanted.map(async (id) => {
+    const p = memoPeek('standings|' + id + '||');
+    if (p) {
+      try { out.set(id, await p); return; } catch (e) { /* falló: se vuelve a calcular */ }
+    }
+    ids.push(id);
+  }));
   if (!ids.length) return out;
   const tournaments = await prisma.tournament.findMany({ where: { id: { in: ids } }, include: { tiebreakers: { orderBy: { order: 'asc' } } } });
   const stages = await prisma.stage.findMany({ where: { tournamentId: { in: ids }, type: 'LEAGUE' }, orderBy: STAGE_ORDER, include: STAGE_INCLUDE });
@@ -233,7 +243,7 @@ async function computeStandingsMany(tournamentIds) {
     out.set(t.id, data);
     memoPrefill('standings|' + t.id + '||', Promise.resolve(data));
   }
-  for (const id of ids) if (!out.has(id)) out.set(id, null);
+  for (const id of wanted) if (!out.has(id)) out.set(id, null);
   return out;
 }
 

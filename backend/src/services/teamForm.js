@@ -6,7 +6,8 @@ const { briefErr } = require('../lib/briefErr');
 // equipo|modalidad|rama -> hasta 5 resultados (V/E/D) del más nuevo al más viejo, para todos los equipos
 async function loadResultsByKey() {
   const finished = await prisma.match.findMany({
-    where: { status: 'FINISHED', hiddenAt: null },
+    // Solo la última temporada y media: con los años la lectura no crece sin límite (la forma son los últimos 5 de cada equipo)
+    where: { status: 'FINISHED', hiddenAt: null, OR: [{ finishedAt: null }, { finishedAt: { gte: new Date(Date.now() - 540 * 864e5) } }] },
     orderBy: [{ finishedAt: 'desc' }, { scheduledAt: 'desc' }],
     take: 6000,
     select: { teamAId: true, teamBId: true, modality: true, branch: true, sets: { select: { winnerTeamId: true } } },

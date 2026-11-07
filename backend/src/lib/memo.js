@@ -17,6 +17,12 @@ function memo(key, fn) {
   return entry.promise;
 }
 
+// Devuelve la promesa de una clave vigente (o null) sin calcular nada
+function memoPeek(key) {
+  const hit = store.get(key);
+  return hit && Date.now() - hit.at < TTL_MS ? hit.promise : null;
+}
+
 // Deja un resultado ya calculado (por ejemplo, el de varios torneos juntos) disponible para quien lo pida con memo()
 function memoPrefill(key, promise) {
   if (store.size >= MAX_ENTRIES) store.clear();
@@ -29,4 +35,4 @@ function clearMemo() {
   store.clear();
 }
 
-module.exports = { memo, memoPrefill, clearMemo };
+module.exports = { memo, memoPeek, memoPrefill, clearMemo };

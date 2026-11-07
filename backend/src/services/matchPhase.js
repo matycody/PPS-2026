@@ -1,5 +1,5 @@
 const prisma = require('../db');
-const { computeStandings } = require('./standings');
+const { computeStandingsMany } = require('./standings');
 const { openLeagueTournaments } = require('./leagueOpen');
 
 const TEAM = { id: true, name: true, logo: true };
@@ -60,15 +60,25 @@ async function phasesFor(ids) {
   const note = (m, tId) => [m.teamAFrom, m.teamBFrom].forEach((f) => f && f.stageId && needZone.set(f.stageId, tId));
   rows.forEach((r) => note(r, r.tournamentId));
   ko.forEach((m) => note(m, tournamentOf.get(m.stageId)));
-  await Promise.all([...needZone].map(async ([zoneId, tId]) => {
-    if (!tId) return;
-    const data = await computeStandings(tId, zoneId);
-    const z = data && data.stages[0];
-    if (!z) return;
-    const own = await prisma.match.findMany({ where: { stageId: zoneId, hiddenAt: null }, select: { status: true } });
-    const done = own.length > 0 && own.every((x) => x.status === 'FINISHED' || x.status === 'CANCELLED');
+  // Todas las tablas y el estado de todas las zonas juntos (pocas consultas en total, no varias por zona)
+  const zoneIds = [...needZone].filter(([, tId]) => tId).map(([zoneId]) => zoneId);
+  const standings = await computeStandingsMany([...new Set([...needZone.values()].filter(Boolean))]);
+  const zoneMatches = zoneIds.length
+    ? await prisma.match.findMany({ where: { stageId: { in: zoneIds }, hiddenAt: null }, select: { stageId: true, status: true } })
+    : [];
+  const statusesOf = new Map();
+  for (const m of zoneMatches) {
+    if (!statusesOf.has(m.stageId)) statusesOf.set(m.stageId, []);
+    statusesOf.get(m.stageId).push(m.status);
+  }
+  for (const [zoneId, tId] of needZone) {
+    if (!tId) continue;
+    const z = (standings.get(tId)?.stages ?? []).find((x) => x.id === zoneId);
+    if (!z) continue;
+    const own = statusesOf.get(zoneId) ?? [];
+    const done = own.length > 0 && own.every((x) => x === 'FINISHED' || x === 'CANCELLED');
     zoneRows.set(zoneId, { name: z.name, rows: z.rows, done });
-  }));
+  }
   const zoneDone = (f) => !!(f && zoneRows.get(f.stageId) && zoneRows.get(f.stageId).done);
   const zoneTeam = (f) => {
     const z = f && zoneRows.get(f.stageId);
